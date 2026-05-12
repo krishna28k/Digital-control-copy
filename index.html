@@ -4493,6 +4493,14 @@ function openPrivacySettings() {
                 </div>
                 <span style="margin-left:auto;color:#ccc;font-size:18px;">›</span>
             </div>
+            <div onclick="document.getElementById('privacySettingsModal').remove();openLoginHistory();" style="display:flex;align-items:center;gap:14px;padding:16px 20px;cursor:pointer;transition:background 0.2s;" onmouseover="this.style.background='#f5f5f5'" onmouseout="this.style.background='white'">
+                <div style="width:42px;height:42px;background:#e8eaf6;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0;">📋</div>
+                <div>
+                    <div style="font-weight:700;color:#333;font-size:15px;">Login History</div>
+                    <div style="font-size:12px;color:#888;margin-top:2px;">Device, role, time — all logins</div>
+                </div>
+                <span style="margin-left:auto;color:#ccc;font-size:18px;">›</span>
+            </div>
         </div>
     </div>`;
     document.body.appendChild(modal);
@@ -4502,6 +4510,8 @@ function openPrivacySettings() {
 function logoutApp() {
     toggleMenu();
     if (!confirm('Are you sure you want to logout?')) return;
+    // Logout time save karo
+    _saveLogoutLog();
     window._userRole = null;
     stopLocationWatch();
     _currentLat = null;
@@ -4513,6 +4523,98 @@ function logoutApp() {
     document.getElementById('passwordInput').value = '';
     document.getElementById('passwordError').textContent = '';
     showPasswordScreen();
+}
+
+// ============================================================
+// LOGIN HISTORY SYSTEM
+// ============================================================
+function _getDeviceInfo() {
+    const ua = navigator.userAgent;
+    let device = 'Unknown Device';
+    if (/iPhone/.test(ua)) device = '📱 iPhone';
+    else if (/iPad/.test(ua)) device = '📱 iPad';
+    else if (/Android/.test(ua)) device = '📱 Android';
+    else if (/Windows/.test(ua)) device = '💻 Windows PC';
+    else if (/Mac/.test(ua)) device = '💻 Mac';
+    else if (/Linux/.test(ua)) device = '💻 Linux';
+    return device;
+}
+
+function _saveLoginLog(role) {
+    const logs = JSON.parse(localStorage.getItem('loginHistory') || '[]');
+    const now = new Date();
+    logs.unshift({
+        role: role,
+        device: _getDeviceInfo(),
+        loginTime: now.toLocaleString('en-IN'),
+        loginTs: now.getTime(),
+        logoutTime: null,
+        duration: null
+    });
+    // Max 50 logs rakho
+    if (logs.length > 50) logs.splice(50);
+    localStorage.setItem('loginHistory', JSON.stringify(logs));
+}
+
+function _saveLogoutLog() {
+    const logs = JSON.parse(localStorage.getItem('loginHistory') || '[]');
+    if (logs.length > 0 && !logs[0].logoutTime) {
+        const now = new Date();
+        logs[0].logoutTime = now.toLocaleString('en-IN');
+        const mins = Math.round((now.getTime() - logs[0].loginTs) / 60000);
+        logs[0].duration = mins < 60 ? mins + ' min' : Math.floor(mins/60) + 'h ' + (mins%60) + 'm';
+        localStorage.setItem('loginHistory', JSON.stringify(logs));
+    }
+}
+
+function openLoginHistory() {
+    const adminPwd = localStorage.getItem('admin_password') || '1234';
+    const pwd = prompt('Enter admin password to view login history:');
+    if (pwd !== adminPwd) { alert('Wrong password!'); return; }
+
+    const logs = JSON.parse(localStorage.getItem('loginHistory') || '[]');
+
+    const modal = document.createElement('div');
+    modal.id = 'loginHistoryModal';
+    modal.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.6);display:flex;justify-content:center;align-items:flex-start;padding:15px;box-sizing:border-box;overflow-y:auto;z-index:9999;';
+
+    const rows = logs.length === 0
+        ? '<p style="color:#999;text-align:center;padding:20px;">No login history yet</p>'
+        : logs.map((l, i) => `
+            <div style="background:${l.role==='admin'?'#e8eaf6':'#e8f5e9'};border-radius:8px;padding:10px 12px;margin-bottom:8px;border-left:4px solid ${l.role==='admin'?'#667eea':'#4CAF50'};">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+                    <span style="font-weight:700;font-size:13px;color:${l.role==='admin'?'#667eea':'#2e7d32'};">${l.role==='admin'?'👑 Admin':'👤 User'}</span>
+                    <span style="font-size:11px;color:#888;">#${logs.length - i}</span>
+                </div>
+                <div style="font-size:12px;color:#555;">📱 ${l.device}</div>
+                <div style="font-size:12px;color:#555;">🔓 Login: ${l.loginTime}</div>
+                ${l.logoutTime ? `<div style="font-size:12px;color:#555;">🔒 Logout: ${l.logoutTime}</div>` : '<div style="font-size:12px;color:#4CAF50;font-weight:600;">🟢 Currently Active</div>'}
+                ${l.duration ? `<div style="font-size:12px;color:#667eea;font-weight:600;">⏱️ Duration: ${l.duration}</div>` : ''}
+            </div>`).join('');
+
+    modal.innerHTML = `
+        <div style="background:white;border-radius:14px;width:100%;max-width:480px;margin:auto;overflow:hidden;">
+            <div style="background:linear-gradient(135deg,#667eea,#764ba2);padding:14px 18px;display:flex;justify-content:space-between;align-items:center;position:sticky;top:0;">
+                <div>
+                    <div style="color:white;font-weight:700;font-size:16px;">📋 Login History</div>
+                    <div style="color:rgba(255,255,255,0.8);font-size:11px;">${logs.length} records</div>
+                </div>
+                <div style="display:flex;gap:8px;align-items:center;">
+                    <button onclick="clearLoginHistory()" style="background:rgba(255,255,255,0.2);border:1px solid rgba(255,255,255,0.4);color:white;padding:4px 10px;border-radius:6px;cursor:pointer;font-size:12px;">🗑️ Clear</button>
+                    <span onclick="document.getElementById('loginHistoryModal').remove()" style="color:white;font-size:24px;cursor:pointer;line-height:1;">×</span>
+                </div>
+            </div>
+            <div style="padding:14px;max-height:75vh;overflow-y:auto;">${rows}</div>
+        </div>`;
+    document.body.appendChild(modal);
+    modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
+}
+
+function clearLoginHistory() {
+    if (!confirm('Clear all login history?')) return;
+    localStorage.removeItem('loginHistory');
+    document.getElementById('loginHistoryModal').remove();
+    showSyncToast('🗑️ Login history cleared', '#f44336');
 }
 
 // ============================================================
@@ -5122,6 +5224,8 @@ function autoLockApp() {}
 function unlockApp(role) {
     window._userRole = role || 'admin';
     document.getElementById('passwordScreen').style.display = 'none';
+    // Login history save karo
+    _saveLoginLog(role || 'admin');
     // Close side menu if open
     const sideMenu = document.getElementById('sideMenu');
     if (sideMenu) sideMenu.classList.remove('active');

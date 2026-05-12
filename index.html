@@ -2352,6 +2352,18 @@ window.addEventListener('pageshow', function(e) {
     if (pi) pi.value = '';
 });
 
+// Browser/tab close hone par logout time save karo
+window.addEventListener('beforeunload', function() {
+    _saveLogoutLog();
+});
+
+// Visibility change — tab switch ya phone lock hone par bhi save karo
+document.addEventListener('visibilitychange', function() {
+    if (document.visibilityState === 'hidden') {
+        _saveLogoutLog();
+    }
+});
+
 window.onload = function() {
     // Clear password input to prevent autofill and browser restore
     setTimeout(() => {
@@ -4598,7 +4610,7 @@ function _saveLoginLog(role) {
 
 function _saveLogoutLog() {
     const logs = JSON.parse(localStorage.getItem('loginHistory') || '[]');
-    if (logs.length > 0 && !logs[0].logoutTime) {
+    if (logs.length > 0 && !logs[0].logoutTime && logs[0].loginTs) {
         const now = new Date();
         logs[0].logoutTime = now.toLocaleString('en-IN');
         const mins = Math.round((now.getTime() - logs[0].loginTs) / 60000);

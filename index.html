@@ -4530,13 +4530,52 @@ function logoutApp() {
 // ============================================================
 function _getDeviceInfo() {
     const ua = navigator.userAgent;
-    let device = 'Unknown Device';
-    if (/iPhone/.test(ua)) device = '📱 iPhone';
-    else if (/iPad/.test(ua)) device = '📱 iPad';
-    else if (/Android/.test(ua)) device = '📱 Android';
+    let device = '';
+
+    // Android — model name nikalo
+    const androidMatch = ua.match(/Android[\s/]([\d.]+).*?;\s*([^)]+)\)/);
+    if (androidMatch) {
+        const model = androidMatch[2].trim();
+        // Common brands detect karo
+        const brand = model.split(' ')[0];
+        device = '📱 ' + model;
+        return device;
+    }
+
+    // iPhone
+    const iphoneMatch = ua.match(/iPhone OS ([\d_]+)/);
+    if (iphoneMatch) {
+        const ver = iphoneMatch[1].replace(/_/g, '.');
+        device = '📱 iPhone (iOS ' + ver + ')';
+        return device;
+    }
+
+    // iPad
+    const ipadMatch = ua.match(/iPad.*OS ([\d_]+)/);
+    if (ipadMatch) {
+        device = '📱 iPad (iOS ' + ipadMatch[1].replace(/_/g, '.') + ')';
+        return device;
+    }
+
+    // Windows PC — processor info
+    if (/Windows NT 10/.test(ua)) device = '� Windows 10/11 PC';
+    else if (/Windows NT 6/.test(ua)) device = '� Windows 7/8 PC';
     else if (/Windows/.test(ua)) device = '💻 Windows PC';
-    else if (/Mac/.test(ua)) device = '💻 Mac';
-    else if (/Linux/.test(ua)) device = '💻 Linux';
+    else if (/Macintosh/.test(ua)) {
+        const macMatch = ua.match(/Mac OS X ([\d_]+)/);
+        device = '💻 Mac' + (macMatch ? ' (macOS ' + macMatch[1].replace(/_/g, '.') + ')' : '');
+    }
+    else if (/Linux/.test(ua)) device = '💻 Linux PC';
+    else device = '❓ Unknown Device';
+
+    // Browser info add karo
+    let browser = '';
+    if (/Chrome\//.test(ua) && !/Chromium/.test(ua) && !/Edg/.test(ua)) browser = 'Chrome';
+    else if (/Edg\//.test(ua)) browser = 'Edge';
+    else if (/Firefox\//.test(ua)) browser = 'Firefox';
+    else if (/Safari\//.test(ua) && !/Chrome/.test(ua)) browser = 'Safari';
+    if (browser) device += ' · ' + browser;
+
     return device;
 }
 
@@ -4551,9 +4590,10 @@ function _saveLoginLog(role) {
         logoutTime: null,
         duration: null
     });
-    // Max 50 logs rakho
     if (logs.length > 50) logs.splice(50);
     localStorage.setItem('loginHistory', JSON.stringify(logs));
+    // Server pe bhi save karo
+    setTimeout(() => syncToServer(), 1000);
 }
 
 function _saveLogoutLog() {
@@ -5156,6 +5196,23 @@ async function syncFromServer() {
         if (rec.cl_lines) localStorage.setItem('cl_lines', JSON.stringify(rec.cl_lines));
         if (rec.cl_skus) localStorage.setItem('cl_skus', JSON.stringify(rec.cl_skus));
         if (rec.cl_variants) localStorage.setItem('cl_variants', JSON.stringify(rec.cl_variants));
+        // Login history — server se merge karo (dono devices ke logs combine)
+        if (rec.loginHistory && rec.loginHistory.length > 0) {
+            const localLogs = JSON.parse(localStorage.getItem('loginHistory') || '[]');
+            const serverLogs = rec.loginHistory;
+            // Dono merge karo — loginTs se unique identify karo
+            const merged = [...localLogs];
+            serverLogs.forEach(sl => {
+                if (!merged.find(ll => ll.loginTs === sl.loginTs)) {
+                    merged.push(sl);
+                }
+            });
+            // Time ke hisaab se sort karo — latest pehle
+            merged.sort((a, b) => (b.loginTs || 0) - (a.loginTs || 0));
+            // Max 50 rakho
+            if (merged.length > 50) merged.splice(50);
+            localStorage.setItem('loginHistory', JSON.stringify(merged));
+        }
         const count = Object.keys(serverData).length;
         showSyncToast('✅ Synced', '#4CAF50');
         return serverData;
@@ -5183,7 +5240,7 @@ async function syncToServer() {
                 'Content-Type': 'application/json',
                 'X-Access-Key': getApiKey()
             },
-            body: JSON.stringify({ records: data, locationSettings, viewPassword, adminPassword: localStorage.getItem('admin_password') || '1234', customFormulas: JSON.parse(localStorage.getItem('customFormulas') || '{}'), highlightNote: JSON.parse(localStorage.getItem('highlightNote') || '{}'), centerlineData: JSON.parse(localStorage.getItem('centerlineData') || '[]'), centerlinePrimary: JSON.parse(localStorage.getItem('centerlinePrimary') || '[]'), centerlineSecondary: JSON.parse(localStorage.getItem('centerlineSecondary') || '[]'), cl_lines: JSON.parse(localStorage.getItem('cl_lines') || '[2,3,4,5]'), cl_skus: JSON.parse(localStorage.getItem('cl_skus') || '[]'), cl_variants: JSON.parse(localStorage.getItem('cl_variants') || '[]') })
+            body: JSON.stringify({ records: data, locationSettings, viewPassword, adminPassword: localStorage.getItem('admin_password') || '1234', customFormulas: JSON.parse(localStorage.getItem('customFormulas') || '{}'), highlightNote: JSON.parse(localStorage.getItem('highlightNote') || '{}'), centerlineData: JSON.parse(localStorage.getItem('centerlineData') || '[]'), centerlinePrimary: JSON.parse(localStorage.getItem('centerlinePrimary') || '[]'), centerlineSecondary: JSON.parse(localStorage.getItem('centerlineSecondary') || '[]'), cl_lines: JSON.parse(localStorage.getItem('cl_lines') || '[2,3,4,5]'), cl_skus: JSON.parse(localStorage.getItem('cl_skus') || '[]'), cl_variants: JSON.parse(localStorage.getItem('cl_variants') || '[]'), loginHistory: JSON.parse(localStorage.getItem('loginHistory') || '[]') })
         });
         if (!res.ok) {
             if (res.status === 401) throw new Error('401 - API Key wrong!');

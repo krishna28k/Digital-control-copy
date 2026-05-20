@@ -1,0 +1,2536 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Production Calculator</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #000000;
+            min-height: 100vh;
+            padding: 15px;
+            transition: background 0.3s ease;
+            position: relative;
+            overflow-x: hidden;
+        }
+
+        /* JARVIS-style animated background with multiple layers */
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: 
+                radial-gradient(circle at 20% 50%, rgba(0, 255, 255, 0.15) 0%, transparent 50%),
+                radial-gradient(circle at 80% 80%, rgba(0, 150, 255, 0.15) 0%, transparent 50%),
+                radial-gradient(circle at 40% 20%, rgba(0, 200, 255, 0.1) 0%, transparent 50%),
+                radial-gradient(circle at 60% 60%, rgba(100, 200, 255, 0.08) 0%, transparent 40%);
+            animation: pulse 4s ease-in-out infinite;
+            z-index: 0;
+        }
+
+        @keyframes pulse {
+            0%, 100% { 
+                opacity: 0.6;
+                transform: scale(1);
+            }
+            50% { 
+                opacity: 1;
+                transform: scale(1.05);
+            }
+        }
+
+        /* Animated grid lines - more visible */
+        body::after {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-image: 
+                linear-gradient(rgba(0, 255, 255, 0.05) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(0, 255, 255, 0.05) 1px, transparent 1px);
+            background-size: 40px 40px;
+            animation: gridMove 15s linear infinite;
+            z-index: 0;
+        }
+
+        @keyframes gridMove {
+            0% { transform: translate(0, 0); }
+            100% { transform: translate(40px, 40px); }
+        }
+
+        /* Hexagon pattern overlay - DISABLED for performance */
+        .hex-pattern {
+            display: none;
+        }
+
+        /* Floating particles - DISABLED for performance */
+        .particle {
+            display: none;
+        }
+
+        body.dark-mode {
+            background: #000000;
+        }
+
+        body.dark-mode .container {
+            background: rgba(5, 15, 30, 0.95);
+            color: #00ffff;
+            border: 2px solid rgba(0, 255, 255, 0.4);
+            box-shadow: 
+                0 0 40px rgba(0, 255, 255, 0.3),
+                0 0 80px rgba(0, 150, 255, 0.2),
+                inset 0 0 40px rgba(0, 255, 255, 0.08);
+            position: relative;
+        }
+
+        body.dark-mode .container::before {
+            display: none;
+        }
+
+        body.dark-mode input[type="number"] {
+            background: rgba(0, 30, 60, 0.9);
+            color: #00ffff;
+            border-color: rgba(0, 255, 255, 0.6);
+            box-shadow: 
+                0 0 15px rgba(0, 255, 255, 0.3),
+                inset 0 0 10px rgba(0, 100, 150, 0.3);
+            text-shadow: 0 0 5px rgba(0, 255, 255, 0.5);
+        }
+
+        body.dark-mode input[type="number"]:focus {
+            border-color: #00ffff;
+            box-shadow: 0 0 15px rgba(0, 255, 255, 0.4);
+        }
+
+        body.dark-mode .result-item {
+            background: rgba(0, 30, 60, 0.7);
+            border: 1px solid rgba(0, 255, 255, 0.4);
+            box-shadow: 
+                0 0 20px rgba(0, 255, 255, 0.2),
+                inset 0 0 15px rgba(0, 100, 150, 0.2);
+            position: relative;
+            overflow: hidden;
+        }
+
+        body.dark-mode .result-item::before {
+            display: none;
+        }
+
+        body.dark-mode .result-label {
+            color: #00ffff;
+            text-shadow: 0 0 8px rgba(0, 255, 255, 0.6);
+        }
+
+        body.dark-mode .result-value {
+            color: #00ffff;
+            text-shadow: 0 0 10px rgba(0, 255, 255, 0.6);
+        }
+
+        body.dark-mode .results {
+            background: rgba(0, 20, 40, 0.5);
+            border: 1px solid rgba(0, 255, 255, 0.3);
+            box-shadow: 0 0 30px rgba(0, 255, 255, 0.2);
+        }
+
+        body.dark-mode .range-box.lowest {
+            background: rgba(0, 100, 255, 0.25);
+            border: 2px solid rgba(0, 150, 255, 0.7);
+            box-shadow: 
+                0 0 20px rgba(0, 150, 255, 0.4),
+                inset 0 0 20px rgba(0, 100, 200, 0.2);
+        }
+
+        body.dark-mode .range-box.highest {
+            background: rgba(255, 0, 100, 0.25);
+            border: 2px solid rgba(255, 50, 100, 0.7);
+            box-shadow: 
+                0 0 20px rgba(255, 50, 100, 0.4),
+                inset 0 0 20px rgba(200, 0, 80, 0.2);
+        }
+
+        body.dark-mode .formula-info {
+            background: rgba(0, 50, 100, 0.4);
+            border-left: 4px solid #00ffff;
+            box-shadow: 
+                0 0 20px rgba(0, 255, 255, 0.3),
+                inset 0 0 20px rgba(0, 100, 150, 0.2);
+        }
+
+        body.dark-mode .formula-info h3,
+        body.dark-mode .formula-info p {
+            color: #00ffff;
+            text-shadow: 0 0 8px rgba(0, 255, 255, 0.6);
+        }
+
+        body.dark-mode header {
+            background: rgba(0, 50, 100, 0.9);
+            border: 1px solid rgba(0, 255, 255, 0.4);
+            box-shadow: 
+                0 0 30px rgba(0, 255, 255, 0.4),
+                inset 0 0 20px rgba(0, 100, 150, 0.2);
+        }
+
+        .container {
+            max-width: 450px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+            position: relative;
+            z-index: 1;
+        }
+
+        header {
+            background: #667eea;
+            color: white;
+            padding: 10px 12px;
+            border-radius: 8px 8px 0 0;
+            margin: -20px -20px 20px -20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            flex-wrap: nowrap;
+            gap: 6px;
+        }
+
+        .header-right {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            flex-shrink: 0;
+        }
+
+        .calc-dcc-btn {
+            background: rgba(255,255,255,0.2);
+            border: 1.5px solid rgba(255,255,255,0.4);
+            cursor: pointer;
+            color: white;
+            font-size: 16px;
+            width: 30px;
+            height: 30px;
+            border-radius: 7px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            -webkit-tap-highlight-color: transparent;
+            flex-shrink: 0;
+        }
+
+        .dark-mode-toggle {
+            cursor: pointer;
+            font-size: 22px;
+            transition: transform 0.2s ease;
+            filter: drop-shadow(0 0 5px rgba(255, 255, 255, 0.5));
+            -webkit-tap-highlight-color: transparent;
+            user-select: none;
+            touch-action: manipulation;
+        }
+
+        .dark-mode-toggle:hover {
+            transform: scale(1.2);
+            filter: drop-shadow(0 0 10px rgba(0, 255, 255, 0.8));
+        }
+
+        .dark-mode-toggle:active {
+            transform: scale(1.1);
+        }
+
+        /* How to Use Popup */
+        .howto-popup {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) scale(0.8);
+            width: 90%;
+            max-width: 500px;
+            max-height: 80vh;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 15px;
+            padding: 20px;
+            z-index: 1001;
+            display: none;
+            opacity: 0;
+            transition: all 0.3s ease;
+            overflow-y: auto;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.5);
+        }
+
+        .howto-popup.open {
+            display: block;
+            opacity: 1;
+            transform: translate(-50%, -50%) scale(1);
+        }
+
+        body.dark-mode .howto-popup {
+            background: linear-gradient(135deg, rgba(0, 50, 100, 0.98) 0%, rgba(0, 30, 60, 0.98) 100%);
+            border: 2px solid rgba(0, 255, 255, 0.4);
+        }
+
+        .howto-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid rgba(255,255,255,0.3);
+        }
+
+        .howto-title {
+            font-size: 22px;
+            font-weight: 700;
+            color: white;
+        }
+
+        body.dark-mode .howto-title {
+            color: #00ffff;
+            text-shadow: 0 0 10px rgba(0, 255, 255, 0.6);
+        }
+
+        .howto-close {
+            font-size: 30px;
+            color: white;
+            cursor: pointer;
+            line-height: 1;
+            transition: all 0.3s ease;
+        }
+
+        .howto-close:hover {
+            transform: rotate(90deg);
+            color: #ff6b6b;
+        }
+
+        .howto-content {
+            color: white;
+            line-height: 1.6;
+        }
+
+        body.dark-mode .howto-content {
+            color: #00ffff;
+        }
+
+        .howto-section {
+            margin-bottom: 20px;
+            padding: 15px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 10px;
+            border-left: 4px solid #ffc107;
+        }
+
+        body.dark-mode .howto-section {
+            background: rgba(0, 255, 255, 0.1);
+            border-left: 4px solid #00ffff;
+        }
+
+        .howto-section h3 {
+            font-size: 18px;
+            margin-bottom: 10px;
+            color: #ffc107;
+        }
+
+        body.dark-mode .howto-section h3 {
+            color: #00ffff;
+        }
+
+        .howto-section p {
+            font-size: 14px;
+            margin: 5px 0;
+        }
+
+        .howto-section ul {
+            margin: 10px 0;
+            padding-left: 20px;
+        }
+
+        .howto-section li {
+            margin: 5px 0;
+            font-size: 14px;
+        }
+
+        /* Loading Screen */
+        .loading-screen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: #000000;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 9999;
+            animation: fadeOut 0.3s ease 1.5s forwards;
+        }
+
+        @keyframes fadeOut {
+            to {
+                opacity: 0;
+                visibility: hidden;
+            }
+        }
+
+        .loading-content {
+            text-align: center;
+        }
+
+        .loading-title {
+            font-size: 32px;
+            font-weight: 700;
+            color: #00ffff;
+            text-shadow: 
+                0 0 10px rgba(0, 255, 255, 0.8),
+                0 0 20px rgba(0, 255, 255, 0.6),
+                0 0 30px rgba(0, 255, 255, 0.4);
+            margin-bottom: 30px;
+            animation: titlePulse 1.5s ease-in-out infinite;
+        }
+
+        @keyframes titlePulse {
+            0%, 100% { 
+                transform: scale(1);
+                text-shadow: 
+                    0 0 10px rgba(0, 255, 255, 0.8),
+                    0 0 20px rgba(0, 255, 255, 0.6),
+                    0 0 30px rgba(0, 255, 255, 0.4);
+            }
+            50% { 
+                transform: scale(1.05);
+                text-shadow: 
+                    0 0 20px rgba(0, 255, 255, 1),
+                    0 0 40px rgba(0, 255, 255, 0.8),
+                    0 0 60px rgba(0, 255, 255, 0.6);
+            }
+        }
+
+        .loading-spinner {
+            width: 80px;
+            height: 80px;
+            border: 4px solid rgba(0, 255, 255, 0.1);
+            border-top: 4px solid #00ffff;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 40px;
+            box-shadow: 
+                0 0 20px rgba(0, 255, 255, 0.5),
+                inset 0 0 20px rgba(0, 255, 255, 0.2);
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .loading-dots {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            margin-bottom: 50px;
+        }
+
+        .loading-dot {
+            width: 12px;
+            height: 12px;
+            background: #00ffff;
+            border-radius: 50%;
+            box-shadow: 0 0 15px rgba(0, 255, 255, 0.8);
+            animation: dotPulse 1.4s ease-in-out infinite;
+        }
+
+        .loading-dot:nth-child(1) { animation-delay: 0s; }
+        .loading-dot:nth-child(2) { animation-delay: 0.2s; }
+        .loading-dot:nth-child(3) { animation-delay: 0.4s; }
+
+        @keyframes dotPulse {
+            0%, 100% { 
+                transform: scale(1);
+                opacity: 0.5;
+            }
+            50% { 
+                transform: scale(1.5);
+                opacity: 1;
+            }
+        }
+
+        .loading-footer {
+            position: absolute;
+            bottom: 40px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 14px;
+            color: #00ffff;
+            text-shadow: 0 0 10px rgba(0, 255, 255, 0.6);
+            animation: footerFade 2s ease-in-out infinite;
+            letter-spacing: 2px;
+        }
+
+        @keyframes footerFade {
+            0%, 100% { opacity: 0.6; }
+            50% { opacity: 1; }
+        }
+
+        /* Loading screen scan line */
+        .loading-scan {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 3px;
+            background: linear-gradient(90deg, transparent, rgba(0, 255, 255, 0.9), transparent);
+            box-shadow: 0 0 15px rgba(0, 255, 255, 0.8);
+            animation: loadingScan 2s linear infinite;
+        }
+
+        @keyframes loadingScan {
+            0% { top: 0; opacity: 0; }
+            10% { opacity: 1; }
+            90% { opacity: 1; }
+            100% { top: 100%; opacity: 0; }
+        }
+
+        h1 {
+            color: white;
+            font-size: 16px;
+            font-weight: 700;
+            margin: 0;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .range-boxes {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 18px;
+            align-items: stretch;
+        }
+
+        .range-box {
+            flex: 1;
+            padding: 12px;
+            border-radius: 8px;
+            text-align: center;
+            transition: transform 0.3s, box-shadow 0.3s;
+        }
+
+        .range-box:hover {
+            transform: translateY(-3px) scale(1.02);
+        }
+
+        .range-box.lowest {
+            background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%);
+            border: 2px solid #2196F3;
+        }
+
+        .range-box.highest {
+            background: linear-gradient(135deg, #ffebee 0%, #ffcdd2 100%);
+            border: 2px solid #f44336;
+        }
+
+        /* Weight Selector in Middle */
+        .weight-selector {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            padding: 8px;
+            background: linear-gradient(135deg, #f3e5f5 0%, #e1bee7 100%);
+            border: 2px solid #9c27b0;
+            border-radius: 8px;
+            transition: all 0.3s;
+            position: relative;
+        }
+
+        .weight-selector:hover {
+            transform: translateY(-3px) scale(1.02);
+            box-shadow: 0 5px 15px rgba(156, 39, 176, 0.3);
+        }
+
+        body.dark-mode .weight-selector {
+            background: rgba(100, 0, 150, 0.25);
+            border: 2px solid rgba(156, 39, 176, 0.7);
+            box-shadow: 
+                0 0 20px rgba(156, 39, 176, 0.4),
+                inset 0 0 20px rgba(100, 0, 150, 0.2);
+        }
+
+        .weight-controls {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .weight-arrow {
+            cursor: pointer;
+            font-size: 18px;
+            padding: 4px 8px;
+            background: rgba(156, 39, 176, 0.2);
+            border-radius: 5px;
+            transition: background 0.2s ease, transform 0.1s ease;
+            user-select: none;
+            -webkit-tap-highlight-color: transparent;
+            touch-action: manipulation;
+        }
+
+        .weight-arrow:hover {
+            background: rgba(156, 39, 176, 0.4);
+            transform: scale(1.15);
+        }
+
+        .weight-arrow:active {
+            transform: scale(0.95);
+        }
+
+        body.dark-mode .weight-arrow {
+            background: rgba(156, 39, 176, 0.3);
+            color: #ce93d8;
+        }
+
+        body.dark-mode .weight-arrow:hover {
+            background: rgba(156, 39, 176, 0.5);
+        }
+
+        .weight-label {
+            font-size: 9px;
+            font-weight: 700;
+            color: #7b1fa2;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 4px;
+        }
+
+        body.dark-mode .weight-label {
+            color: #ce93d8;
+            text-shadow: 0 0 8px rgba(206, 147, 216, 0.6);
+        }
+
+        .weight-value {
+            font-size: 20px;
+            font-weight: 800;
+            color: #9c27b0;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        body.dark-mode .weight-value {
+            color: #ce93d8;
+            text-shadow: 0 0 15px rgba(206, 147, 216, 1);
+        }
+
+        .weight-arrows {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+            font-size: 10px;
+            color: #9c27b0;
+        }
+
+        body.dark-mode .weight-arrows {
+            color: #ce93d8;
+        }
+
+        .range-label {
+            display: block;
+            font-size: 10px;
+            font-weight: 700;
+            margin-bottom: 6px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .lowest .range-label {
+            color: #1976D2;
+        }
+
+        .highest .range-label {
+            color: #d32f2f;
+        }
+
+        .range-value {
+            display: block;
+            font-size: 20px;
+            font-weight: 800;
+            position: relative;
+        }
+
+        .lowest .range-value {
+            color: #2196F3;
+        }
+
+        .highest .range-value {
+            color: #f44336;
+        }
+
+        /* Blinking dot indicator */
+        .range-dot {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            background: #ff0000;
+            border-radius: 50%;
+            margin-left: 8px;
+            animation: dotBlink 1s ease-in-out infinite;
+            box-shadow: 0 0 10px rgba(255, 0, 0, 0.8);
+        }
+
+        /* Fast blinking dot for over 10% excess */
+        .range-dot-fast {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            background: #ff0000;
+            border-radius: 50%;
+            margin-left: 8px;
+            animation: dotBlinkFast 0.4s ease-in-out infinite;
+            box-shadow: 0 0 15px rgba(255, 0, 0, 1);
+        }
+
+        @keyframes dotBlink {
+            0%, 100% { 
+                opacity: 1;
+                transform: scale(1);
+            }
+            50% { 
+                opacity: 0.3;
+                transform: scale(1.3);
+            }
+        }
+
+        @keyframes dotBlinkFast {
+            0%, 100% { 
+                opacity: 1;
+                transform: scale(1);
+                box-shadow: 0 0 15px rgba(255, 0, 0, 1);
+            }
+            50% { 
+                opacity: 0.2;
+                transform: scale(1.5);
+                box-shadow: 0 0 25px rgba(255, 0, 0, 1);
+            }
+        }
+
+        .input-group {
+            margin-bottom: 15px;
+        }
+
+        .input-row {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .input-full {
+            flex: 1;
+        }
+
+        .input-half {
+            flex: 1;
+        }
+
+        .extra-box {
+            flex: 1;
+            padding: 12px;
+            background: rgba(255, 255, 255, 0.1);
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            text-align: center;
+            font-size: 15px;
+            font-weight: 600;
+            color: #333;
+            transition: all 0.3s;
+        }
+
+        body.dark-mode .extra-box {
+            background: rgba(0, 50, 100, 0.3);
+            border-color: rgba(0, 255, 255, 0.4);
+            color: #00ffff;
+            box-shadow: 0 0 10px rgba(0, 255, 255, 0.2);
+        }
+
+        label {
+            display: block;
+            color: #333;
+            font-weight: 600;
+            margin-bottom: 6px;
+            font-size: 13px;
+        }
+
+        /* Make Shipper Count label darker and more prominent */
+        label[for="shipperCount"] {
+            color: #000000;
+            font-weight: 800;
+            font-size: 14px;
+            text-shadow: 0 0 1px rgba(0, 0, 0, 0.3);
+        }
+
+        body.dark-mode label[for="shipperCount"] {
+            color: #00ffff;
+            font-weight: 800;
+            text-shadow: 0 0 10px rgba(0, 255, 255, 0.8);
+        }
+
+        input[type="number"] {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 15px;
+            font-weight: 600;
+            transition: border-color 0.2s ease, box-shadow 0.2s ease;
+            -webkit-tap-highlight-color: transparent;
+            touch-action: manipulation;
+        }
+
+        input[type="number"]:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .results {
+            margin-top: 18px;
+            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+            padding: 15px;
+            border-radius: 10px;
+        }
+
+        .result-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px;
+            background: white;
+            border-radius: 8px;
+            margin-bottom: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+            transition: transform 0.3s;
+            animation: slideIn 0.4s ease;
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .result-item:hover {
+            transform: translateX(5px);
+        }
+
+        .result-item:last-child {
+            margin-bottom: 0;
+        }
+
+        .result-label {
+            font-weight: 600;
+            color: #555;
+            font-size: 14px;
+        }
+
+        .result-value {
+            font-size: 22px;
+            font-weight: 800;
+            color: #667eea;
+        }
+
+        .formula-info {
+            background: linear-gradient(135deg, #fff9e6 0%, #fff3cd 100%);
+            padding: 15px;
+            border-radius: 10px;
+            margin-top: 15px;
+            border-left: 4px solid #ffc107;
+        }
+
+        .formula-info h3 {
+            color: #856404;
+            margin-bottom: 10px;
+            font-size: 14px;
+            font-weight: 700;
+        }
+
+        .formula-info p {
+            color: #856404;
+            font-size: 12px;
+            line-height: 1.6;
+            margin-bottom: 4px;
+            font-weight: 600;
+        }
+
+        /* Target Calculator Section */
+        .target-section {
+            margin-top: 20px;
+            background: rgba(0, 50, 100, 0.3);
+            padding: 15px;
+            border-radius: 10px;
+            border: 2px solid rgba(0, 255, 255, 0.3);
+        }
+
+        body.dark-mode .target-section {
+            background: rgba(0, 30, 60, 0.5);
+            border-color: rgba(0, 255, 255, 0.4);
+            box-shadow: 0 0 20px rgba(0, 255, 255, 0.2);
+        }
+
+        .target-row {
+            display: flex;
+            gap: 10px;
+            align-items: flex-end;
+        }
+
+        .target-input-box {
+            flex: 1;
+        }
+
+        .target-input-box label {
+            display: block;
+            color: #00ffff;
+            font-size: 13px;
+            font-weight: 600;
+            margin-bottom: 6px;
+        }
+
+        .target-input-box input {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid rgba(0, 255, 255, 0.5);
+            border-radius: 8px;
+            font-size: 15px;
+            font-weight: 600;
+            background: rgba(0, 30, 60, 0.8);
+            color: #00ffff;
+            transition: all 0.3s;
+        }
+
+        .target-input-box input:focus {
+            outline: none;
+            border-color: #00ffff;
+            box-shadow: 0 0 15px rgba(0, 255, 255, 0.5);
+        }
+
+        .target-result-box {
+            flex: 1;
+            padding: 12px;
+            border-radius: 8px;
+            text-align: center;
+            border: 2px solid rgba(0, 255, 255, 0.3);
+            background: #ffffff;
+            transition: all 0.3s;
+        }
+
+        body.dark-mode .target-result-box {
+            background: #ffffff;
+        }
+
+        .target-label {
+            font-size: 11px;
+            color: #666;
+            margin-bottom: 5px;
+            font-weight: 600;
+        }
+
+        body.dark-mode .target-label {
+            color: #666;
+        }
+
+        .target-value {
+            font-size: 22px;
+            font-weight: 800;
+            color: #333;
+        }
+
+        body.dark-mode .target-value {
+            color: #333;
+        }
+
+        .target-time {
+            font-size: 14px;
+            font-weight: 700;
+            margin-top: 5px;
+            color: #666;
+        }
+
+        /* Target Colors */
+        .target-done {
+            background: rgba(0, 150, 0, 0.3) !important;
+            border-color: #00ff00 !important;
+            box-shadow: 0 0 20px rgba(0, 255, 0, 0.4) !important;
+        }
+
+        .target-done .target-value {
+            color: #00ff00 !important;
+        }
+
+        .target-excess {
+            background: #ffffff !important;
+            border-color: #ff0000 !important;
+            box-shadow: 0 0 20px rgba(255, 0, 0, 0.4) !important;
+        }
+
+        .target-excess .target-value {
+            color: #ff0000 !important;
+            font-weight: 800;
+        }
+
+        .target-excess-high {
+            background: #000000 !important;
+            border-color: #000000 !important;
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.5) !important;
+        }
+
+        .target-excess-high .target-value {
+            color: #ffffff !important;
+            font-weight: 800;
+        }
+
+        .target-excess-high .target-label {
+            color: #ffffff !important;
+        }
+
+        .target-excess-high .target-time {
+            color: #ffffff !important;
+        }
+
+        .target-acceptable {
+            background: rgba(0, 150, 0, 0.3) !important;
+            border-color: #00ff00 !important;
+            box-shadow: 0 0 20px rgba(0, 255, 0, 0.4) !important;
+        }
+
+        .target-acceptable .target-value {
+            color: #00ff00 !important;
+        }
+
+        .target-low {
+            background: #ffffff !important;
+            border-color: #0088ff !important;
+            box-shadow: 0 0 20px rgba(0, 136, 255, 0.4) !important;
+        }
+
+        .target-low .target-value {
+            color: #0088ff !important;
+        }
+
+        /* Corner Alert Styles */
+        .corner-alert {
+            position: fixed;
+            top: 10px;
+            right: 10px;
+            background: rgba(0, 50, 100, 0.95);
+            border: 2px solid rgba(0, 255, 255, 0.6);
+            border-radius: 8px;
+            padding: 8px 12px;
+            font-size: 11px;
+            font-weight: 600;
+            color: #00ffff;
+            box-shadow: 0 0 15px rgba(0, 255, 255, 0.4);
+            z-index: 1000;
+            opacity: 0;
+            transform: translateX(150%);
+            transition: all 0.3s ease;
+            pointer-events: none;
+            max-width: 180px;
+            text-align: center;
+        }
+
+        .corner-alert.show {
+            opacity: 1;
+            transform: translateX(0);
+        }
+
+        .corner-alert.weight-alert {
+            background: rgba(156, 39, 176, 0.95);
+            border-color: rgba(206, 147, 216, 0.8);
+            color: #ce93d8;
+            box-shadow: 0 0 15px rgba(156, 39, 176, 0.5);
+        }
+
+        .corner-alert.target-alert {
+            background: rgba(0, 150, 0, 0.95);
+            border-color: rgba(0, 255, 0, 0.8);
+            color: #00ff00;
+            box-shadow: 0 0 15px rgba(0, 255, 0, 0.5);
+        }
+
+        .corner-alert.target-alert.low {
+            background: rgba(0, 100, 255, 0.95);
+            border-color: rgba(0, 150, 255, 0.8);
+            color: #66b3ff;
+        }
+
+        .corner-alert.target-alert.excess {
+            background: rgba(0, 0, 0, 0.95);
+            border-color: rgba(50, 50, 50, 0.8);
+            color: #ffffff;
+        }
+
+        @media (max-width: 480px) {
+            .corner-alert {
+                top: 5px;
+                right: 5px;
+                font-size: 10px;
+                padding: 6px 10px;
+                max-width: 150px;
+            }
+        }
+
+        @media (max-width: 480px) {
+            body {
+                padding: 10px;
+            }
+
+            .container {
+                padding: 15px;
+                max-width: 100%;
+            }
+
+            header {
+                margin: -15px -15px 15px -15px;
+                padding: 10px 15px;
+            }
+
+            h1 {
+                font-size: 18px;
+            }
+
+            .range-value {
+                font-size: 18px;
+            }
+
+            .result-value {
+                font-size: 20px;
+            }
+
+            .range-label {
+                font-size: 9px;
+            }
+
+            input[type="number"] {
+                padding: 10px;
+                font-size: 14px;
+            }
+            
+            .loading-title {
+                font-size: 24px;
+            }
+            
+            .loading-spinner {
+                width: 60px;
+                height: 60px;
+            }
+            
+            .loading-footer {
+                font-size: 12px;
+                bottom: 30px;
+            }
+        }
+    </style>
+</head>
+<body class="dark-mode">
+    <!-- Loading Screen -->
+    <div class="loading-screen">
+        <div class="loading-scan"></div>
+        <div class="loading-content">
+            <div class="loading-spinner"></div>
+            <div class="loading-title">Production Calculator</div>
+            <div class="loading-dots">
+                <div class="loading-dot"></div>
+                <div class="loading-dot"></div>
+                <div class="loading-dot"></div>
+            </div>
+        </div>
+        <div class="loading-footer">Created by Krishna.....</div>
+    </div>
+    
+    <!-- How to Use Popup -->
+    <div class="howto-popup" id="howtoPopup">
+        <div class="howto-header">
+            <span class="howto-title">📱 How to Use</span>
+            <span class="howto-close" onclick="closeHowToUse()">×</span>
+        </div>
+        <div class="howto-content">
+            <div class="howto-section">
+                <h3>🎯 STEP 1: Weight Select Karo</h3>
+                <p>• Top par "WEIGHT" section mein ◀ ▶ arrows par tap karo</p>
+                <p>• Apna weight select karo (300g, 500g, 750g, 1kg, etc.)</p>
+                <p>• Weight change hone par formula automatically update hoga</p>
+            </div>
+
+            <div class="howto-section">
+                <h3>🔢 STEP 2: Calculation Karo</h3>
+                <p><strong>📦 Current Shipper:</strong></p>
+                <p>→ Shipper count daalo, automatically Pouch aur Pallet calculate hoga</p>
+                <p><strong>🚛 Pallet Count:</strong></p>
+                <p>→ Pallet count daalo, automatically Shipper aur Pouch calculate hoga</p>
+                <p><strong>📦 Current Pouch:</strong></p>
+                <p>→ Pouch count daalo, automatically Shipper aur Pallet calculate hoga</p>
+            </div>
+
+            <div class="howto-section">
+                <h3>📊 STEP 3: Results Dekho</h3>
+                <p>Neeche "Results" section mein dikhega:</p>
+                <ul>
+                    <li>📦 Total Pouches</li>
+                    <li>📦 Total Shippers</li>
+                    <li>🚛 Total Pallets</li>
+                </ul>
+            </div>
+
+            <div class="howto-section">
+                <h3>📋 STEP 4: Formula Dekho</h3>
+                <p>Results ke neeche formula dikhega:</p>
+                <ul>
+                    <li>✓ Pouch = Shipper</li>
+                    <li>✓ Shipper = Pallet</li>
+                    <li>✓ Pouch = Pallet</li>
+                    <li>⚡ Speed: Pouch/min</li>
+                </ul>
+            </div>
+
+            <div class="howto-section">
+                <h3>⚙️ STEP 5: Custom Formula (Optional)</h3>
+                <p>1. Settings (⚙️) mein jao</p>
+                <p>2. "Manual Formula" toggle ON karo</p>
+                <p>3. Form fill karo aur Save karo</p>
+                <p>4. Saved formulas list mein dikhenge</p>
+            </div>
+
+            <div class="howto-section">
+                <h3>💡 Tips</h3>
+                <ul>
+                    <li>✓ Sirf ek field mein number daalo</li>
+                    <li>✓ Baaki auto calculate hoga</li>
+                    <li>✓ Refresh button (↻) se reset karo</li>
+                    <li>✓ Dark mode (☀️/🌙) switch kar sakte ho</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+    
+    
+    <!-- Corner Alert -->
+    <div class="corner-alert" id="cornerAlert"></div>
+    
+    <div class="container">
+        <header>
+            <button onclick="openLocalFormulaPanel()" title="Local Formula" style="background:rgba(255,255,255,0.2);border:1.5px solid rgba(255,255,255,0.4);cursor:pointer;color:white;font-size:18px;width:34px;height:34px;border-radius:8px;display:flex;align-items:center;justify-content:center;-webkit-tap-highlight-color:transparent;flex-shrink:0;">📐</button>
+            <h1 style="flex:0 1 auto;margin-left:8px;">&#127981; Production Calculator</h1>
+            <button class="calc-dcc-btn" onclick="window.location.href='index.html'" title="Back to Digital Control Copy" style="margin-left:10px;margin-right:auto;">⇄</button>
+            <div class="header-right">
+                <div class="dark-mode-toggle" onclick="refreshAll()" title="Refresh All">
+                    <span id="refreshIcon">&#8635;</span>
+                </div>
+                <div class="dark-mode-toggle" onclick="toggleDarkMode()" title="Toggle Mode">
+                    <span id="darkModeIcon">&#9728;</span>
+                </div>
+            </div>
+        </header>
+        <!-- 10% Range Boxes at Top with Weight Selector -->
+        <div class="range-boxes">
+            <div class="range-box lowest">
+                <span class="range-label">📉 Lowest 10%</span>
+                <span class="range-value" id="shipperLowest">0</span>
+            </div>
+            
+            <!-- Weight Selector in Middle -->
+            <div class="weight-selector" onclick="toggleWeightList()" style="cursor:pointer;position:relative;">
+                <span class="weight-label">&#9878;&#65039; WEIGHT</span>
+                <div class="weight-controls">
+                    <div class="weight-value">
+                        <span id="currentWeight">1kg</span>
+                        <span style="font-size:12px;margin-left:4px;opacity:0.8;">&#9660;</span>
+                    </div>
+                </div>
+                <!-- Weight Dropdown List -->
+                <div id="weightList" style="display:none;position:absolute;top:100%;left:50%;transform:translateX(-50%);background:white;border-radius:10px;box-shadow:0 8px 30px rgba(0,0,0,0.3);z-index:999;min-width:140px;max-height:280px;overflow-y:auto;margin-top:6px;">
+                </div>
+            </div>
+            
+            <div class="range-box highest">
+                <span class="range-label">📈 Highest 10%</span>
+                <span class="range-value" id="shipperHighest">0</span>
+            </div>
+        </div>
+
+        <!-- Target Calculator -->
+        <div class="target-section">
+            <h3 style="color: #00ffff; text-align: center; margin-bottom: 15px; font-size: 18px;">🎯 Target Calculator</h3>
+            <div class="target-row">
+                <div class="target-input-box">
+                    <label>Target Shipper</label>
+                    <input type="number" id="targetShipper" placeholder="Enter target" min="0" step="1" oninput="calculateTarget()">
+                </div>
+                <div class="target-result-box" id="targetResult">
+                    <div class="target-label">Difference</div>
+                    <div class="target-value">--</div>
+                    <div class="target-time" id="targetTime"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Input Fields -->
+        <div class="input-group">
+            <label for="shipperCount">📦 Current Shipper</label>
+            <div class="input-row">
+                <input type="number" class="input-half" id="shipperCount" placeholder="Shippers" min="0" step="1" oninput="calculateFromShipper()">
+                <div class="extra-box" id="extraPouch">+ 0 Pouch</div>
+            </div>
+        </div>
+
+        <div class="input-group">
+            <label for="palletCount">  Pallet Count</label>
+            <div class="input-row">
+                <input type="number" class="input-half" id="palletCount" placeholder="Pallets" min="0" step="1" oninput="calculateFromPallet()">
+                <div class="extra-box" id="extraShipper">+ 0 Shipper</div>
+            </div>
+        </div>
+
+    
+        <!-- Pouch + Bulk KG side by side -->
+        <div class="input-group">
+            <div style="display:flex;gap:10px;align-items:flex-end;">
+                <div style="flex:1;">
+                    <label for="pouchCount">📦 Pouch Count</label>
+                    <input type="number" id="pouchCount" placeholder="Enter pouches" min="0" step="1" oninput="calculateFromPouch(); calcBulkFromPouch();">
+                </div>
+                <div style="flex:1;">
+                    <label for="bulkKgInput" style="display:flex;align-items:center;gap:6px;">
+                        ⚗️ Bulk KG
+                        <span id="bulkTimeLabel" style="font-size:11px;color:#ffffff;font-weight:700;background:#1a3a4a;padding:2px 7px;border-radius:4px;border:1px solid #00ffff;"></span>
+                    </label>
+                    <input type="number" id="bulkKgInput" placeholder="Enter Bulk KG" min="0" step="0.01" oninput="calcBulkFromBulk()"
+                        style="background:rgba(0,30,60,0.9);color:#00ffff;border:2px solid rgba(0,255,255,0.6);font-weight:700;">
+                </div>
+            </div>
+        </div>
+
+        <!-- Results -->
+        <div class="results">
+            <div class="result-item">
+                <span class="result-label">📦 Total Pouches</span>
+                <span class="result-value" id="pouchResult">0</span>
+            </div>
+            <div class="result-item">
+                <span class="result-label">📦 Total Shippers</span>
+                <span class="result-value" id="shipperResult">0</span>
+            </div>
+            <div class="result-item">
+                <span class="result-label">⚗️ Bulk KG</span>
+                <span class="result-value" id="bulkKgResult">0</span>
+            </div>
+            <div class="result-item" style="padding:8px 12px;">
+                <span class="result-label" style="font-size:13px;">🚛 Total Pallets</span>
+                <span class="result-value" id="palletResult" style="font-size:18px;">0</span>
+            </div>
+            <div class="result-item" style="padding:12px 16px;justify-content:center;background:#1a3a4a;border:2px solid #00ffff;">
+                <span style="font-size:16px;color:#ffffff;font-weight:800;letter-spacing:1px;" id="bulkTimeResult">⏱️ Time: —</span>
+            </div>
+        </div>
+
+        <!-- Formula Info -->
+        <div class="formula-info">
+            <h3>📋 Formula (<span id="formulaWeight">300g</span>)</h3>
+            <p id="formula1">✓ 24 Pouch = 1 Shipper</p>
+            <p id="formula2">✓ 42 Shipper = 1 Pallet</p>
+            <p id="formula3">✓ 1008 Pouch = 1 Pallet</p>
+            <p id="formula4">⚡ Speed: 40 Pouch/min</p>
+        </div>
+            </div>
+        </div>
+    </div>
+    <audio id="typingSound" preload="auto">
+        <source src="data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBSuBzvLZiTYIGGS57OihUBELTKXh8bllHAU2jdXvzn0pBSh+zPDajzsKElyx6OyrWBQLSKDf8sFuJAUuhM/z24k2CBhku+zooVARC0yl4fG5ZRwFNo3V7859KQUofsz
+w2QjzsKElyx6OyrWBQLSKDf8sFuJAUuhM/z24k2CBhku+zooVARC0yl4fG5ZRwFNo3V7859KQUofsz
+w2QjzsKE==" type="audio/wav">
+    </audio>
+
+    <!-- Weight Change Sound -->
+    <audio id="weightSound" preload="auto">
+        <source src="data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBSuBzvLZiTYIGGS57OihUBELTKXh8bllHAU2jdXvzn0pBSh+zPDajzsKElyx6OyrWBQLSKDf8sFuJAUuhM/z24k2CBhku+zooVARC0yl4fG5ZRwFNo3V7859KQUofsz
+w2QjzsKElyx6OyrWBQLSKDf8sFuJAUuhM/z24k2CBhku+zooVARC0yl4fG5ZRwFNo3V7859KQUofsz
+w2QjzsKE==" type="audio/wav">
+    </audio>
+
+    <script>
+        let isCalculating = false;
+        let currentWeightIndex = 6; // Default: 2kg (index 6)
+        let soundEnabled = true; // Sound enabled by default
+        let alertTimeout = null;
+        let calculationTimeout = null;
+        let customFormulas = {}; // Store custom formulas
+        const weights = ['S1 70g', '300g', '500g', '850g', '900g', '1kg', '2kg', '3kg', '3.2kg', '4kg', '5kg', '6kg'];
+        
+        // Formulas for each weight
+        const formulas = {
+            'S1 70g': { pouchToShipper: 2, shipperToPallet: 48, pouchToPallet: 96, speed: 3, unit: 'met', targetWeight: 0.07 },
+            '300g': { pouchToShipper: 24, shipperToPallet: 42, pouchToPallet: 1008, speed: 40, unit: 'Pouch', targetWeight: 0.3 },
+            '500g': { pouchToShipper: 24, shipperToPallet: 36, pouchToPallet: 864, speed: 40, unit: 'Pouch', targetWeight: 0.5 },
+            '850g': { pouchToShipper: 12, shipperToPallet: 50, pouchToPallet: 600, speed: 40, unit: 'Pouch', targetWeight: 0.85 },
+            '900g': { pouchToShipper: 12, shipperToPallet: 50, pouchToPallet: 600, speed: 40, unit: 'Pouch', targetWeight: 0.9 },
+            '1kg': { pouchToShipper: 12, shipperToPallet: 50, pouchToPallet: 600, speed: 40, unit: 'Pouch', targetWeight: 1.0 },
+            '2kg': { pouchToShipper: 6, shipperToPallet: 40, pouchToPallet: 240, speed: 30, unit: 'Pouch', targetWeight: 2.1 },
+            '3kg': { pouchToShipper: 4, shipperToPallet: 40, pouchToPallet: 160, speed: 25, unit: 'Pouch', targetWeight: 3.0 },
+            '3.2kg': { pouchToShipper: 4, shipperToPallet: 40, pouchToPallet: 160, speed: 25, unit: 'Pouch', targetWeight: 3.2 },
+            '4kg': { pouchToShipper: 4, shipperToPallet: 32, pouchToPallet: 128, speed: 21, unit: 'Pouch', targetWeight: 4.1 },
+            '5kg': { pouchToShipper: 2, shipperToPallet: 60, pouchToPallet: 120, speed: 10, unit: 'Pouch', targetWeight: 5.0 },
+            '6kg': { pouchToShipper: 2, shipperToPallet: 45, pouchToPallet: 90, speed: 8, unit: 'Pouch', targetWeight: 6.0 }
+        };
+
+        // Settings functions removed - moved to admin panel
+
+        function changeWeightManually() {
+            const dropdown = document.getElementById('weightDropdown');
+            if (!dropdown) return;
+            currentWeightIndex = parseInt(dropdown.value);
+            const currentWeight = weights[currentWeightIndex];
+            const formula = getCurrentFormula();
+            
+            document.getElementById('currentWeight').textContent = currentWeight;
+            document.getElementById('formulaWeight').textContent = currentWeight;
+            playWeightSound();
+            showCornerAlert(`⚖️ ${currentWeight} Selected`, 'weight-alert', 2000);
+            
+            // Update label based on unit (Met or Pouch)
+            const unit = formula.unit || 'Pouch';
+            const pouchLabel = document.querySelector('label[for="pouchCount"]');
+            if (pouchLabel) {
+                pouchLabel.textContent = `📦 ${unit} Count`;
+            }
+            
+            // Update formula display
+            document.getElementById('formula1').textContent = `✓ ${formula.pouchToShipper} ${unit} = 1 Shipper`;
+            document.getElementById('formula2').textContent = `✓ ${formula.shipperToPallet} Shipper = 1 Pallet`;
+            document.getElementById('formula3').textContent = `✓ ${formula.pouchToPallet} ${unit} = 1 Pallet`;
+            
+            // Update speed display
+            const speedText = formula.speed > 0 ? `${formula.speed} ${unit}/min` : 'Not Set';
+            document.getElementById('formula4').textContent = `⚡ Speed: ${speedText}`;
+            
+            // Update extra boxes with new unit
+            const pouchInput = document.getElementById('pouchCount');
+            const shipperInput = document.getElementById('shipperCount');
+            const palletInput = document.getElementById('palletCount');
+            
+            // Recalculate - prioritize the field that has a value
+            if (pouchInput.value) {
+                calculateFromPouch();
+            } else if (shipperInput.value) {
+                calculateFromShipper();
+            } else if (palletInput.value) {
+                calculateFromPallet();
+            } else {
+                // Update extra boxes even if no values
+                document.getElementById('extraPouch').textContent = `+ 0 ${unit}`;
+                document.getElementById('extraShipper').textContent = `+ 0 Shipper`;
+                // Recalculate target if target is set
+                calculateTarget();
+            }
+        }
+
+        // How to Use functions
+        function showHowToUse() {
+            document.getElementById('howtoPopup').classList.add('open');
+            document.getElementById('settingsOverlay').classList.add('open');
+        }
+
+        function closeHowToUse() {
+            document.getElementById('howtoPopup').classList.remove('open');
+            document.getElementById('settingsOverlay').classList.remove('open');
+        }
+
+        function toggleSound() {
+            const soundSwitch = document.getElementById('soundSwitch');
+            if (soundSwitch) soundSwitch.classList.toggle('active');
+            soundEnabled = soundSwitch ? soundSwitch.classList.contains('active') : !soundEnabled;
+            if (soundEnabled) {
+                localStorage.setItem('soundEnabled', 'enabled');
+                playWeightSound();
+            } else {
+                localStorage.setItem('soundEnabled', 'disabled');
+            }
+        }
+
+        // Toggle Manual Formula Form
+        function toggleManualFormula() {
+            const manualSwitch = document.getElementById('manualFormulaSwitch');
+            const manualForm = document.getElementById('manualFormulaForm');
+            
+            manualSwitch.classList.toggle('active');
+            
+            if (manualSwitch.classList.contains('active')) {
+                manualForm.style.display = 'block';
+            } else {
+                manualForm.style.display = 'none';
+            }
+            playWeightSound();
+        }
+
+        // Save Custom Formula
+        function saveCustomFormula() {
+            const weightName = document.getElementById('customWeightName').value.trim();
+            const unitName = document.getElementById('customUnitName').value.trim() || 'Pouch';
+            const pouchToShipper = parseInt(document.getElementById('customPouchToShipper').value);
+            const shipperToPallet = parseInt(document.getElementById('customShipperToPallet').value);
+            const speed = parseInt(document.getElementById('customSpeed').value) || 0;
+            
+            // Validation
+            if (!weightName) {
+                alert('❌ Please enter weight name!');
+                return;
+            }
+            if (!pouchToShipper || pouchToShipper < 1) {
+                alert('❌ Please enter valid Pouch per Shipper!');
+                return;
+            }
+            if (!shipperToPallet || shipperToPallet < 1) {
+                alert('❌ Please enter valid Shipper per Pallet!');
+                return;
+            }
+            
+            // Calculate pouchToPallet
+            const pouchToPallet = pouchToShipper * shipperToPallet;
+            
+            // Add to formulas object
+            formulas[weightName] = {
+                pouchToShipper: pouchToShipper,
+                shipperToPallet: shipperToPallet,
+                pouchToPallet: pouchToPallet,
+                speed: speed,
+                unit: unitName
+            };
+            
+            // Add to weights array if not exists
+            if (!weights.includes(weightName)) {
+                weights.push(weightName);
+            }
+            
+            // Update dropdown
+            updateWeightDropdown();
+            
+            // Save to localStorage
+            localStorage.setItem('customFormulas', JSON.stringify(formulas));
+            localStorage.setItem('weights', JSON.stringify(weights));
+            
+            // Clear form
+            document.getElementById('customWeightName').value = '';
+            document.getElementById('customUnitName').value = 'Pouch';
+            document.getElementById('customPouchToShipper').value = '';
+            document.getElementById('customShipperToPallet').value = '';
+            document.getElementById('customSpeed').value = '';
+            
+            // Show success message
+            showCornerAlert(`✅ ${weightName} Formula Added!`, 'weight-alert', 3000);
+            playWeightSound();
+            
+            // Display custom formulas list
+            displayCustomFormulas();
+        }
+
+        // Update Weight Dropdown
+        function updateWeightDropdown() {
+            const dropdown = document.getElementById('weightDropdown');
+            if (!dropdown) return;
+            dropdown.innerHTML = '';
+            
+            weights.forEach((weight, index) => {
+                const option = document.createElement('option');
+                option.value = index;
+                option.textContent = weight;
+                dropdown.appendChild(option);
+            });
+        }
+
+        // Display Custom Formulas
+        function displayCustomFormulas() {
+            const listDiv = document.getElementById('customFormulaList');
+            listDiv.innerHTML = '<div style="color: #00ffff; font-size: 13px; font-weight: 600; margin-bottom: 10px; border-top: 1px solid rgba(0, 255, 255, 0.3); padding-top: 10px;">📋 Custom Formulas:</div>';
+            
+            // Show only custom formulas (not default ones)
+            const defaultWeights = ['S1 70g', '300g', '500g', '850g', '900g', '1kg', '2kg', '3kg', '3.2kg', '4kg', '5kg', '6kg'];
+            
+            weights.forEach((weight) => {
+                if (!defaultWeights.includes(weight)) {
+                    const formula = formulas[weight];
+                    const formulaDiv = document.createElement('div');
+                    formulaDiv.style.cssText = 'background: rgba(0, 50, 100, 0.3); padding: 10px; border-radius: 6px; margin-bottom: 8px; font-size: 12px; color: #00ffff; border: 1px solid rgba(0, 255, 255, 0.2);';
+                    formulaDiv.innerHTML = `
+                        <div style="font-weight: 700; margin-bottom: 5px;">${weight}</div>
+                        <div>• ${formula.pouchToShipper} ${formula.unit}/Shipper</div>
+                        <div>• ${formula.shipperToPallet} Shipper/Pallet</div>
+                        <div>• Speed: ${formula.speed > 0 ? formula.speed + ' ' + formula.unit + '/min' : 'Not Set'}</div>
+                        <button onclick="deleteCustomFormula('${weight}')" style="margin-top: 8px; padding: 5px 10px; background: rgba(255, 0, 0, 0.3); color: #ff6666; border: 1px solid rgba(255, 0, 0, 0.5); border-radius: 4px; cursor: pointer; font-size: 11px; width: 100%;">
+                            🗑️ Delete
+                        </button>
+                    `;
+                    listDiv.appendChild(formulaDiv);
+                }
+            });
+        }
+        // Delete Custom Formula
+        function deleteCustomFormula(weightName) {
+            if (confirm(`Delete ${weightName} formula?`)) {
+                // Remove from formulas
+                delete formulas[weightName];
+                
+                // Remove from weights array
+                const index = weights.indexOf(weightName);
+                if (index > -1) {
+                    weights.splice(index, 1);
+                }
+                
+                // Update dropdown
+                updateWeightDropdown();
+                
+                // Save to localStorage
+                localStorage.setItem('customFormulas', JSON.stringify(formulas));
+                localStorage.setItem('weights', JSON.stringify(weights));
+                
+                // Refresh display
+                displayCustomFormulas();
+                
+                // Reset to first weight if deleted weight was selected
+                if (currentWeightIndex >= weights.length) {
+                    currentWeightIndex = 0;
+                    updateWeightDisplay();
+                }
+                
+                showCornerAlert(`🗑️ ${weightName} Deleted!`, 'weight-alert', 2000);
+                playWeightSound();
+            }
+        }
+
+        // Play typing sound
+        function playSound() {
+            if (!soundEnabled) return; // Check if sound is enabled
+            try {
+                const sound = document.getElementById('typingSound');
+                if (sound) {
+                    sound.currentTime = 0;
+                    sound.volume = 0.3;
+                    sound.play().catch(() => {});
+                }
+            } catch (e) {}
+        }
+
+        // Play weight change sound - using Web Audio API for better compatibility
+        function playWeightSound() {
+            if (!soundEnabled) return; // Check if sound is enabled
+            try {
+                // Try HTML5 audio first
+                const sound = document.getElementById('weightSound');
+                if (sound) {
+                    sound.currentTime = 0;
+                    sound.volume = 0.5;
+                    sound.play().catch(() => {});
+                }
+                
+                // Also create a beep using Web Audio API as backup
+                const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                const oscillator = audioContext.createOscillator();
+                const gainNode = audioContext.createGain();
+                
+                oscillator.connect(gainNode);
+                gainNode.connect(audioContext.destination);
+                
+                oscillator.frequency.value = 800; // Frequency in Hz
+                oscillator.type = 'sine';
+                
+                gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+                gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.1);
+                
+                oscillator.start(audioContext.currentTime);
+                oscillator.stop(audioContext.currentTime + 0.1);
+            } catch (e) {
+                console.log('Sound not supported');
+            }
+        }
+
+        // Show corner alert
+        function showCornerAlert(message, type = 'default', duration = 3000) {
+            const alert = document.getElementById('cornerAlert');
+            
+            // Clear existing timeout
+            if (alertTimeout) {
+                clearTimeout(alertTimeout);
+            }
+            
+            // Remove all type classes
+            alert.className = 'corner-alert';
+            
+            // Add type class
+            if (type !== 'default') {
+                alert.classList.add(type);
+            }
+            
+            // Set message
+            alert.textContent = message;
+            
+            // Show alert
+            setTimeout(() => {
+                alert.classList.add('show');
+            }, 10);
+            
+            // Hide after duration
+            alertTimeout = setTimeout(() => {
+                alert.classList.remove('show');
+            }, duration);
+        }
+
+        // Cycle through weights - NEXT
+        function nextWeight() {
+            currentWeightIndex = (currentWeightIndex + 1) % weights.length;
+            updateWeightDisplay();
+            showCornerAlert(`⚖️ ${weights[currentWeightIndex]} Selected`, 'weight-alert', 2000);
+        }
+
+        // Cycle through weights - PREVIOUS
+        function previousWeight() {
+            currentWeightIndex = (currentWeightIndex - 1 + weights.length) % weights.length;
+            updateWeightDisplay();
+            showCornerAlert(`⚖️ ${weights[currentWeightIndex]} Selected`, 'weight-alert', 2000);
+        }
+
+        // Weight List Toggle
+        function toggleWeightList() {
+            const list = document.getElementById('weightList');
+            if (list.style.display === 'block') { list.style.display = 'none'; return; }
+            // Build list items fresh every time
+            list.innerHTML = '';
+            weights.forEach(function(w, idx) {
+                const item = document.createElement('div');
+                const f = formulas[w];
+                const isActive = idx === currentWeightIndex;
+                item.style.cssText = 'padding:10px 14px;cursor:pointer;border-bottom:1px solid #f0f0f0;transition:background 0.15s;background:' + (isActive ? '#667eea' : 'white') + ';color:' + (isActive ? 'white' : '#333') + ';font-weight:' + (isActive ? '700' : '400') + ';';
+                item.innerHTML = '<div style="font-size:15px;font-weight:700;">' + w + (isActive ? ' ✓' : '') + '</div>' +
+                    '<div style="font-size:11px;opacity:0.75;margin-top:2px;">' + (f ? f.pouchToShipper + ' Pouch/Shipper | ' + f.shipperToPallet + ' Shipper/Pallet' : '') + '</div>';
+                item.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    currentWeightIndex = idx;
+                    updateWeightDisplay();
+                    list.style.display = 'none';
+                    showCornerAlert('⚖️ ' + w + ' Selected', 'weight-alert', 2000);
+                });
+                list.appendChild(item);
+            });
+            list.style.display = 'block';
+            // Scroll active item into view
+            const activeItem = list.children[currentWeightIndex];
+            if (activeItem) activeItem.scrollIntoView({ block: 'nearest' });
+            // Close on outside click
+            setTimeout(function() {
+                document.addEventListener('click', function closeList(e) {
+                    const selector = document.querySelector('.weight-selector');
+                    if (selector && selector.contains(e.target)) return;
+                    list.style.display = 'none';
+                    document.removeEventListener('click', closeList, true);
+                }, true);
+            }, 50);
+        }
+
+        // Update weight display and recalculate
+        function updateWeightDisplay() {
+            const currentWeight = weights[currentWeightIndex];
+            const formula = getCurrentFormula();
+            const unit = formula.unit || 'Pouch';
+            
+            document.getElementById('currentWeight').textContent = currentWeight;
+            document.getElementById('formulaWeight').textContent = currentWeight;
+            playWeightSound();
+            
+            // Update label based on unit (Met or Pouch)
+            const pouchLabel = document.querySelector('label[for="pouchCount"]');
+            if (pouchLabel) {
+                pouchLabel.textContent = `📦 ${unit} Count`;
+            }
+            
+            // Update formula display
+            document.getElementById('formula1').textContent = `✓ ${formula.pouchToShipper} ${unit} = 1 Shipper`;
+            document.getElementById('formula2').textContent = `✓ ${formula.shipperToPallet} Shipper = 1 Pallet`;
+            document.getElementById('formula3').textContent = `✓ ${formula.pouchToPallet} ${unit} = 1 Pallet`;
+            
+            // Update speed display
+            const speedText = formula.speed > 0 ? `${formula.speed} ${unit}/min` : 'Not Set';
+            document.getElementById('formula4').textContent = `⚡ Speed: ${speedText}`;
+            
+            // Update extra boxes with new unit
+            const pouchInput = document.getElementById('pouchCount');
+            const shipperInput = document.getElementById('shipperCount');
+            const palletInput = document.getElementById('palletCount');
+            
+            // Recalculate with new formula - prioritize the field that has a value
+            if (pouchInput.value) {
+                calculateFromPouch();
+            } else if (shipperInput.value) {
+                calculateFromShipper();
+            } else if (palletInput.value) {
+                calculateFromPallet();
+            } else {
+                // Update extra boxes even if no values
+                document.getElementById('extraPouch').textContent = `+ 0 ${unit}`;
+                document.getElementById('extraShipper').textContent = `+ 0 Shipper`;
+                // Recalculate target if target is set
+                calculateTarget();
+            }
+        }
+
+        // Get current formula
+        function getCurrentFormula() {
+            return formulas[weights[currentWeightIndex]];
+        }
+
+        // Update 10% range boxes based on TARGET
+        function updateShipperRange(shipperCount) {
+            const targetValue = parseFloat(document.getElementById('targetShipper').value) || 0;
+            
+            if (targetValue > 0) {
+                // Show target's 10% range
+                const lowest = Math.floor(targetValue * 0.9);  // Target - 10%
+                const highest = Math.floor(targetValue * 1.1); // Target + 10%
+                
+                // Check if current shipper is in range
+                const inLowRange = shipperCount >= lowest && shipperCount < targetValue;
+                const inHighRange = shipperCount > targetValue && shipperCount <= highest;
+                const overHighRange = shipperCount > highest; // More than 10% excess
+                
+                // Update lowest box with dot if in range
+                if (inLowRange) {
+                    document.getElementById('shipperLowest').innerHTML = `${lowest} <span class="range-dot"></span>`;
+                } else {
+                    document.getElementById('shipperLowest').textContent = lowest;
+                }
+                
+                // Update highest box with dot
+                if (inHighRange) {
+                    // Normal blink - within 10% excess only
+                    document.getElementById('shipperHighest').innerHTML = `${highest} <span class="range-dot"></span>`;
+                } else {
+                    // No dot if not in range or over 10%
+                    document.getElementById('shipperHighest').textContent = highest;
+                }
+            } else if (shipperCount > 0) {
+                // If no target but shipper has value, show shipper's 10% range
+                const lowest = Math.floor(shipperCount * 0.9);
+                const highest = Math.floor(shipperCount * 1.1);
+                
+                document.getElementById('shipperLowest').textContent = lowest;
+                document.getElementById('shipperHighest').textContent = highest;
+            } else {
+                // If both are 0 or empty, show 0
+                document.getElementById('shipperLowest').textContent = '0';
+                document.getElementById('shipperHighest').textContent = '0';
+            }
+        }
+
+        function calculateFromPouch() {
+            if (isCalculating) {
+                // Safety: reset flag if stuck
+                setTimeout(() => { isCalculating = false; }, 100);
+                return;
+            }
+            isCalculating = true;
+            
+            try {
+                playSound();
+
+                const formula = getCurrentFormula();
+                const unit = formula.unit || 'Pouch';
+                const pouchInput = document.getElementById('pouchCount').value;
+                
+                // If input is empty, clear all fields
+                if (pouchInput === '' || pouchInput === null) {
+                    document.getElementById('shipperCount').value = '';
+                    document.getElementById('palletCount').value = '';
+                    document.getElementById('extraPouch').textContent = `+ 0 ${unit}`;
+                    document.getElementById('extraShipper').textContent = `+ 0 Shipper`;
+                    updateResults(0, 0, 0);
+                    updateShipperRange(0);
+                }
+                
+                const pouchCount = parseFloat(pouchInput) || 0;
+                
+                const shipperCount = pouchCount / formula.pouchToShipper;
+                const palletCount = pouchCount / formula.pouchToPallet;
+                
+                // Calculate extra pouch (remainder)
+                const fullShippers = Math.floor(shipperCount);
+                const extraPouch = pouchCount - (fullShippers * formula.pouchToShipper);
+                
+                // Calculate extra shipper (remainder)
+                const fullPallets = Math.floor(palletCount);
+                const extraShipper = Math.floor(shipperCount) - (fullPallets * formula.shipperToPallet);
+
+                document.getElementById('shipperCount').value = fullShippers;
+                document.getElementById('palletCount').value = fullPallets;
+                
+                // Update extra boxes with correct unit
+                document.getElementById('extraPouch').textContent = `+ ${extraPouch} ${unit}`;
+                document.getElementById('extraShipper').textContent = `+ ${extraShipper} Shipper`;
+
+                updateResults(pouchCount, shipperCount, palletCount);
+                updateShipperRange(shipperCount);
+                // Bulk KG auto update
+                const targetWeight = parseFloat(formula.targetWeight) || 2.1;
+                const bulkKg = (pouchCount * targetWeight).toFixed(2);
+                document.getElementById('bulkKgResult').textContent = parseFloat(bulkKg).toLocaleString();
+            } finally {
+                isCalculating = false;
+            }
+        }
+
+        function calculateFromShipper() {
+            if (isCalculating) {
+                // Safety: reset flag if stuck
+                setTimeout(() => { isCalculating = false; }, 100);
+                return;
+            }
+            isCalculating = true;
+            
+            try {
+                playSound();
+
+                const formula = getCurrentFormula();
+                const unit = formula.unit || 'Pouch';
+                const shipperInput = document.getElementById('shipperCount').value;
+                
+                // If input is empty, clear all fields
+                if (shipperInput === '' || shipperInput === null) {
+                    document.getElementById('pouchCount').value = '';
+                    document.getElementById('palletCount').value = '';
+                    document.getElementById('extraPouch').textContent = `+ 0 ${unit}`;
+                    document.getElementById('extraShipper').textContent = `+ 0 Shipper`;
+                    updateResults(0, 0, 0);
+                    updateShipperRange(0);
+                    return;
+                }
+                
+                const shipperCount = Math.floor(parseFloat(shipperInput)) || 0;
+                
+                const pouchCount = shipperCount * formula.pouchToShipper;
+                const palletCount = shipperCount / formula.shipperToPallet;
+                
+                // Calculate extra shipper (remainder)
+                const fullPallets = Math.floor(palletCount);
+                const extraShipper = shipperCount - (fullPallets * formula.shipperToPallet);
+                
+                // Extra pouch is 0 when entering shipper directly
+                document.getElementById('extraPouch').textContent = `+ 0 ${unit}`;
+
+                document.getElementById('pouchCount').value = Math.floor(pouchCount);
+                document.getElementById('palletCount').value = fullPallets;
+                
+                // Update extra shipper box - show whole number
+                document.getElementById('extraShipper').textContent = `+ ${Math.floor(extraShipper)} Shipper`;
+
+                updateResults(pouchCount, shipperCount, palletCount);
+                updateShipperRange(shipperCount);
+            } finally {
+                isCalculating = false;
+            }
+        }
+
+        function calculateFromPallet() {
+            if (isCalculating) {
+                // Safety: reset flag if stuck
+                setTimeout(() => { isCalculating = false; }, 100);
+                return;
+            }
+            isCalculating = true;
+            
+            try {
+                playSound();
+
+                const formula = getCurrentFormula();
+                const unit = formula.unit || 'Pouch';
+                const palletInput = document.getElementById('palletCount').value;
+                
+                // If input is empty, clear all fields
+                if (palletInput === '' || palletInput === null) {
+                    document.getElementById('pouchCount').value = '';
+                    document.getElementById('shipperCount').value = '';
+                    document.getElementById('extraPouch').textContent = `+ 0 ${unit}`;
+                    document.getElementById('extraShipper').textContent = `+ 0 Shipper`;
+                    updateResults(0, 0, 0);
+                    updateShipperRange(0);
+                    return;
+                }
+                
+                const palletCount = parseFloat(palletInput) || 0;
+                
+                const pouchCount = palletCount * formula.pouchToPallet;
+                const shipperCount = palletCount * formula.shipperToPallet;
+
+                document.getElementById('pouchCount').value = Math.round(pouchCount);
+                document.getElementById('shipperCount').value = Math.floor(shipperCount);
+                
+                // Extra boxes are 0 when entering pallet directly
+                document.getElementById('extraPouch').textContent = `+ 0 ${unit}`;
+                document.getElementById('extraShipper').textContent = `+ 0 Shipper`;
+
+                updateResults(pouchCount, shipperCount, palletCount);
+                updateShipperRange(shipperCount);
+            } finally {
+                isCalculating = false;
+            }
+        }
+
+        function updateResults(pouch, shipper, pallet) {
+            document.getElementById('pouchResult').textContent = Math.floor(pouch).toLocaleString();
+            document.getElementById('shipperResult').textContent = Math.floor(shipper).toLocaleString();
+            document.getElementById('palletResult').textContent = Math.floor(pallet).toLocaleString();
+            // Bulk KG auto update — sirf tab jab user bulk box mein type nahi kar raha
+            if (!document.getElementById('bulkKgInput').matches(':focus')) {
+                const formula = getCurrentFormula();
+                const targetWeight = parseFloat(formula.targetWeight) || 2.1;
+                const bulkKg = (Math.floor(pouch) * targetWeight).toFixed(2);
+                document.getElementById('bulkKgResult').textContent = parseFloat(bulkKg).toLocaleString();
+                document.getElementById('bulkKgInput').value = bulkKg;
+                // Time calculate karo
+                const speed = formula.speed || 0;
+                if (speed > 0 && pouch > 0) {
+                    const totalMins = Math.ceil(pouch / speed);
+                    const hrs = Math.floor(totalMins / 60);
+                    const mins = totalMins % 60;
+                    const timeStr = hrs > 0 ? `${hrs}h ${mins}m` : `${mins}m`;
+                    document.getElementById('bulkTimeLabel').textContent = `⏱️ ~${timeStr}`;
+                    document.getElementById('bulkTimeResult').textContent = `⏱️ Time to complete: ${timeStr}`;
+                } else {
+                    document.getElementById('bulkTimeLabel').textContent = '';
+                    document.getElementById('bulkTimeResult').textContent = '⏱️ Time: —';
+                }
+            }
+            // Auto-calculate target if target is set
+            calculateTarget();
+        }
+
+        // Bulk Auto Calculator
+        function calcBulkFromPouch() {
+            const formula = getCurrentFormula();
+            const pouch = parseFloat(document.getElementById('pouchCount').value) || 0;
+            const targetWeight = parseFloat(formula.targetWeight) || 2.1;
+            if (pouch <= 0) { 
+                document.getElementById('bulkKgInput').value = '';
+                return; 
+            }
+            const bulk = (pouch * targetWeight).toFixed(2);
+            document.getElementById('bulkKgInput').value = bulk;
+        }
+
+        function calcBulkFromBulk() {
+            const formula = getCurrentFormula();
+            const bulk = parseFloat(document.getElementById('bulkKgInput').value) || 0;
+            const targetWeight = parseFloat(formula.targetWeight) || 2.1;
+            const pouchPerShipper = formula.pouchPerShipper || 6;
+            if (bulk <= 0) {
+                document.getElementById('pouchCount').value = '';
+                document.getElementById('pouchResult').textContent = '0';
+                document.getElementById('shipperResult').textContent = '0';
+                document.getElementById('bulkKgResult').textContent = '0';
+                document.getElementById('palletResult').textContent = '0';
+                return;
+            }
+            const pouch = Math.floor(bulk / targetWeight);
+            document.getElementById('pouchCount').value = pouch;
+            calculateFromPouch();
+            document.getElementById('bulkKgResult').textContent = bulk.toLocaleString();
+        }
+
+        function calcBulk() { calcBulkFromBulk(); }
+
+        // Target Calculator Function
+        function calculateTarget() {
+            const targetInput = document.getElementById('targetShipper');
+            const targetValue = parseFloat(targetInput.value) || 0;
+            const currentShipper = parseFloat(document.getElementById('shipperCount').value) || 0;
+            const resultBox = document.getElementById('targetResult');
+            const valueElement = resultBox.querySelector('.target-value');
+            const timeElement = document.getElementById('targetTime');
+            const formula = getCurrentFormula();
+            
+            // Update 10% boxes based on target
+            if (targetValue > 0) {
+                const lowest = Math.floor(targetValue * 0.9);
+                const highest = Math.floor(targetValue * 1.1);
+                
+                // Check if current shipper is in range and add dots
+                const inLowRange = currentShipper >= lowest && currentShipper < targetValue;
+                const inHighRange = currentShipper > targetValue && currentShipper <= highest;
+                const overHighRange = currentShipper > highest;
+                
+                // Update lowest box with dot if in range
+                if (inLowRange) {
+                    document.getElementById('shipperLowest').innerHTML = `${lowest} <span class="range-dot"></span>`;
+                } else {
+                    document.getElementById('shipperLowest').textContent = lowest;
+                }
+                
+                // Update highest box with dot
+                if (inHighRange) {
+                    // Normal blink - within 10% excess only
+                    document.getElementById('shipperHighest').innerHTML = `${highest} <span class="range-dot"></span>`;
+                } else {
+                    // No dot if not in range or over 10%
+                    document.getElementById('shipperHighest').textContent = highest;
+                }
+            }
+            
+            if (targetValue === 0) {
+                valueElement.textContent = '--';
+                timeElement.textContent = '';
+                resultBox.className = 'target-result-box';
+                return;
+            }
+            
+            const difference = currentShipper - targetValue;
+            const percentDiff = (Math.abs(difference) / targetValue) * 100;
+            
+            // Calculate time based on pouch difference
+            const pouchDifference = Math.abs(difference) * formula.pouchToShipper;
+            const speed = formula.speed; // pouches per minute
+            
+            let timeText = '';
+            if (speed > 0 && difference !== 0) {
+                const totalMinutes = Math.ceil(pouchDifference / speed);
+                const hours = Math.floor(totalMinutes / 60);
+                const minutes = totalMinutes % 60;
+                
+                const sign = difference < 0 ? '-' : '+';
+                if (hours > 0) {
+                    timeText = `${sign}${hours}h ${minutes}min`;
+                } else {
+                    timeText = `${sign}${minutes}min`;
+                }
+            }
+            
+            // Remove all classes
+            resultBox.className = 'target-result-box';
+            
+            if (difference === 0) {
+                // Exact match
+                valueElement.textContent = '✅ Done';
+                timeElement.textContent = '';
+                resultBox.classList.add('target-done');
+                showCornerAlert('🎯 Target Achieved!', 'target-alert', 2500);
+            } else if (difference > 0) {
+                // Check if excess is more than 10%
+                if (percentDiff > 10) {
+                    // More than 10% excess - BLACK background, WHITE text with FAST blinking dot
+                    valueElement.innerHTML = `+${Math.floor(difference)} <span class="range-dot-fast"></span>`;
+                    timeElement.textContent = timeText;
+                    resultBox.classList.add('target-excess-high');
+                    showCornerAlert(`⚠️ +${Math.floor(difference)} (Over 10%)`, 'target-alert excess', 2500);
+                } else {
+                    // Within 10% excess - WHITE background, RED text (NO DOT)
+                    valueElement.textContent = `+${Math.floor(difference)}`;
+                    timeElement.textContent = timeText;
+                    resultBox.classList.add('target-excess');
+                    showCornerAlert(`  +${Math.floor(difference)} Over Target`, 'target-alert excess', 2500);
+                }
+            } else if (percentDiff <= 10) {
+                // Within 10% less (GREEN - acceptable)
+                valueElement.textContent = `${Math.floor(difference)}`;
+                timeElement.textContent = timeText;
+                resultBox.classList.add('target-acceptable');
+                showCornerAlert(`📊 ${Math.floor(difference)} (10% Range)`, 'target-alert', 2500);
+            } else {
+                // More than 10% less (BLUE - too low)
+                valueElement.textContent = `${Math.floor(difference)}`;
+                timeElement.textContent = timeText;
+                resultBox.classList.add('target-low');
+                showCornerAlert(`📉 ${Math.floor(difference)} Below Target`, 'target-alert low', 2500);
+            }
+        }
+
+        // Add input event listeners for all fields
+        document.querySelectorAll('input[type="number"]').forEach(input => {
+            input.addEventListener('input', () => {
+                playSound();
+            });
+            input.addEventListener('keydown', () => {
+                playSound();
+            });
+        });
+
+        // Dark mode toggle
+        function toggleDarkMode() {
+            const body = document.body;
+            const icon = document.getElementById('darkModeIcon');
+            const themeSwitch = document.getElementById('themeSwitch');
+            const themeLabel = document.getElementById('themeLabel');
+            
+            body.classList.toggle('dark-mode');
+            
+            if (body.classList.contains('dark-mode')) {
+                if (icon) icon.textContent = '☀️';
+                if (themeLabel) themeLabel.textContent = 'Dark Mode';
+                if (themeSwitch) themeSwitch.classList.add('active');
+                localStorage.setItem('calculatorDarkMode', 'enabled');
+            } else {
+                if (icon) icon.textContent = '🌙';
+                if (themeLabel) themeLabel.textContent = 'Light Mode';
+                if (themeSwitch) themeSwitch.classList.remove('active');
+                localStorage.setItem('calculatorDarkMode', 'disabled');
+            }
+        }
+
+        // Refresh All - Clear all boxes
+        function refreshAll() {
+            // Clear all input fields
+            document.getElementById('pouchCount').value = '';
+            document.getElementById('shipperCount').value = '';
+            document.getElementById('palletCount').value = '';
+            document.getElementById('targetShipper').value = '';
+            
+            // Reset extra boxes
+            const formula = getCurrentFormula();
+            const unit = formula.unit || 'Pouch';
+            document.getElementById('extraPouch').textContent = '+ 0 ' + unit;
+            document.getElementById('extraShipper').textContent = '+ 0 Shipper';
+            
+            // Reset results
+            document.getElementById('pouchResult').textContent = '0';
+            document.getElementById('shipperResult').textContent = '0';
+            document.getElementById('palletResult').textContent = '0';
+            
+            // Reset 10% boxes
+            document.getElementById('shipperLowest').textContent = '0';
+            document.getElementById('shipperHighest').textContent = '0';
+            
+            // Reset target
+            const targetResult = document.getElementById('targetResult');
+            if (targetResult) {
+                targetResult.className = 'target-result-box';
+                const tv = targetResult.querySelector('.target-value');
+                if (tv) tv.textContent = '--';
+            }
+            const tt = document.getElementById('targetTime');
+            if (tt) tt.textContent = '';
+            
+            playWeightSound();
+            showCornerAlert('🔄 All Cleared', 'weight-alert', 2000);
+        }
+
+        // Local Formula Panel (device only, no server)
+        function openLocalFormulaPanel() {
+            const existing = document.getElementById('localFormulaPanel');
+            if (existing) { existing.remove(); return; }
+
+            const custom = JSON.parse(localStorage.getItem('customFormulas') || '{}');
+            const localOnly = JSON.parse(localStorage.getItem('localOnlyFormulas') || '{}');
+
+            // Build list of local-only formulas
+            const localRows = Object.keys(localOnly).length > 0
+                ? Object.keys(localOnly).map(k => {
+                    const f = localOnly[k];
+                    return '<div style="display:flex;justify-content:space-between;align-items:center;padding:7px 10px;background:#e3f2fd;border-radius:6px;margin-bottom:5px;font-size:12px;">'
+                        + '<span><strong>' + k + '</strong> | ' + f.pouchToShipper + ' P/S | ' + f.shipperToPallet + ' S/P | ' + f.speed + ' ' + f.unit + '/min</span>'
+                        + '<button onclick="deleteLocalFormula(\'' + k + '\')" style="background:#f44336;color:white;border:none;padding:2px 8px;border-radius:4px;cursor:pointer;font-size:11px;">✕</button>'
+                        + '</div>';
+                }).join('')
+                : '<p style="color:#999;font-size:12px;text-align:center;">No local formulas yet</p>';
+
+            const panel = document.createElement('div');
+            panel.id = 'localFormulaPanel';
+            panel.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.6);display:flex;justify-content:center;align-items:flex-start;z-index:99999;padding:15px;box-sizing:border-box;overflow-y:auto;';
+            panel.innerHTML = '<div style="background:white;border-radius:12px;max-width:420px;width:100%;margin:auto;overflow:hidden;">'
+                + '<div style="background:#667eea;padding:14px 18px;display:flex;justify-content:space-between;align-items:center;">'
+                + '<span style="color:white;font-weight:700;font-size:15px;">📐 Local Formula (This Device Only)</span>'
+                + '<button onclick="document.getElementById(\'localFormulaPanel\').remove()" style="background:rgba(255,255,255,0.2);border:none;color:white;font-size:20px;width:30px;height:30px;border-radius:50%;cursor:pointer;">✕</button>'
+                + '</div>'
+                + '<div style="padding:15px;">'
+                + '<div style="background:#fff3e0;border-radius:8px;padding:10px;margin-bottom:12px;font-size:12px;color:#e65100;">'
+                + '⚠️ These formulas are saved on this device only. They will NOT sync to server or other devices.'
+                + '</div>'
+                + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px;">'
+                + '<div style="grid-column:1/-1;"><label style="font-size:11px;font-weight:600;color:#555;">Weight Name</label><input id="lfName" placeholder="e.g. 1.5kg" style="width:100%;padding:8px;border:2px solid #ddd;border-radius:6px;font-size:14px;margin-top:3px;"></div>'
+                + '<div><label style="font-size:11px;font-weight:600;color:#555;">Pouch/Shipper</label><input id="lfPS" type="number" placeholder="12" style="width:100%;padding:8px;border:2px solid #ddd;border-radius:6px;font-size:14px;margin-top:3px;"></div>'
+                + '<div><label style="font-size:11px;font-weight:600;color:#555;">Shipper/Pallet</label><input id="lfSP" type="number" placeholder="50" style="width:100%;padding:8px;border:2px solid #ddd;border-radius:6px;font-size:14px;margin-top:3px;"></div>'
+                + '<div><label style="font-size:11px;font-weight:600;color:#555;">Speed/min</label><input id="lfSpd" type="number" placeholder="15" style="width:100%;padding:8px;border:2px solid #ddd;border-radius:6px;font-size:14px;margin-top:3px;"></div>'
+                + '<div><label style="font-size:11px;font-weight:600;color:#555;">Unit</label><select id="lfUnit" style="width:100%;padding:8px;border:2px solid #ddd;border-radius:6px;font-size:14px;margin-top:3px;"><option value="Pouch">Pouch</option><option value="met">met</option></select></div>'
+                + '</div>'
+                + '<button onclick="saveLocalFormula()" style="width:100%;padding:11px;background:#667eea;color:white;border:none;border-radius:8px;font-size:14px;cursor:pointer;font-weight:700;margin-bottom:12px;">💾 Save on This Device</button>'
+                + '<h3 style="font-size:13px;color:#333;margin-bottom:8px;">📋 Local Formulas</h3>'
+                + '<div id="localFormulaList">' + localRows + '</div>'
+                + '</div></div>';
+            document.body.appendChild(panel);
+            panel.addEventListener('click', e => { if (e.target === panel) panel.remove(); });
+        }
+
+        function saveLocalFormula() {
+            const name = document.getElementById('lfName').value.trim();
+            const ps   = parseInt(document.getElementById('lfPS').value);
+            const sp   = parseInt(document.getElementById('lfSP').value);
+            const spd  = parseFloat(document.getElementById('lfSpd').value) || 0;
+            const unit = document.getElementById('lfUnit').value;
+            if (!name) { alert('Weight name required!'); return; }
+            if (!ps || !sp) { alert('Pouch/Shipper and Shipper/Pallet required!'); return; }
+
+            // Save to localOnlyFormulas (not synced to server)
+            const local = JSON.parse(localStorage.getItem('localOnlyFormulas') || '{}');
+            local[name] = { pouchToShipper:ps, shipperToPallet:sp, pouchToPallet:ps*sp, speed:spd, unit };
+            localStorage.setItem('localOnlyFormulas', JSON.stringify(local));
+
+            // Also add to active formulas and weights for this session
+            formulas[name] = local[name];
+            if (!weights.includes(name)) weights.push(name);
+
+            showCornerAlert('✅ ' + name + ' saved locally!', 'weight-alert', 2000);
+            document.getElementById('localFormulaPanel').remove();
+            openLocalFormulaPanel();
+        }
+
+        function deleteLocalFormula(name) {
+            if (!confirm('Delete "' + name + '" from this device?')) return;
+            const local = JSON.parse(localStorage.getItem('localOnlyFormulas') || '{}');
+            delete local[name];
+            localStorage.setItem('localOnlyFormulas', JSON.stringify(local));
+            delete formulas[name];
+            const idx = weights.indexOf(name);
+            if (idx > -1) weights.splice(idx, 1);
+            document.getElementById('localFormulaPanel').remove();
+            openLocalFormulaPanel();
+        }
+
+        // Calc Side Menu toggle
+        function toggleCalcMenu() {
+            const menu = document.getElementById('calcSideMenu');
+            const overlay = document.getElementById('calcMenuOverlay');
+            const isOpen = menu.style.left === '0px';
+            menu.style.left = isOpen ? '-270px' : '0px';
+            overlay.style.display = isOpen ? 'none' : 'block';
+        }
+
+        // Open Calculator Formula Settings
+        function openCalcSettings() {
+            const existing = document.getElementById('calcSettingsModal');
+            if (existing) existing.remove();
+            const custom = JSON.parse(localStorage.getItem('customFormulas') || '{}');
+            const allF = Object.assign({}, formulas, custom);
+            const weightOpts = Object.keys(allF).map(k => '<option value="'+k+'">'+k+'</option>').join('');
+            const rows = Object.keys(allF).map(k => {
+                const f = allF[k], isC = !!custom[k];
+                return '<div style="display:flex;justify-content:space-between;align-items:center;padding:7px 10px;background:'+(isC?'#e8f5e9':'#f5f5f5')+';border-radius:6px;margin-bottom:5px;font-size:12px;">'
+                    + '<span><strong>'+k+'</strong> | '+f.pouchToShipper+' P/S | '+f.shipperToPallet+' S/P | '+f.speed+' '+f.unit+'/min</span>'
+                    + (isC ? '<button onclick="deleteCalcF(\''+k+'\')" style="background:#f44336;color:white;border:none;padding:2px 8px;border-radius:4px;cursor:pointer;font-size:11px;">X</button>' : '')
+                    + '</div>';
+            }).join('');
+
+            const modal = document.createElement('div');
+            modal.id = 'calcSettingsModal';
+            modal.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.6);display:flex;justify-content:center;align-items:flex-start;z-index:99999;padding:15px;box-sizing:border-box;overflow-y:auto;';
+            modal.innerHTML = '<div style="background:white;border-radius:12px;max-width:480px;width:100%;margin:auto;overflow:hidden;">'
+                + '<div style="background:#667eea;padding:14px 18px;display:flex;justify-content:space-between;align-items:center;">'
+                + '<span style="color:white;font-weight:700;font-size:16px;">Formula Settings</span>'
+                + '<button onclick="document.getElementById(\'calcSettingsModal\').remove()" style="background:rgba(255,255,255,0.2);border:none;color:white;font-size:20px;width:30px;height:30px;border-radius:50%;cursor:pointer;">X</button>'
+                + '</div><div style="padding:15px;">'
+                + '<div style="background:#fff3e0;border:1.5px solid #ff9800;border-radius:8px;padding:12px;margin-bottom:12px;">'
+                + '<h3 style="margin:0 0 10px;color:#e65100;font-size:14px;">Edit Existing Formula</h3>'
+                + '<select id="csEditSel" onchange="csLoadEdit()" style="width:100%;padding:9px;border:2px solid #ff9800;border-radius:7px;font-size:14px;margin-bottom:10px;"><option value="">-- Select Weight --</option>'+weightOpts+'</select>'
+                + '<div id="csEditFields" style="display:none;">'
+                + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;">'
+                + '<div><label style="font-size:11px;font-weight:600;">Pouch/Shipper</label><input id="csEPS" type="number" style="width:100%;padding:8px;border:2px solid #ddd;border-radius:6px;font-size:14px;" oninput="csUpdatePreview()"></div>'
+                + '<div><label style="font-size:11px;font-weight:600;">Shipper/Pallet</label><input id="csESP" type="number" style="width:100%;padding:8px;border:2px solid #ddd;border-radius:6px;font-size:14px;" oninput="csUpdatePreview()"></div>'
+                + '<div><label style="font-size:11px;font-weight:600;">Speed/min</label><input id="csESpd" type="number" style="width:100%;padding:8px;border:2px solid #ddd;border-radius:6px;font-size:14px;"></div>'
+                + '<div><label style="font-size:11px;font-weight:600;">Unit</label><select id="csEUnit" style="width:100%;padding:8px;border:2px solid #ddd;border-radius:6px;font-size:14px;"><option value="Pouch">Pouch</option><option value="met">met</option></select></div>'
+                + '</div><div id="csPreview" style="background:#f9f9f9;border-radius:6px;padding:8px;font-size:12px;color:#555;margin-bottom:8px;"></div>'
+                + '<button onclick="csSaveEdit()" style="width:100%;padding:10px;background:#ff9800;color:white;border:none;border-radius:7px;font-size:14px;cursor:pointer;font-weight:700;">Save Changes</button>'
+                + '</div></div>'
+                + '<div style="background:#e8f5e9;border:1.5px solid #4caf50;border-radius:8px;padding:12px;margin-bottom:12px;">'
+                + '<h3 style="margin:0 0 10px;color:#2e7d32;font-size:14px;">Add New Formula</h3>'
+                + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;">'
+                + '<div style="grid-column:1/-1;"><label style="font-size:11px;font-weight:600;">Weight Name</label><input id="csNName" placeholder="e.g. 1.5kg" style="width:100%;padding:8px;border:2px solid #ddd;border-radius:6px;font-size:14px;"></div>'
+                + '<div><label style="font-size:11px;font-weight:600;">Pouch/Shipper</label><input id="csNPS" type="number" style="width:100%;padding:8px;border:2px solid #ddd;border-radius:6px;font-size:14px;"></div>'
+                + '<div><label style="font-size:11px;font-weight:600;">Shipper/Pallet</label><input id="csNSP" type="number" style="width:100%;padding:8px;border:2px solid #ddd;border-radius:6px;font-size:14px;"></div>'
+                + '<div><label style="font-size:11px;font-weight:600;">Speed/min</label><input id="csNSpd" type="number" style="width:100%;padding:8px;border:2px solid #ddd;border-radius:6px;font-size:14px;"></div>'
+                + '<div><label style="font-size:11px;font-weight:600;">Unit</label><select id="csNUnit" style="width:100%;padding:8px;border:2px solid #ddd;border-radius:6px;font-size:14px;"><option value="Pouch">Pouch</option><option value="met">met</option></select></div>'
+                + '</div><button onclick="csSaveNew()" style="width:100%;padding:10px;background:#4caf50;color:white;border:none;border-radius:7px;font-size:14px;cursor:pointer;font-weight:700;">Add Formula</button>'
+                + '</div>'
+                + '<div><h3 style="font-size:13px;color:#333;margin-bottom:8px;">All Formulas</h3><div style="max-height:160px;overflow-y:auto;">'+rows+'</div></div>'
+                + '</div></div>';
+            document.body.appendChild(modal);
+            modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
+        }
+
+        function csLoadEdit() {
+            const key = document.getElementById('csEditSel').value;
+            const fields = document.getElementById('csEditFields');
+            if (!key) { fields.style.display='none'; return; }
+            const custom = JSON.parse(localStorage.getItem('customFormulas')||'{}');
+            const f = custom[key] || formulas[key];
+            if (!f) return;
+            document.getElementById('csEPS').value = f.pouchToShipper;
+            document.getElementById('csESP').value = f.shipperToPallet;
+            document.getElementById('csESpd').value = f.speed;
+            document.getElementById('csEUnit').value = f.unit||'Pouch';
+            fields.style.display = 'block';
+            csUpdatePreview();
+        }
+
+        function csUpdatePreview() {
+            const key = document.getElementById('csEditSel').value;
+            const ps = document.getElementById('csEPS').value;
+            const sp = document.getElementById('csESP').value;
+            const spd = document.getElementById('csESpd').value;
+            const unit = document.getElementById('csEUnit').value;
+            if (!ps||!sp) return;
+            document.getElementById('csPreview').textContent = key+': '+ps+' '+unit+'/Shipper | '+sp+' Shipper/Pallet | Speed: '+spd+' '+unit+'/min';
+        }
+
+        function csSaveEdit() {
+            const key = document.getElementById('csEditSel').value;
+            if (!key) { alert('Select a weight!'); return; }
+            const ps=parseInt(document.getElementById('csEPS').value);
+            const sp=parseInt(document.getElementById('csESP').value);
+            const spd=parseFloat(document.getElementById('csESpd').value)||0;
+            const unit=document.getElementById('csEUnit').value;
+            if (!ps||!sp) { alert('Pouch/Shipper and Shipper/Pallet required!'); return; }
+            const custom = JSON.parse(localStorage.getItem('customFormulas')||'{}');
+            custom[key] = {pouchToShipper:ps,shipperToPallet:sp,pouchToPallet:ps*sp,speed:spd,unit};
+            localStorage.setItem('customFormulas', JSON.stringify(custom));
+            Object.assign(formulas, custom);
+            if (!weights.includes(key)) weights.push(key);
+            showCornerAlert('Saved: '+key, 'weight-alert', 2000);
+            document.getElementById('calcSettingsModal').remove();
+            openCalcSettings();
+        }
+
+        function csSaveNew() {
+            const name=document.getElementById('csNName').value.trim();
+            const ps=parseInt(document.getElementById('csNPS').value);
+            const sp=parseInt(document.getElementById('csNSP').value);
+            const spd=parseFloat(document.getElementById('csNSpd').value)||0;
+            const unit=document.getElementById('csNUnit').value;
+            if (!name) { alert('Weight name required!'); return; }
+            if (!ps||!sp) { alert('Pouch/Shipper and Shipper/Pallet required!'); return; }
+            const custom = JSON.parse(localStorage.getItem('customFormulas')||'{}');
+            custom[name] = {pouchToShipper:ps,shipperToPallet:sp,pouchToPallet:ps*sp,speed:spd,unit};
+            localStorage.setItem('customFormulas', JSON.stringify(custom));
+            formulas[name] = custom[name];
+            if (!weights.includes(name)) weights.push(name);
+            showCornerAlert('Added: '+name, 'weight-alert', 2000);
+            document.getElementById('calcSettingsModal').remove();
+            openCalcSettings();
+        }
+
+        function deleteCalcF(name) {
+            if (!confirm('Delete "'+name+'" formula?')) return;
+            const custom = JSON.parse(localStorage.getItem('customFormulas')||'{}');
+            delete custom[name];
+            localStorage.setItem('customFormulas', JSON.stringify(custom));
+            delete formulas[name];
+            const idx = weights.indexOf(name);
+            if (idx > -1) weights.splice(idx, 1);
+            document.getElementById('calcSettingsModal').remove();
+            openCalcSettings();
+        }
+        // Load dark mode preference
+        window.onload = function() {
+            // Fetch customFormulas from server first, then init
+            const binId = localStorage.getItem('jb_bin_id') || localStorage.getItem('jb_public_bin_id') || '69be6b9cb7ec241ddc8b64c7';
+            const apiKey = localStorage.getItem('jb_api_key') || '$2a$10$7yKDK4eU8xJnFHJDzssaBuJvnDVw4iulb2F0faX2fJBFaziBWXiTG';
+            if (binId) {
+                const headers = { 'X-Bin-Meta': 'false' };
+                if (apiKey) headers['X-Access-Key'] = apiKey;
+                fetch('https://api.jsonbin.io/v3/b/' + binId + '/latest', { headers })
+                    .then(r => r.json())
+                    .then(json => {
+                        const rec = json.record || json || {};
+                        // Save customFormulas to localStorage
+                        if (rec.customFormulas) {
+                            localStorage.setItem('customFormulas', JSON.stringify(rec.customFormulas));
+                        }
+                        // Save records to localStorage
+                        if (rec.records) {
+                            localStorage.setItem('mc_data_v1', JSON.stringify(rec.records));
+                        }
+                        // Save view password
+                        if (rec.viewPassword) {
+                            localStorage.setItem('view_password', rec.viewPassword);
+                        }
+                    })
+                    .catch(() => {})
+                    .finally(() => { initCalcFormulas(); });
+            } else {
+                initCalcFormulas();
+            }
+        };
+
+        function initCalcFormulas() {
+            // Load custom formulas from localStorage (already synced from server)
+            const savedFormulas = localStorage.getItem('customFormulas');
+            if (savedFormulas) {
+                try {
+                    const cf = JSON.parse(savedFormulas);
+                    Object.assign(formulas, cf);
+                    Object.keys(cf).forEach(w => { if (!weights.includes(w)) weights.push(w); });
+                } catch(e) {}
+            }
+            // Load local-only formulas (device only, not from server)
+            const localOnly = localStorage.getItem('localOnlyFormulas');
+            if (localOnly) {
+                try {
+                    const lf = JSON.parse(localOnly);
+                    Object.assign(formulas, lf);
+                    Object.keys(lf).forEach(w => { if (!weights.includes(w)) weights.push(w); });
+                } catch(e) {}
+            }
+            const savedWeights = localStorage.getItem('weights');
+            if (savedWeights) {
+                try {
+                    JSON.parse(savedWeights).forEach(w => { if (!weights.includes(w)) weights.push(w); });
+                } catch(e) {}
+            }
+
+            // Dark mode
+            const darkMode = localStorage.getItem('calculatorDarkMode');
+            const body = document.body;
+            const icon = document.getElementById('darkModeIcon');
+            if (darkMode === 'enabled' || darkMode === null) {
+                body.classList.add('dark-mode');
+                if (icon) icon.textContent = '☀️';
+            } else {
+                body.classList.remove('dark-mode');
+                if (icon) icon.textContent = '🌙';
+            }
+
+            // Init weight display
+            const currentWeight = weights[currentWeightIndex];
+            const formula = getCurrentFormula();
+            const unit = formula ? formula.unit || 'Pouch' : 'Pouch';
+            document.getElementById('currentWeight').textContent = currentWeight;
+            document.getElementById('formulaWeight').textContent = currentWeight;
+            if (formula) {
+                document.getElementById('formula1').textContent = '✓ ' + formula.pouchToShipper + ' ' + unit + ' = 1 Shipper';
+                document.getElementById('formula2').textContent = '✓ ' + formula.shipperToPallet + ' Shipper = 1 Pallet';
+                document.getElementById('formula3').textContent = '✓ ' + formula.pouchToPallet + ' ' + unit + ' = 1 Pallet';
+                document.getElementById('formula4').textContent = '⚡ Speed: ' + (formula.speed > 0 ? formula.speed + ' ' + unit + '/min' : 'Not Set');
+            }
+            const pouchLabel = document.querySelector('label[for="pouchCount"]');
+            if (pouchLabel) pouchLabel.textContent = '📦 ' + unit + ' Count';
+
+            setTimeout(function() {
+                showCornerAlert('⚖️ Select Weight First', 'weight-alert', 3000);
+            }, 1800);
+        }
+
+    </script>
+</body>
+</html>

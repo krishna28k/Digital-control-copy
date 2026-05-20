@@ -1486,6 +1486,9 @@ body { -webkit-user-select: none; -moz-user-select: none; user-select: none; }
             <div class="menu-item admin-only" onclick="openCalcFormulaManager();toggleMenu()">
                 <span>⚗️ Calculator Formulas</span>
             </div>
+            <div class="menu-item admin-only" onclick="openGuideEditor();toggleMenu()">
+                <span>📝 Edit Guide</span>
+            </div>
             <div class="menu-item" onclick="logoutApp()" style="border-top: 2px solid #f44336;">
                 <span style="color:#f44336;">🚪 Logout</span>
             </div>
@@ -2031,9 +2034,9 @@ function createProductCard(item, isCompact = false, searchTerm = '') {
         return text.replace(regex, '<span class="search-highlight">$1</span>');
     };
 
-    // Checkbox helper — value ke saath ek line mein
+    // Checkbox helper — inline with value
     const cb = (id) => `<div class="verify-cb" id="cb_${cardId}_${id}" onclick="toggleVerify('cb_${cardId}_${id}')"></div>`;
-    // Row helper — label pehli line, value+checkbox dusri line (mobile friendly)
+    // Row helper — label first line, value+checkbox second line (mobile friendly)
     const row = (label, valueHtml, cbId) => `
         <div class="data-row">
             <span class="data-label">${label}</span>
@@ -2403,12 +2406,12 @@ window.addEventListener('pageshow', function(e) {
     if (pi) pi.value = '';
 });
 
-// Browser/tab close hone par logout time save karo
+// Save logout time when browser/tab is closed
 window.addEventListener('beforeunload', function() {
     _saveLogoutLog();
 });
 
-// Visibility change — tab switch ya phone lock hone par bhi save karo
+// Visibility change — also save when tab switches or phone locks
 document.addEventListener('visibilitychange', function() {
     if (document.visibilityState === 'hidden') {
         _saveLogoutLog();
@@ -2658,7 +2661,7 @@ function applyRoleAccess(role) {
         document.querySelectorAll('.menu-item').forEach(el => el.style.display = 'none');
         document.querySelectorAll('.menu-item.user-visible').forEach(el => el.style.display = 'block');
 
-        // Access control apply karo
+        // Apply access control
         const ac = getAccessControl();
 
         // Scanner button
@@ -2687,7 +2690,7 @@ function applyRoleAccess(role) {
             btn.style.display = ac.calculator !== false ? '' : 'none';
         });
 
-        // Menu items — text match se control
+        // Menu items — control by text match
         document.querySelectorAll('.menu-item').forEach(el => {
             const txt = el.textContent.trim();
             if (txt.includes('Share App'))        el.style.display = ac.qrshare !== false ? 'block' : 'none';
@@ -2700,6 +2703,10 @@ function applyRoleAccess(role) {
             if (txt.includes('Download CSV'))     el.style.display = ac.export !== false ? 'block' : 'none';
             if (txt.includes('Highlight Note'))   el.style.display = ac.highlight_note !== false ? 'block' : 'none';
         });
+
+        // Personal Access Control — show to user only if admin has enabled it
+        const privacyItem = document.querySelector('.menu-item[onclick*="openPrivacySettings"]');
+        if (privacyItem) privacyItem.style.display = ac.personal_access !== false ? 'block' : 'none';
 
     } else {
         // Admin — show everything
@@ -2748,7 +2755,7 @@ async function _registerFingerprint(role, password) {
             const credId = btoa(String.fromCharCode(...new Uint8Array(credential.rawId)));
             localStorage.setItem('fp_credential_' + role, credId);
             localStorage.setItem('fp_enabled_' + role, 'true');
-            localStorage.setItem('fp_last_role', role); // last registered role save karo
+            localStorage.setItem('fp_last_role', role); // save last registered role
             vibrateDevice([100, 50, 100]);
             showSuccessPopup((role === 'admin' ? 'Admin' : 'User') + ' fingerprint registered!');
             return true;
@@ -2794,15 +2801,15 @@ async function useFingerprintAuth(role) {
         const viewReg  = localStorage.getItem('fp_enabled_view') === 'true';
 
         if (!adminReg && !viewReg) {
-            // Koi registered nahi — pehle role choose karo
-            const choice = confirm('Fingerprint Setup\n\nKis ke liye register karna hai?\n\nOK = Admin\nCancel = User');
+            // No fingerprint registered — choose role first
+            const choice = confirm('Fingerprint Setup\n\nWho do you want to register for?\n\nOK = Admin\nCancel = User');
             const chosenRole = choice ? 'admin' : 'view';
             const pwd = prompt('Enter ' + (chosenRole === 'admin' ? 'admin' : 'user') + ' password to register fingerprint:');
             if (!pwd) return;
             await _registerFingerprint(chosenRole, pwd);
             return;
         } else if (adminReg && viewReg) {
-            // Dono registered — last registered role use karo
+            // Both registered — use last registered role
             role = localStorage.getItem('fp_last_role') || 'admin';
         } else if (adminReg) {
             role = 'admin';
@@ -3030,6 +3037,21 @@ function changePassword() {
         showSuccessPopup('Password changed successfully! 🔐');
     }
     toggleMenu();
+}
+
+// User changes their own view password (syncs to server)
+function changeUserOwnPassword() {
+    const currentPwd = prompt('Enter your current password:');
+    const viewPwd = localStorage.getItem('view_password') || '2468';
+    if (currentPwd !== viewPwd) { alert('Wrong current password!'); return; }
+    const newPwd = prompt('Enter new password:\n(min 4 characters)');
+    if (!newPwd || newPwd.length < 4) { alert('Password too short! Min 4 characters.'); return; }
+    const confirmPwd = prompt('Confirm new password:');
+    if (newPwd !== confirmPwd) { alert('Passwords do not match!'); return; }
+    localStorage.setItem('view_password', newPwd);
+    syncToServer();
+    showSyncToast('✅ Password changed!', '#4CAF50');
+    vibrateDevice([100, 50, 100]);
 }
 
 // Change User (view) Password — admin only, syncs to server
@@ -3686,30 +3708,30 @@ function _guideContent(mode, lang) {
         quick: {
             title: 'Quick Guide',
             s1h: '1. Login / Lock Screen',
-            s1b: 'Admin ya User password dalo unlock karne ke liye.<br>Admin login: sirf data sync, location check nahi.<br>User login: agar Location Lock ON hai to GPS check hoga.<br>Blue button = Admin fingerprint &nbsp;|&nbsp; Green = User fingerprint.<br>Pehli baar tap: password dalo register karne ke liye.<br>Dobara tap: fingerprint se seedha open.<br>Lock screen pe ? button: ye guide khulega.',
+            s1b: 'Enter Admin or User password to unlock.<br>Admin login: data sync only, no location check.<br>User login: if Location Lock is ON, GPS will be checked.<br>Blue button = Admin fingerprint &nbsp;|&nbsp; Green = User fingerprint.<br>First tap: enter password to register.<br>Next tap: opens directly via fingerprint.<br>? button on lock screen: opens this guide.',
             s2h: '2. Search &amp; Scan',
-            s2b: 'PCode, SKU, Case G/Case, Pouch G/Case, Bulk G/Case se search karo.<br>📷 Camera button: QR/Barcode scan, auto search.<br>✖ button: search clear karo.<br>🔽 Filter: price range aur sort options.'
+            s2b: 'Search by PCode, SKU, Case G/Case, Pouch G/Case, Bulk G/Case.<br>📷 Camera button: QR/Barcode scan, auto search.<br>✖ button: clear search.<br>🔽 Filter: price range and sort options.'
         },
         full: {
             title: 'User Guide',
             s1h: '1. Login / Lock Screen',
-            s1b: 'Admin ya User password dalo unlock karne ke liye.<br>Admin: sirf data sync, location check nahi.<br>User: agar Location Lock ON hai to GPS check hoga.<br>Blue = Admin fingerprint &nbsp;|&nbsp; Green = User fingerprint.<br>Pehli tap: password se register. Dobara tap: seedha open.',
+            s1b: 'Enter Admin or User password to unlock.<br>Admin: data sync only, no location check.<br>User: GPS checked if Location Lock is ON.<br>Blue = Admin fingerprint &nbsp;|&nbsp; Green = User fingerprint.<br>First tap: register with password. Next tap: direct access.',
             s2h: '2. Search &amp; Scan',
-            s2b: 'PCode, SKU, Case G/Case, Pouch G/Case, Bulk G/Case se search karo.<br>📷 QR/Barcode scan — auto search.<br>✖ Search clear &nbsp;|&nbsp; 🔽 Filter: price range aur sort.',
+            s2b: 'Search by PCode, SKU, Case G/Case, Pouch G/Case, Bulk G/Case.<br>📷 QR/Barcode scan — auto search.<br>✖ Clear search &nbsp;|&nbsp; 🔽 Filter: price range and sort.',
             s3h: '3. Data Management',
-            s3b: 'Upload CSV/Excel: Menu &gt; Upload File.<br>Template: Menu &gt; Download CSV Template.<br>Manual entry: Menu &gt; Add Manual Data.<br>Edit/Delete: card pe button tap karo (password required).<br>Share: WhatsApp ya clipboard.',
+            s3b: 'Upload CSV/Excel: Menu &gt; Upload File.<br>Template: Menu &gt; Download CSV Template.<br>Manual entry: Menu &gt; Add Manual Data.<br>Edit/Delete: tap button on card (password required).<br>Share: WhatsApp or clipboard.',
             s4h: '4. CSV Format (19 Columns)',
             s4b: 'PCode, SKU, BulkGCase, MRPOld, MRPNew, PerUnitMRP,<br>PouchGCase, CaseGCase, ZPartition, CasePouch, PalletShipper,<br>LSL, Target, USL, Tera, SecLsl, SecTarget, SecUsl, SecTera.',
             s5h: '5. Password &amp; Security',
-            s5b: 'Admin Password change: Menu &gt; Change Admin Password.<br>User Password change: Menu &gt; Change User Password (admin only, server sync hoga).<br>Fingerprint Setup: Menu &gt; Fingerprint Setup.',
+            s5b: 'Change Admin Password: Menu &gt; Change Admin Password.<br>Change User Password: Menu &gt; Change User Password (admin only, syncs to server).<br>Fingerprint Setup: Menu &gt; Fingerprint Setup.',
             s6h: '6. Location Lock',
-            s6b: 'Menu &gt; Location Settings (admin password required).<br>Location 1 &amp; 2 set karo (Auto button se GPS fill hoga).<br>Radius meters mein set karo. Enable Location Lock checkbox ON karo.<br>User range se bahar: red warning + data block.<br>Admin ke liye location check kabhi nahi hoga.',
+            s6b: 'Menu &gt; Location Settings (admin password required).<br>Set Location 1 &amp; 2 (use Auto button to fill GPS).<br>Set radius in meters. Enable Location Lock checkbox.<br>User out of range: red warning + data blocked.<br>Admin is never location locked.',
             s7h: '7. Online Sync (JSONBin)',
-            s7b: 'Menu &gt; API / Bin ID Settings.<br>Admin device: API Key + Bin ID dono dalo.<br>User device: sirf Bin ID dalo (read-only).<br>Refresh button: data + location sync.',
+            s7b: 'Menu &gt; API / Bin ID Settings.<br>Admin device: enter API Key + Bin ID.<br>User device: enter Bin ID only (read-only).<br>Refresh button: sync data + location.',
             s8h: '8. Customization',
-            s8b: 'Theme: Menu &gt; Change Theme (16 themes + custom color).<br>Dark Mode: header moon icon ya Menu &gt; Dark Mode.',
+            s8b: 'Theme: Menu &gt; Change Theme (16 themes + custom color).<br>Dark Mode: moon icon in header or Menu &gt; Dark Mode.',
             s9h: '9. Troubleshooting',
-            s9b: 'Fingerprint kaam nahi: HTTPS chahiye, modern browser, fingerprint sensor.<br>Scanner kaam nahi: camera permission allow karo.<br>Location match nahi: GPS on karo, radius badhao.<br>Sync fail: API Key aur Bin ID check karo.'
+            s9b: 'Fingerprint not working: needs HTTPS, modern browser, fingerprint sensor.<br>Scanner not working: allow camera permission.<br>Location mismatch: turn on GPS, increase radius.<br>Sync failed: check API Key and Bin ID.'
         }
     };
     return lang === 'hi' ? hi[mode] : en[mode];
@@ -3821,14 +3843,14 @@ function openQRShare() {
     document.body.appendChild(modal);
     modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
 
-    // QR generate karo
+    // Generate QR code
     generateQR(savedUrl);
 }
 
 function generateQR(url) {
     const box = document.getElementById('qrCodeBox');
     if (!box) return;
-    // Google Charts API se QR generate karo — no library needed
+    // Generate QR using Google Charts API — no library needed
     const encoded = encodeURIComponent(url);
     const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encoded}&bgcolor=ffffff&color=333333&margin=5`;
     box.innerHTML = `<img src="${qrUrl}" style="width:180px;height:180px;border-radius:6px;" onerror="this.parentElement.innerHTML='<span style=color:#f44336;font-size:12px;>QR generation failed.<br>Check internet.</span>'">`;
@@ -4270,12 +4292,12 @@ function runCLSearch(type) {
     resultDiv.innerHTML = results.map((d, ri) => {
         const fieldsToShow = type === 'primary' ? CL_FIELDS_PRIMARY : CL_FIELDS_SECONDARY;
 
-        // PQF red karne ke liye helper
+        // Helper to highlight [PQF] in red
         const formatFieldName = (name) => {
             return name.replace(/\[PQF\]/g, '<span style="color:#f44336;font-weight:800;">[PQF]</span>');
         };
 
-        // Highlighted row pehle, baaki baad mein
+        // Highlighted row first, rest after
         const highlighted = [];
         const normal = [];
         fieldsToShow.forEach((f, i) => {
@@ -4530,6 +4552,128 @@ function syncCalcFormulas() {
     syncToServer().then(()=>showSyncToast('✅ Formulas synced! All users will receive updates.','#4caf50'));
 }
 
+// ============================================================
+// GUIDE EDITOR — Admin manually writes guides
+// ============================================================
+function openGuideEditor() {
+    const existing = document.getElementById('guideEditorModal');
+    if (existing) existing.remove();
+
+    // Load saved guides
+    const saved = JSON.parse(localStorage.getItem('customGuides') || '{}');
+    const mainEn  = saved.mainEn  || '';
+    const mainHi  = saved.mainHi  || '';
+    const lockEn  = saved.lockEn  || '';
+    const lockHi  = saved.lockHi  || '';
+
+    const modal = document.createElement('div');
+    modal.id = 'guideEditorModal';
+    modal.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.7);display:flex;justify-content:center;align-items:flex-start;padding:15px;box-sizing:border-box;overflow-y:auto;z-index:9999;';
+
+    modal.innerHTML = `
+    <div style="background:white;border-radius:14px;max-width:520px;width:100%;margin:auto;overflow:hidden;">
+        <div style="background:linear-gradient(135deg,#667eea,#764ba2);padding:14px 18px;display:flex;justify-content:space-between;align-items:center;position:sticky;top:0;z-index:1;">
+            <div style="color:white;font-weight:700;font-size:17px;">📝 Edit Guide</div>
+            <button onclick="document.getElementById('guideEditorModal').remove()" style="background:rgba(255,255,255,0.2);border:none;color:white;font-size:22px;width:32px;height:32px;border-radius:50%;cursor:pointer;">✕</button>
+        </div>
+        <div style="padding:16px;">
+
+            <!-- Tab selector -->
+            <div style="display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap;">
+                <button onclick="switchGuideTab('mainEn')" id="gtab_mainEn" style="flex:1;padding:8px;background:#667eea;color:white;border:none;border-radius:7px;font-size:13px;cursor:pointer;font-weight:700;">📖 Main Guide (EN)</button>
+                <button onclick="switchGuideTab('mainHi')" id="gtab_mainHi" style="flex:1;padding:8px;background:#e0e0e0;color:#555;border:none;border-radius:7px;font-size:13px;cursor:pointer;">📖 Main Guide (HI)</button>
+                <button onclick="switchGuideTab('lockEn')" id="gtab_lockEn" style="flex:1;padding:8px;background:#e0e0e0;color:#555;border:none;border-radius:7px;font-size:13px;cursor:pointer;">🔒 Lock Screen (EN)</button>
+                <button onclick="switchGuideTab('lockHi')" id="gtab_lockHi" style="flex:1;padding:8px;background:#e0e0e0;color:#555;border:none;border-radius:7px;font-size:13px;cursor:pointer;">🔒 Lock Screen (HI)</button>
+            </div>
+
+            <div style="background:#e8f5e9;border-radius:8px;padding:8px 12px;margin-bottom:10px;font-size:12px;color:#2e7d32;">
+                💡 You can use plain text or HTML tags like &lt;b&gt;bold&lt;/b&gt;, &lt;br&gt; for new line
+            </div>
+
+            <!-- Text areas for each tab -->
+            <div id="gtab_mainEn_area">
+                <label style="font-size:12px;font-weight:700;color:#667eea;display:block;margin-bottom:6px;">📖 Main Guide — English</label>
+                <textarea id="guide_mainEn" rows="12" placeholder="Write main guide in English here..." style="width:100%;padding:10px;border:2px solid #667eea;border-radius:8px;font-size:13px;box-sizing:border-box;resize:vertical;line-height:1.6;">${mainEn}</textarea>
+            </div>
+            <div id="gtab_mainHi_area" style="display:none;">
+                <label style="font-size:12px;font-weight:700;color:#764ba2;display:block;margin-bottom:6px;">📖 Main Guide — Hindi (Hinglish)</label>
+                <textarea id="guide_mainHi" rows="12" placeholder="Yahan main guide Hindi mein likho..." style="width:100%;padding:10px;border:2px solid #764ba2;border-radius:8px;font-size:13px;box-sizing:border-box;resize:vertical;line-height:1.6;">${mainHi}</textarea>
+            </div>
+            <div id="gtab_lockEn_area" style="display:none;">
+                <label style="font-size:12px;font-weight:700;color:#2196F3;display:block;margin-bottom:6px;">🔒 Lock Screen Guide — English</label>
+                <textarea id="guide_lockEn" rows="12" placeholder="Write lock screen guide in English here..." style="width:100%;padding:10px;border:2px solid #2196F3;border-radius:8px;font-size:13px;box-sizing:border-box;resize:vertical;line-height:1.6;">${lockEn}</textarea>
+            </div>
+            <div id="gtab_lockHi_area" style="display:none;">
+                <label style="font-size:12px;font-weight:700;color:#4CAF50;display:block;margin-bottom:6px;">🔒 Lock Screen Guide — Hindi (Hinglish)</label>
+                <textarea id="guide_lockHi" rows="12" placeholder="Yahan lock screen guide Hindi mein likho..." style="width:100%;padding:10px;border:2px solid #4CAF50;border-radius:8px;font-size:13px;box-sizing:border-box;resize:vertical;line-height:1.6;">${lockHi}</textarea>
+            </div>
+
+            <div style="display:flex;gap:10px;margin-top:14px;">
+                <button onclick="saveCustomGuides()" style="flex:2;padding:12px;background:#667eea;color:white;border:none;border-radius:8px;font-size:14px;cursor:pointer;font-weight:700;">💾 Save & Sync</button>
+                <button onclick="previewCustomGuide()" style="flex:1;padding:12px;background:#FF9800;color:white;border:none;border-radius:8px;font-size:14px;cursor:pointer;font-weight:700;">👁 Preview</button>
+                <button onclick="clearCustomGuides()" style="flex:1;padding:12px;background:#f44336;color:white;border:none;border-radius:8px;font-size:14px;cursor:pointer;font-weight:700;">🗑 Clear</button>
+            </div>
+        </div>
+    </div>`;
+
+    document.body.appendChild(modal);
+    modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
+}
+
+function switchGuideTab(tab) {
+    ['mainEn','mainHi','lockEn','lockHi'].forEach(t => {
+        const area = document.getElementById('gtab_' + t + '_area');
+        const btn  = document.getElementById('gtab_' + t);
+        if (area) area.style.display = t === tab ? 'block' : 'none';
+        if (btn) {
+            btn.style.background = t === tab ? '#667eea' : '#e0e0e0';
+            btn.style.color = t === tab ? 'white' : '#555';
+            btn.style.fontWeight = t === tab ? '700' : '400';
+        }
+    });
+}
+
+function saveCustomGuides() {
+    const guides = {
+        mainEn: document.getElementById('guide_mainEn').value,
+        mainHi: document.getElementById('guide_mainHi').value,
+        lockEn: document.getElementById('guide_lockEn').value,
+        lockHi: document.getElementById('guide_lockHi').value,
+    };
+    localStorage.setItem('customGuides', JSON.stringify(guides));
+    syncToServer();
+    document.getElementById('guideEditorModal').remove();
+    showSyncToast('✅ Guide saved & synced!', '#4CAF50');
+}
+
+function clearCustomGuides() {
+    if (!confirm('Clear all custom guides? Default guide will be shown.')) return;
+    localStorage.removeItem('customGuides');
+    syncToServer();
+    document.getElementById('guideEditorModal').remove();
+    showSyncToast('🗑️ Custom guides cleared', '#f44336');
+}
+
+function previewCustomGuide() {
+    const tab = document.querySelector('[id^="gtab_"][style*="background: rgb(102"]') ||
+                document.getElementById('gtab_mainEn');
+    const activeTab = tab ? tab.id.replace('gtab_','') : 'mainEn';
+    const content = document.getElementById('guide_' + activeTab)?.value || '';
+    if (!content) { alert('Nothing to preview — write something first!'); return; }
+    const prev = document.createElement('div');
+    prev.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.8);display:flex;justify-content:center;align-items:flex-start;padding:15px;box-sizing:border-box;overflow-y:auto;z-index:99999;';
+    prev.innerHTML = `
+        <div style="background:white;border-radius:12px;max-width:500px;width:100%;margin:auto;overflow:hidden;">
+            <div style="background:#667eea;padding:12px 16px;display:flex;justify-content:space-between;align-items:center;">
+                <span style="color:white;font-weight:700;">Preview</span>
+                <button onclick="this.closest('div[style*=fixed]').remove()" style="background:rgba(255,255,255,0.2);border:none;color:white;font-size:20px;width:28px;height:28px;border-radius:50%;cursor:pointer;">✕</button>
+            </div>
+            <div style="padding:16px;font-size:14px;color:#333;line-height:1.8;">${content.replace(/\n/g,'<br>')}</div>
+        </div>`;
+    document.body.appendChild(prev);
+    prev.addEventListener('click', e => { if (e.target === prev) prev.remove(); });
+}
+
 function openHighlightNote() {
     toggleMenu();
     const existing = document.getElementById('highlightNoteModal');
@@ -4637,6 +4781,7 @@ const ACCESS_ITEMS = [
     { key: 'cl_add',        label: '📌 Add Centerline Data',    desc: 'Centerline data add karna' },
     { key: 'export',        label: '📥 Export Data',            desc: 'Data export karna' },
     { key: 'highlight_note',label: '📢 Highlight Note',         desc: 'Admin note dekhna' },
+    { key: 'personal_access',label: '👤 Personal Access Control', desc: 'User apni personal settings set kar sake' },
 ];
 
 function getAccessControl() {
@@ -4731,18 +4876,19 @@ function saveAccessControl() {
 }
 
 // ============================================================
-// PERSONAL ACCESS CONTROL — sirf is device ke liye
+// PERSONAL ACCESS CONTROL — this device only, not synced to server
 // ============================================================
 const PERSONAL_ACCESS_ITEMS = [
-    { key: 'p_darkmode',   label: '🌙 Dark Mode',              desc: 'Dark/Light mode toggle' },
-    { key: 'p_filters',    label: '🔽 Advanced Filters',       desc: 'Filter panel dikhao' },
-    { key: 'p_verify_cb',  label: '☑️ Verify Checkboxes',      desc: 'Data verify checkboxes' },
-    { key: 'p_share',      label: '📤 Share Product',          desc: 'Product share button' },
-    { key: 'p_centerline', label: '📋 Centerline Button',      desc: 'Card mein centerline button' },
-    { key: 'p_qrshare',    label: '📲 Share App QR',           desc: 'App QR share option' },
-    { key: 'p_guide',      label: '📖 User Guide',             desc: 'Guide menu option' },
-    { key: 'p_scanner',    label: '📷 QR Scanner',             desc: 'Camera scan button' },
-    { key: 'p_resultcount',label: '🔢 Result Count',           desc: 'Search result count bar' },
+    { key: 'p_darkmode',    label: '🌙 Dark Mode',              desc: 'Dark/Light mode toggle' },
+    { key: 'p_filters',     label: '🔽 Advanced Filters',       desc: 'Filter panel dikhao' },
+    { key: 'p_verify_cb',   label: '☑️ Verify Checkboxes',      desc: 'Data verify checkboxes' },
+    { key: 'p_share',       label: '📤 Share Product',          desc: 'Product share button' },
+    { key: 'p_centerline',  label: '📋 Centerline Button',      desc: 'Card mein centerline button' },
+    { key: 'p_qrshare',     label: '📲 Share App QR',           desc: 'App QR share option' },
+    { key: 'p_guide',       label: '📖 User Guide',             desc: 'Guide menu option' },
+    { key: 'p_scanner',     label: '📷 QR Scanner',             desc: 'Camera scan button' },
+    { key: 'p_resultcount', label: '🔢 Result Count',           desc: 'Search result count bar' },
+    { key: 'p_changepwd',   label: '🔑 Change My Password',     desc: 'Apna user password change karna' },
 ];
 
 function getPersonalAccess() {
@@ -4840,6 +4986,25 @@ function applyPersonalAccess() {
     // Result count
     const rc = document.getElementById('resultCount');
     if (rc && pa.p_resultcount === false) rc.style.display = 'none';
+
+    // Change password option — allow user to change their own password
+    if (pa.p_changepwd !== false) {
+        // Add "Change My Password" option to menu if not already present
+        if (!document.getElementById('userChangePwdItem')) {
+            const menuContent = document.querySelector('.menu-content');
+            if (menuContent) {
+                const item = document.createElement('div');
+                item.id = 'userChangePwdItem';
+                item.className = 'menu-item user-visible';
+                item.onclick = () => { changeUserOwnPassword(); toggleMenu(); };
+                item.innerHTML = '<span>🔑 Change My Password</span>';
+                menuContent.appendChild(item);
+            }
+        }
+    } else {
+        const item = document.getElementById('userChangePwdItem');
+        if (item) item.remove();
+    }
 
     document.getElementById('personalAccessModal').remove();
     showSyncToast('✅ Personal settings applied!', '#2196F3');
@@ -4951,7 +5116,7 @@ function openPrivacySettings() {
 function logoutApp() {
     toggleMenu();
     if (!confirm('Are you sure you want to logout?')) return;
-    // Logout time save karo
+    // Save logout time
     _saveLogoutLog();
     window._userRole = null;
     stopLocationWatch();
@@ -4973,11 +5138,11 @@ function _getDeviceInfo() {
     const ua = navigator.userAgent;
     let device = '';
 
-    // Android — model name nikalo
+    // Android — extract model name
     const androidMatch = ua.match(/Android[\s/]([\d.]+).*?;\s*([^)]+)\)/);
     if (androidMatch) {
         const model = androidMatch[2].trim();
-        // Common brands detect karo
+        // Detect common brands
         const brand = model.split(' ')[0];
         device = '📱 ' + model;
         return device;
@@ -5009,7 +5174,7 @@ function _getDeviceInfo() {
     else if (/Linux/.test(ua)) device = '💻 Linux PC';
     else device = '❓ Unknown Device';
 
-    // Browser info add karo
+    // Add browser info
     let browser = '';
     if (/Chrome\//.test(ua) && !/Chromium/.test(ua) && !/Edg/.test(ua)) browser = 'Chrome';
     else if (/Edg\//.test(ua)) browser = 'Edge';
@@ -5033,7 +5198,7 @@ function _saveLoginLog(role) {
     });
     if (logs.length > 50) logs.splice(50);
     localStorage.setItem('loginHistory', JSON.stringify(logs));
-    // Server pe bhi save karo
+    // Also save to server
     setTimeout(() => syncToServer(), 1000);
 }
 
@@ -5542,7 +5707,7 @@ function isLocationAllowed(callback) {
 // ============================================================
 
 // API keys are not in HTML — stored in localStorage
-// Admin settings se enter karo — GitHub pe leak nahi hogi
+// Enter from admin settings — will not leak on GitHub
 function getApiKey() {
     // Check config.js first (local file, not pushed to GitHub)
     if (typeof JSONBIN_CONFIG !== 'undefined' && JSONBIN_CONFIG.apiKey)
@@ -5615,7 +5780,7 @@ async function syncFromServer() {
         if (rec.adminPassword) {
             localStorage.setItem('admin_password', rec.adminPassword);
         }
-        // Custom formulas sync — sabhi devices ko milenge
+        // Custom formulas sync — all devices will receive
         if (rec.customFormulas) {
             localStorage.setItem('customFormulas', JSON.stringify(rec.customFormulas));
         }
@@ -5637,26 +5802,30 @@ async function syncFromServer() {
         if (rec.cl_lines) localStorage.setItem('cl_lines', JSON.stringify(rec.cl_lines));
         if (rec.cl_skus) localStorage.setItem('cl_skus', JSON.stringify(rec.cl_skus));
         if (rec.cl_variants) localStorage.setItem('cl_variants', JSON.stringify(rec.cl_variants));
-        // Login history — server se merge karo (dono devices ke logs combine)
+        // Login history — merge with server (combine logs from all devices)
         if (rec.loginHistory && rec.loginHistory.length > 0) {
             const localLogs = JSON.parse(localStorage.getItem('loginHistory') || '[]');
             const serverLogs = rec.loginHistory;
-            // Dono merge karo — loginTs se unique identify karo
+            // Merge both — identify uniquely by loginTs
             const merged = [...localLogs];
             serverLogs.forEach(sl => {
                 if (!merged.find(ll => ll.loginTs === sl.loginTs)) {
                     merged.push(sl);
                 }
             });
-            // Time ke hisaab se sort karo — latest pehle
+            // Sort by time — latest first
             merged.sort((a, b) => (b.loginTs || 0) - (a.loginTs || 0));
-            // Max 50 rakho
+            // Keep max 50 entries
             if (merged.length > 50) merged.splice(50);
             localStorage.setItem('loginHistory', JSON.stringify(merged));
         }
         // Access control sync
         if (rec.accessControl) {
             localStorage.setItem('accessControl', JSON.stringify(rec.accessControl));
+        }
+        // Custom guides sync
+        if (rec.customGuides) {
+            localStorage.setItem('customGuides', JSON.stringify(rec.customGuides));
         }
         const count = Object.keys(serverData).length;
         showSyncToast('✅ Synced', '#4CAF50');
@@ -5685,7 +5854,7 @@ async function syncToServer() {
                 'Content-Type': 'application/json',
                 'X-Access-Key': getApiKey()
             },
-            body: JSON.stringify({ records: data, locationSettings, viewPassword, adminPassword: localStorage.getItem('admin_password') || '1234', customFormulas: JSON.parse(localStorage.getItem('customFormulas') || '{}'), highlightNote: JSON.parse(localStorage.getItem('highlightNote') || '{}'), centerlineData: JSON.parse(localStorage.getItem('centerlineData') || '[]'), centerlinePrimary: JSON.parse(localStorage.getItem('centerlinePrimary') || '[]'), centerlineSecondary: JSON.parse(localStorage.getItem('centerlineSecondary') || '[]'), cl_lines: JSON.parse(localStorage.getItem('cl_lines') || '[2,3,4,5]'), cl_skus: JSON.parse(localStorage.getItem('cl_skus') || '[]'), cl_variants: JSON.parse(localStorage.getItem('cl_variants') || '[]'), loginHistory: JSON.parse(localStorage.getItem('loginHistory') || '[]'), accessControl: JSON.parse(localStorage.getItem('accessControl') || '{}') })
+            body: JSON.stringify({ records: data, locationSettings, viewPassword, adminPassword: localStorage.getItem('admin_password') || '1234', customFormulas: JSON.parse(localStorage.getItem('customFormulas') || '{}'), highlightNote: JSON.parse(localStorage.getItem('highlightNote') || '{}'), centerlineData: JSON.parse(localStorage.getItem('centerlineData') || '[]'), centerlinePrimary: JSON.parse(localStorage.getItem('centerlinePrimary') || '[]'), centerlineSecondary: JSON.parse(localStorage.getItem('centerlineSecondary') || '[]'), cl_lines: JSON.parse(localStorage.getItem('cl_lines') || '[2,3,4,5]'), cl_skus: JSON.parse(localStorage.getItem('cl_skus') || '[]'), cl_variants: JSON.parse(localStorage.getItem('cl_variants') || '[]'), loginHistory: JSON.parse(localStorage.getItem('loginHistory') || '[]'), accessControl: JSON.parse(localStorage.getItem('accessControl') || '{}'), customGuides: JSON.parse(localStorage.getItem('customGuides') || '{}') })
         });
         if (!res.ok) {
             if (res.status === 401) throw new Error('401 - API Key wrong!');
@@ -5726,7 +5895,7 @@ function autoLockApp() {}
 function unlockApp(role) {
     window._userRole = role || 'admin';
     document.getElementById('passwordScreen').style.display = 'none';
-    // Login history save karo
+    // Save login history
     _saveLoginLog(role || 'admin');
     // Close side menu if open
     const sideMenu = document.getElementById('sideMenu');
@@ -5736,7 +5905,7 @@ function unlockApp(role) {
     loadTheme();
     showEmptyState();
     applyRoleAccess(window._userRole);
-    // Personal access apply karo (sirf is device ke liye)
+    // Apply personal access (this device only)
     setTimeout(() => applyPersonalAccess(), 300);
     // Sync on login only — no auto polling
     if (getBinId()) {
@@ -5753,3 +5922,4 @@ function unlockApp(role) {
 </script>
 </body>
 </html>
+

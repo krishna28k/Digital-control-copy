@@ -1258,6 +1258,16 @@ body.dark-mode .corner {
 .dot-blink {
     animation: blink 1s infinite;
 }
+/* Remove number input spinner */
+.no-spinner::-webkit-outer-spin-button,
+.no-spinner::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+.no-spinner {
+    -moz-appearance: textfield;
+    appearance: textfield;
+}
 
 @media (max-width: 768px) {
     .search-section {
@@ -1440,6 +1450,7 @@ body { -webkit-user-select: none; -moz-user-select: none; user-select: none; }
                 <div class="dot"></div>
             </div>
             <h1>Digital Control Copy</h1>
+            <div id="offlineIndicator" style="display:none;background:#f44336;color:white;font-size:10px;font-weight:700;padding:2px 7px;border-radius:10px;margin-left:6px;flex-shrink:0;">OFFLINE</div>
             <button onclick="openCalculator()" title="Calculator" style="background:rgba(255,255,255,0.2);border:1.5px solid rgba(255,255,255,0.4);cursor:pointer;font-size:18px;width:36px;height:36px;border-radius:8px;display:flex;align-items:center;justify-content:center;-webkit-tap-highlight-color:transparent;color:white;flex-shrink:0;margin-left:10px;">⇄</button>
             <div style="flex:1;"></div>
             <button onclick="logoutApp()" title="Lock Screen" style="background:rgba(255,255,255,0.2);border:1.5px solid rgba(255,255,255,0.4);cursor:pointer;font-size:16px;width:36px;height:36px;border-radius:8px;display:flex;align-items:center;justify-content:center;-webkit-tap-highlight-color:transparent;color:white;flex-shrink:0;">🔒</button>
@@ -1488,6 +1499,9 @@ body { -webkit-user-select: none; -moz-user-select: none; user-select: none; }
             </div>
             <div class="menu-item admin-only" onclick="openGuideEditor();toggleMenu()">
                 <span>📝 Edit Guide</span>
+            </div>
+            <div class="menu-item admin-only" onclick="openJulianCodeSettings();toggleMenu()">
+                <span>📅 Julian Code Settings</span>
             </div>
             <div class="menu-item" onclick="logoutApp()" style="border-top: 2px solid #f44336;">
                 <span style="color:#f44336;">🚪 Logout</span>
@@ -1579,6 +1593,9 @@ body { -webkit-user-select: none; -moz-user-select: none; user-select: none; }
                 <input type="text" id="secTarget" placeholder="Secondary Target">
                 <input type="text" id="secUsl" placeholder="Secondary USL">
                 <input type="text" id="secTera" placeholder="Secondary Tera">
+                
+                <h3 style="color: #FF9800; margin: 20px 0 10px 0;">📝 Notes (Admin Only)</h3>
+                <textarea id="productNote" placeholder="Add notes about this product..." rows="3" style="width:100%;padding:12px;border:2px solid #FF9800;border-radius:5px;font-size:14px;resize:vertical;box-sizing:border-box;"></textarea>
                 
                 <button type="button" onclick="addManualData()">Add Data</button>
             </form>
@@ -1909,6 +1926,7 @@ function addManualData() {
         secTarget: document.getElementById('secTarget').value.trim(),
         secUsl: document.getElementById('secUsl').value.trim(),
         secTera: document.getElementById('secTera').value.trim(),
+        note: document.getElementById('productNote')?.value?.trim() || '',
         status: "OK",
         addedOn: isEditMode ? (stored[pcode]?.addedOn || new Date().toLocaleDateString('en-IN', {day:'2-digit', month:'short', year:'numeric'})) : new Date().toLocaleDateString('en-IN', {day:'2-digit', month:'short', year:'numeric'}),
         addedBy: isEditMode ? (stored[pcode]?.addedBy || uploaderName.trim()) : uploaderName.trim(),
@@ -2026,6 +2044,7 @@ function createProductCard(item, isCompact = false, searchTerm = '') {
                 <button class="delete-card-btn" onclick="deleteCard('${item.pcode}')">🗑️ Delete</button>`;
     const shareBtn = isView && !isAccessAllowed('share') ? '' : `<button class="share-card-btn" onclick="shareProduct('${item.pcode}')">📤 Share Product</button>`;
     const clBtn = isView && !isAccessAllowed('centerline') ? '' : `<button onclick="openCenterlineUser()" style="width:100%;padding:8px;background:linear-gradient(135deg,#667eea,#764ba2);color:white;border:none;border-radius:5px;cursor:pointer;font-size:14px;margin-top:6px;">📋 Centerline</button>`;
+    const printBtn = isView && !isAccessAllowed('print_card') ? '' : `<button onclick="printProductCard('${item.pcode}')" style="width:100%;padding:8px;background:#FF9800;color:white;border:none;border-radius:5px;cursor:pointer;font-size:14px;margin-top:6px;">🖨️ Print PDF</button>`;
     
     // Helper function to highlight matching text
     const highlightText = (text, search) => {
@@ -2043,6 +2062,44 @@ function createProductCard(item, isCompact = false, searchTerm = '') {
             <div class="data-val-row">
                 <span class="data-value">${valueHtml}</span>
                 ${cb(cbId)}
+            </div>
+        </div>`;
+
+    // Julian date helper
+    const getJulianInfo = () => {
+        const now = new Date();
+        const start = new Date(now.getFullYear(), 0, 0);
+        const julian = Math.floor((now - start) / 86400000);
+        const yearDigit = now.getFullYear() % 10;
+        const dd = String(now.getDate()).padStart(2,'0');
+        const mm = String(now.getMonth()+1).padStart(2,'0');
+        const yy = String(now.getFullYear()).slice(-2);
+        return { julian, yearDigit, dateStr: `${dd}/${mm}/${yy}` };
+    };
+    const jInfo = getJulianInfo();
+    const fixedCode = localStorage.getItem('julian_fixed_code') || 'B095L#';
+    const julianBox = (pcode, uid) => `
+        <div style="margin-top:6px;">
+            <button onclick="toggleJulianBox('jbox_${uid}')" style="width:100%;padding:4px 8px;background:rgba(102,126,234,0.2);border:1px solid rgba(102,126,234,0.4);border-radius:6px;color:#667eea;font-size:11px;font-weight:700;cursor:pointer;text-align:center;">📅 Julian Date</button>
+            <div id="jbox_${uid}" style="display:none;margin-top:6px;padding:10px;background:#0d1b2a;border-radius:8px;border:1px solid rgba(0,255,255,0.25);">
+                <div style="display:flex;gap:6px;margin-bottom:8px;align-items:center;">
+                    <div style="flex:1;">
+                        <div style="font-size:9px;color:rgba(0,255,255,0.6);margin-bottom:3px;font-weight:600;">JULIAN DAY</div>
+                        <input type="number" id="jday_${uid}" placeholder="332" min="1" max="366" class="no-spinner"
+                            style="width:100%;padding:6px;background:#fff;border:1px solid #ccc;border-radius:5px;color:#333;font-size:14px;font-weight:600;box-sizing:border-box;text-align:center;"
+                            oninput="julianToDate('${uid}')">
+                    </div>
+                    <div style="flex:1;">
+                        <div style="font-size:9px;color:rgba(0,255,255,0.6);margin-bottom:3px;font-weight:600;">DATE (DD/MM/YY)</div>
+                        <input type="text" id="jdate_${uid}" placeholder="23/05/26" maxlength="8"
+                            style="width:100%;padding:6px;background:#fff;border:1px solid #ccc;border-radius:5px;color:#333;font-size:14px;font-weight:600;box-sizing:border-box;text-align:center;"
+                            oninput="smartDateInput(this,'${uid}')">
+                    </div>
+                </div>
+                <div style="background:#1a2d3d;border-radius:6px;padding:8px 10px;text-align:right;border:1px solid rgba(0,255,255,0.2);">
+                    <div id="jcode_${uid}" style="font-size:15px;font-weight:900;color:#00ffff;letter-spacing:1px;">—</div>
+                    <div id="jdate_display_${uid}" style="font-size:12px;font-weight:700;color:#ffffff;margin-top:3px;">—</div>
+                </div>
             </div>
         </div>`;
     
@@ -2095,11 +2152,14 @@ function createProductCard(item, isCompact = false, searchTerm = '') {
                             <span class="val-tera" style="font-weight:700;font-size:13px;flex:1;">${highlightText(item.tera, searchTerm)}</span>
                             ${cb('tera')}
                         </div>
+                        ${julianBox(item.pcode, cardId + '_pri')}
                     </div>
                 </div>
                 ${adminBtns}
                 ${shareBtn}
                 ${clBtn}
+                ${printBtn}
+                ${item.note ? `<div style="margin-top:8px;padding:8px 10px;background:#fff8e1;border-left:3px solid #FF9800;border-radius:0 6px 6px 0;font-size:12px;color:#555;">📝 ${item.note}</div>` : ''}
                 ${(item.addedOn || item.addedBy) ? `<div style="display:flex;justify-content:space-between;margin-top:10px;padding-top:6px;border-top:1px solid #eee;"><span style="font-size:11px;color:#888;">👤 ${item.addedBy || ''}</span><span style="font-size:11px;color:#aaa;">📅 ${item.addedOn || ''}</span></div>` : ''}
             </div>
             <div class="section-content secondary-section" data-section="secondary">
@@ -2138,6 +2198,7 @@ function createProductCard(item, isCompact = false, searchTerm = '') {
                             <span style="font-weight:700;font-size:13px;flex:1;">${highlightText(item.secTera || item.tera || '-', searchTerm)}</span>
                             ${cb('sec_tera')}
                         </div>
+                        ${julianBox(item.pcode, cardId + '_sec')}
                     </div>
                 </div>
                 ${adminBtns}
@@ -2183,6 +2244,8 @@ function editRecord(pcode) {
         document.getElementById('secTarget').value = item.secTarget || '';
         document.getElementById('secUsl').value = item.secUsl || '';
         document.getElementById('secTera').value = item.secTera || '';
+        const noteEl = document.getElementById('productNote');
+        if (noteEl) noteEl.value = item.note || '';
         
         // Change button text
         const submitBtn = document.querySelector('#manualForm button');
@@ -2406,6 +2469,15 @@ window.addEventListener('pageshow', function(e) {
     if (pi) pi.value = '';
 });
 
+// Offline indicator
+function updateOnlineStatus() {
+    const ind = document.getElementById('offlineIndicator');
+    if (ind) ind.style.display = navigator.onLine ? 'none' : 'flex';
+}
+window.addEventListener('online', updateOnlineStatus);
+window.addEventListener('offline', updateOnlineStatus);
+updateOnlineStatus();
+
 // Save logout time when browser/tab is closed
 window.addEventListener('beforeunload', function() {
     _saveLogoutLog();
@@ -2542,7 +2614,7 @@ function checkPassword() {
                 if (isJsonBinConfigured()) {
                     syncFromServer().then(merged => {
                         // Only show record count to admin
-                        if (merged) showSyncToast('✅ Synced', '#667eea');
+                        if (merged) showSyncToast('🔄 Updated', '#667eea');
                     });
                 }
                 unlockApp('admin');
@@ -2706,7 +2778,16 @@ function applyRoleAccess(role) {
 
         // Personal Access Control — show to user only if admin has enabled it
         const privacyItem = document.querySelector('.menu-item[onclick*="openPrivacySettings"]');
-        if (privacyItem) privacyItem.style.display = ac.personal_access !== false ? 'block' : 'none';
+        if (privacyItem) {
+            if (ac.personal_access !== false) {
+                // Show only Personal Access — not full Privacy Settings
+                privacyItem.setAttribute('onclick', 'openPersonalAccess();toggleMenu()');
+                privacyItem.querySelector('span').innerHTML = '👤 Personal Settings';
+                privacyItem.style.display = 'block';
+            } else {
+                privacyItem.style.display = 'none';
+            }
+        }
 
     } else {
         // Admin — show everything
@@ -2839,7 +2920,7 @@ async function useFingerprintAuth(role) {
             // Admin — no location check
             if (isJsonBinConfigured()) {
                 syncFromServer().then(merged => {
-                    if (merged) showSyncToast('✅ Synced', '#667eea');
+                    if (merged) showSyncToast('🔄 Updated', '#667eea');
                 });
             }
             unlockApp('admin');
@@ -2912,12 +2993,155 @@ function showEmptyState() {
     container.innerHTML = '<p class="no-data">🔍 Use search or scan to find products</p>';
 }
 
+// Print Product Card as PDF
+function printProductCard(pcode) {
+    const stored = JSON.parse(localStorage.getItem('mc_data_v1') || '{}');
+    const item = stored[pcode];
+    if (!item) { alert('Record not found!'); return; }
+    try {
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF();
+        doc.setFontSize(18); doc.setTextColor(102,126,234);
+        doc.text('Product Details', 105, 20, { align: 'center' });
+        doc.setFontSize(11); doc.setTextColor(0,0,0);
+        let y = 35;
+        const line = (label, val) => {
+            doc.setFont(undefined,'bold'); doc.text(label, 20, y);
+            doc.setFont(undefined,'normal'); doc.text(String(val||'-'), 80, y);
+            y += 8;
+        };
+        line('P Code:', item.pcode);
+        line('SKU:', item.sku);
+        line('Bulk G/Case:', item.bulkGCase);
+        line('MRP Old:', 'Rs. ' + item.mrpOld);
+        line('MRP New:', 'Rs. ' + item.mrpNew);
+        line('Per Unit MRP:', 'Rs. ' + item.perUnitMrp);
+        line('Pouch G/Case:', item.pouchGCase);
+        line('Case G/Case:', item.caseGCase);
+        line('Z Partition:', item.zPartition);
+        line('Case/Pouch:', item.casePouch);
+        line('Pallet/Shipper:', item.palletShipper);
+        y += 4;
+        doc.setFontSize(13); doc.setTextColor(102,126,234);
+        doc.text('Primary Weight', 20, y); y += 8;
+        doc.setFontSize(11); doc.setTextColor(0,0,0);
+        line('LSL:', item.lsl); line('Target:', item.target);
+        line('USL:', item.usl); line('Tera:', item.tera);
+        y += 4;
+        doc.setFontSize(13); doc.setTextColor(118,75,162);
+        doc.text('Secondary Weight', 20, y); y += 8;
+        doc.setFontSize(11); doc.setTextColor(0,0,0);
+        line('LSL:', item.secLsl||item.lsl); line('Target:', item.secTarget||item.target);
+        line('USL:', item.secUsl||item.usl); line('Tera:', item.secTera||item.tera);
+        if (item.note) { y += 4; doc.setTextColor(255,152,0); doc.text('Note: ' + item.note, 20, y); }
+        y += 8;
+        doc.setFontSize(9); doc.setTextColor(150,150,150);
+        doc.text('Added by: ' + (item.addedBy||'-') + '  |  Date: ' + (item.addedOn||'-'), 20, y);
+        doc.text('Generated by Digital Control Copy', 105, 285, { align: 'center' });
+        doc.save('product_' + pcode + '.pdf');
+        vibrateDevice([100]);
+        showSyncToast('🖨️ PDF saved!', '#FF9800');
+    } catch(e) { alert('PDF error: ' + e.message); }
+}
+
 // Verify checkbox toggle
 function toggleVerify(id) {
     const el = document.getElementById(id);
     if (!el) return;
     el.classList.toggle('checked');
     vibrateDevice([30]);
+}
+
+// Julian Date Box functions
+function toggleJulianBox(id) {
+    const box = document.getElementById(id);
+    if (!box) return;
+    const isHidden = box.style.display === 'none';
+    box.style.display = isHidden ? 'block' : 'none';
+    if (isHidden) {
+        // Auto fill current date + julian
+        const uid = id.replace('jbox_', '');
+        const now = new Date();
+        const start = new Date(now.getFullYear(), 0, 0);
+        const julian = Math.floor((now - start) / 86400000);
+        const dd = String(now.getDate()).padStart(2,'0');
+        const mm = String(now.getMonth()+1).padStart(2,'0');
+        const yy = String(now.getFullYear()).slice(-2);
+        const jdayEl = document.getElementById('jday_' + uid);
+        const jdateEl = document.getElementById('jdate_' + uid);
+        if (jdayEl) jdayEl.value = julian;
+        if (jdateEl) jdateEl.value = dd + '/' + mm + '/' + yy;
+        updateJulianCode(uid);
+    }
+}
+
+function updateJulianCode(uid) {
+    const fixedCode = localStorage.getItem('julian_fixed_code') || 'B095L#';
+    const jdayEl = document.getElementById('jday_' + uid);
+    const jdateEl = document.getElementById('jdate_' + uid);
+    const jcodeEl = document.getElementById('jcode_' + uid);
+    const jdateDisplay = document.getElementById('jdate_display_' + uid);
+    if (!jdayEl || !jcodeEl) return;
+    const julian = jdayEl.value;
+    // Year digit from date field
+    let yearDigit = new Date().getFullYear() % 10;
+    if (jdateEl && jdateEl.value.length >= 8) {
+        const parts = jdateEl.value.split('/');
+        if (parts.length === 3) yearDigit = parseInt(parts[2]) % 10;
+    }
+    jcodeEl.textContent = julian ? yearDigit + julian + fixedCode : '—';
+    // Normal date display update karo
+    if (jdateDisplay) {
+        jdateDisplay.textContent = jdateEl && jdateEl.value ? jdateEl.value : '—';
+    }
+}
+
+function julianToDate(uid) {
+    const jdayEl = document.getElementById('jday_' + uid);
+    const jdateEl = document.getElementById('jdate_' + uid);
+    if (!jdayEl || !jdateEl) return;
+    const julian = parseInt(jdayEl.value);
+    if (!julian || julian < 1 || julian > 366) { updateJulianCode(uid); return; }
+    const year = new Date().getFullYear();
+    const date = new Date(year, 0, julian);
+    const dd = String(date.getDate()).padStart(2,'0');
+    const mm = String(date.getMonth()+1).padStart(2,'0');
+    const yy = String(year).slice(-2);
+    jdateEl.value = dd + '/' + mm + '/' + yy;
+    updateJulianCode(uid);
+}
+
+function dateToJulian(uid) {
+    const jdayEl = document.getElementById('jday_' + uid);
+    const jdateEl = document.getElementById('jdate_' + uid);
+    if (!jdayEl || !jdateEl) return;
+    const val = jdateEl.value;
+    if (val.length < 8) { updateJulianCode(uid); return; }
+    const parts = val.split('/');
+    if (parts.length !== 3) return;
+    const dd = parseInt(parts[0]), mm = parseInt(parts[1]), yy = parseInt(parts[2]);
+    const year = yy < 50 ? 2000 + yy : 1900 + yy;
+    const date = new Date(year, mm - 1, dd);
+    const start = new Date(year, 0, 0);
+    const julian = Math.floor((date - start) / 86400000);
+    if (julian > 0 && julian <= 366) jdayEl.value = julian;
+    updateJulianCode(uid);
+}
+
+function smartDateInput(el, uid) {
+    // Only allow digits, auto-insert /
+    let val = el.value.replace(/[^\d]/g, ''); // remove non-digits
+    if (val.length > 6) val = val.slice(0, 6);
+    let formatted = '';
+    if (val.length <= 2) {
+        formatted = val;
+    } else if (val.length <= 4) {
+        formatted = val.slice(0,2) + '/' + val.slice(2);
+    } else {
+        formatted = val.slice(0,2) + '/' + val.slice(2,4) + '/' + val.slice(4);
+    }
+    el.value = formatted;
+    dateToJulian(uid);
 }
 
 // Show result count
@@ -4553,6 +4777,66 @@ function syncCalcFormulas() {
 }
 
 // ============================================================
+// JULIAN CODE SETTINGS
+// ============================================================
+function openJulianCodeSettings() {
+    const existing = document.getElementById('julianCodeModal');
+    if (existing) existing.remove();
+
+    const currentCode = localStorage.getItem('julian_fixed_code') || 'B095L#';
+
+    // Current julian info
+    const now = new Date();
+    const start = new Date(now.getFullYear(), 0, 0);
+    const julian = Math.floor((now - start) / 86400000);
+    const yearDigit = now.getFullYear() % 10;
+    const dd = String(now.getDate()).padStart(2,'0');
+    const mm = String(now.getMonth()+1).padStart(2,'0');
+    const yy = String(now.getFullYear()).slice(-2);
+
+    const modal = document.createElement('div');
+    modal.id = 'julianCodeModal';
+    modal.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.6);display:flex;justify-content:center;align-items:center;padding:15px;box-sizing:border-box;z-index:9999;';
+    modal.innerHTML = `
+    <div style="background:white;border-radius:14px;max-width:380px;width:100%;overflow:hidden;box-shadow:0 10px 40px rgba(0,0,0,0.3);">
+        <div style="background:linear-gradient(135deg,#667eea,#764ba2);padding:14px 18px;display:flex;justify-content:space-between;align-items:center;">
+            <div style="color:white;font-weight:700;font-size:17px;">📅 Julian Code Settings</div>
+            <button onclick="document.getElementById('julianCodeModal').remove()" style="background:rgba(255,255,255,0.2);border:none;color:white;font-size:22px;width:32px;height:32px;border-radius:50%;cursor:pointer;">✕</button>
+        </div>
+        <div style="padding:20px;">
+            <!-- Preview -->
+            <div style="background:#1a3a4a;border-radius:10px;padding:14px;text-align:right;margin-bottom:16px;">
+                <div style="font-size:18px;font-weight:800;color:#fff;letter-spacing:1px;" id="julianPreview">${yearDigit}${julian}${currentCode}</div>
+                <div style="font-size:12px;color:rgba(255,255,255,0.55);margin-top:3px;">${dd}/${mm}/${yy}</div>
+                <div style="font-size:10px;color:rgba(255,255,255,0.4);margin-top:2px;">Today: Day ${julian} of ${now.getFullYear()}</div>
+            </div>
+
+            <label style="font-size:13px;font-weight:700;color:#333;display:block;margin-bottom:6px;">Fixed Code (permanent part):</label>
+            <input id="julianCodeInput" type="text" value="${currentCode}" placeholder="e.g. B095L#"
+                style="width:100%;padding:11px;border:2px solid #667eea;border-radius:8px;font-size:16px;font-weight:700;box-sizing:border-box;letter-spacing:1px;margin-bottom:8px;"
+                oninput="document.getElementById('julianPreview').textContent='${yearDigit}${julian}'+this.value">
+
+            <div style="background:#f5f5f5;border-radius:8px;padding:10px 12px;margin-bottom:14px;font-size:12px;color:#666;">
+                <b>Format:</b> [Year digit][Julian day][Fixed code]<br>
+                <b>Today:</b> ${yearDigit} + ${julian} + ${currentCode} = <b>${yearDigit}${julian}${currentCode}</b>
+            </div>
+
+            <button onclick="saveJulianCode()" style="width:100%;padding:12px;background:#667eea;color:white;border:none;border-radius:8px;font-size:15px;cursor:pointer;font-weight:700;">💾 Save</button>
+        </div>
+    </div>`;
+    document.body.appendChild(modal);
+    modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
+}
+
+function saveJulianCode() {
+    const code = document.getElementById('julianCodeInput').value.trim();
+    if (!code) { alert('Please enter a code!'); return; }
+    localStorage.setItem('julian_fixed_code', code);
+    document.getElementById('julianCodeModal').remove();
+    showSyncToast('✅ Julian code saved: ' + code, '#4CAF50');
+}
+
+// ============================================================
 // GUIDE EDITOR — Admin manually writes guides
 // ============================================================
 function openGuideEditor() {
@@ -4880,15 +5164,17 @@ function saveAccessControl() {
 // ============================================================
 const PERSONAL_ACCESS_ITEMS = [
     { key: 'p_darkmode',    label: '🌙 Dark Mode',              desc: 'Dark/Light mode toggle' },
-    { key: 'p_filters',     label: '🔽 Advanced Filters',       desc: 'Filter panel dikhao' },
+    { key: 'p_filters',     label: '🔽 Advanced Filters',       desc: 'Filter panel show' },
     { key: 'p_verify_cb',   label: '☑️ Verify Checkboxes',      desc: 'Data verify checkboxes' },
     { key: 'p_share',       label: '📤 Share Product',          desc: 'Product share button' },
-    { key: 'p_centerline',  label: '📋 Centerline Button',      desc: 'Card mein centerline button' },
+    { key: 'p_centerline',  label: '📋 Centerline Button',      desc: 'Card centerline button' },
+    { key: 'p_print',       label: '🖨️ Print PDF',              desc: 'Print product as PDF' },
+    { key: 'p_notes',       label: '📝 Product Notes',          desc: 'Show notes on card' },
     { key: 'p_qrshare',     label: '📲 Share App QR',           desc: 'App QR share option' },
     { key: 'p_guide',       label: '📖 User Guide',             desc: 'Guide menu option' },
     { key: 'p_scanner',     label: '📷 QR Scanner',             desc: 'Camera scan button' },
     { key: 'p_resultcount', label: '🔢 Result Count',           desc: 'Search result count bar' },
-    { key: 'p_changepwd',   label: '🔑 Change My Password',     desc: 'Apna user password change karna' },
+    { key: 'p_changepwd',   label: '🔑 Change My Password',     desc: 'Change own user password' },
 ];
 
 function getPersonalAccess() {
@@ -5828,7 +6114,10 @@ async function syncFromServer() {
             localStorage.setItem('customGuides', JSON.stringify(rec.customGuides));
         }
         const count = Object.keys(serverData).length;
-        showSyncToast('✅ Synced', '#4CAF50');
+        const msg = window._userRole === 'admin'
+            ? '🔄 Updated  •  ' + count + ' records'
+            : '🔄 Updated';
+        showSyncToast(msg, '#4CAF50');
         return serverData;
     } catch (err) {
         showSyncToast('❌ ' + err.message, '#f44336');
@@ -5904,22 +6193,28 @@ function unlockApp(role) {
     loadDarkMode();
     loadTheme();
     showEmptyState();
-    applyRoleAccess(window._userRole);
-    // Apply personal access (this device only)
-    setTimeout(() => applyPersonalAccess(), 300);
-    // Sync on login only — no auto polling
+    // Sync on login — access control server se aane ke BAAD apply karo
     if (getBinId()) {
         syncFromServer().then(() => {
+            // Server se data aane ke baad access control apply karo
+            applyRoleAccess(window._userRole);
+            setTimeout(() => applyPersonalAccess(), 100);
             const term = document.getElementById('searchInput')?.value?.trim();
             if (term) searchData();
-            // Show highlight note after sync (so latest note is shown)
             setTimeout(showHighlightNotePopup, 800);
         });
     } else {
+        // No server — local access control apply karo
+        applyRoleAccess(window._userRole);
+        setTimeout(() => applyPersonalAccess(), 100);
         setTimeout(showHighlightNotePopup, 800);
     }
 }
 </script>
 </body>
 </html>
+
+
+
+
 

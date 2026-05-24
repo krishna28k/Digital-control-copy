@@ -14,6 +14,7 @@
     <title>Digital Control Copy</title>
     <script src="https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
     <script>
     // JSONBin API Config
     const JSONBIN_CONFIG = {
@@ -1476,11 +1477,23 @@ body { -webkit-user-select: none; -moz-user-select: none; user-select: none; }
             <div class="menu-item" onclick="downloadTemplate()">
                 <span>📥 Download CSV Template</span>
             </div>
+            <div class="menu-item admin-only" onclick="openRecycleBin();toggleMenu()">
+                <span>♻️ Recycle Bin</span>
+            </div>
+            <div class="menu-item admin-only" onclick="openBackupExport();toggleMenu()">
+                <span>💾 Data Backup Export</span>
+            </div>
             <div class="menu-item" onclick="openManualEntryModal()">
                 <span>✏️ Add Manual Data</span>
             </div>
             <div class="menu-item user-visible" onclick="openCenterlineSearch();toggleMenu()">
                 <span>🔍 Centerline Search</span>
+            </div>
+            <div class="menu-item user-visible" onclick="openPallet3D();toggleMenu()">
+                <span>📦 3D Pallet Loading</span>
+            </div>
+            <div class="menu-item admin-only" onclick="openPalletPatternSettings();toggleMenu()">
+                <span>📦 Pallet Pattern Settings</span>
             </div>
             <div class="menu-item admin-only" onclick="openStaticCenterline();toggleMenu()">
                 <span>📌 Static Centerline</span>
@@ -2355,8 +2368,52 @@ function clearSearch() {
     showEmptyState(); // Show empty state instead of all data
 }
 
-// Delete Single Card Function
+// Deleted records are kept here so accidental deletes can be restored.
+function getRecycleBin() {
+    return JSON.parse(localStorage.getItem('mc_deleted_records_v1') || '{}');
+}
+
+function saveRecycleBin(bin) {
+    localStorage.setItem('mc_deleted_records_v1', JSON.stringify(bin || {}));
+}
+
+function csvCell(value) {
+    const text = String(value ?? '');
+    return '"' + text.replace(/"/g, '""') + '"';
+}
+
+function buildRecordsCsv(records, includeDeletedStatus = false) {
+    const keys = Object.keys(records || {});
+    let csv = 'PCode,SKU,BulkGCase,MRPOld,MRPNew,PerUnitMRP,PouchGCase,CaseGCase,ZPartition,CasePouch,PalletShipper,LSL,Target,USL,Tera,SecLsl,SecTarget,SecUsl,SecTera,Status';
+    if (includeDeletedStatus) csv += ',RecordType,DeletedAt,DeletedBy';
+    csv += '\n';
+    keys.forEach(key => {
+        const item = records[key] || {};
+        const row = [
+            item.pcode, item.sku, item.bulkGCase, item.mrpOld, item.mrpNew, item.perUnitMrp,
+            item.pouchGCase, item.caseGCase, item.zPartition, item.casePouch, item.palletShipper,
+            item.lsl, item.target, item.usl, item.tera, item.secLsl || '', item.secTarget || '',
+            item.secUsl || '', item.secTera || '', item.status || ''
+        ];
+        if (includeDeletedStatus) row.push(item._recordType || 'active', item.deletedAt || '', item.deletedBy || '');
+        csv += row.map(csvCell).join(',') + '\n';
+    });
+    return csv;
+}
+
+function downloadTextFile(filename, content, type) {
+    const blob = new Blob([content], { type: type || 'text/plain' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    a.click();
+    window.URL.revokeObjectURL(url);
+}
+
+// Delete Single Card Function — moves record to Recycle Bin first
 function deleteCard(pcode) {
+    if (!requireAdminAction('Delete record')) return;
     const password = prompt('Enter password to delete:');
     const savedPassword = localStorage.getItem('admin_password') || '1234';
     if (password !== savedPassword) {
@@ -2364,63 +2421,219 @@ function deleteCard(pcode) {
         vibrateDevice([50, 50, 50]);
         return;
     }
-    if (!confirm(`Delete record with PCode: ${pcode}?`)) return;
-
-    const binId = getBinId();
-    const apiKey = getApiKey();
+    if (!confirm(`Move record with PCode ${pcode} to Recycle Bin?`)) return;
 
     const finishDelete = (data) => {
+        if (!data[pcode]) {
+            alert('Record not found. It may already be deleted.');
+            return;
+        }
+        const bin = getRecycleBin();
+        bin[pcode] = {
+            ...data[pcode],
+            deletedAt: new Date().toISOString(),
+            deletedBy: window._userRole || 'admin'
+        };
         delete data[pcode];
         localStorage.setItem('mc_data_v1', JSON.stringify(data));
-        // Push to server with deleted record removed
-        if (binId && apiKey) {
-            const locationSettings = {
-                loc_1: JSON.parse(localStorage.getItem('loc_1') || 'null'),
-                loc_2: JSON.parse(localStorage.getItem('loc_2') || 'null'),
-                loc_radius: localStorage.getItem('loc_radius') || '100',
-                loc_enabled: localStorage.getItem('loc_enabled') || 'false'
-            };
-            fetch('https://api.jsonbin.io/v3/b/' + binId, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json', 'X-Access-Key': apiKey },
-                body: JSON.stringify({
-                    records: data,
-                    locationSettings,
-                    viewPassword: localStorage.getItem('view_password') || '2468',
-                    adminPassword: localStorage.getItem('admin_password') || '1234',
-                    customFormulas: JSON.parse(localStorage.getItem('customFormulas') || '{}'),
-                    highlightNote: JSON.parse(localStorage.getItem('highlightNote') || '{}')
-                })
-            }).then(r => {
-                if (r.ok) showSyncToast('✅ Deleted from server', '#4CAF50');
-                else showSyncToast('⚠️ Deleted locally only', '#ff9800');
-            }).catch(() => showSyncToast('⚠️ Deleted locally only', '#ff9800'));
+        saveRecycleBin(bin);
+
+        const syncResult = syncToServer();
+        if (syncResult && typeof syncResult.then === 'function') {
+            syncResult.then(() => showSyncToast('♻️ Moved to Recycle Bin', '#4CAF50'));
+        } else {
+            showSyncToast('♻️ Moved to Recycle Bin locally', '#ff9800');
         }
+
         vibrateDevice([100, 50, 100]);
-        showSuccessPopup('Record deleted successfully!');
+        showSuccessPopup('Record moved to Recycle Bin!');
         const searchTerm = document.getElementById('searchInput').value.trim();
         if (searchTerm) { searchData(); } else { displayAllData(); }
     };
 
-    // Fetch latest from server first to avoid restoring deleted data
-    if (binId && apiKey) {
-        fetch('https://api.jsonbin.io/v3/b/' + binId + '/latest', {
-            headers: { 'X-Bin-Meta': 'false', 'X-Access-Key': apiKey }
+    if (isJsonBinConfigured()) {
+        fetch('https://api.jsonbin.io/v3/b/' + getBinId() + '/latest', {
+            headers: { 'X-Bin-Meta': 'false', 'X-Access-Key': getApiKey() }
         })
         .then(r => r.json())
         .then(json => {
-            const serverData = (json.record || json || {}).records || {};
-            // Use server data as base (most up to date), then delete
-            finishDelete(serverData);
+            const rec = json.record || json || {};
+            if (rec.recycleBin) saveRecycleBin(rec.recycleBin);
+            finishDelete(rec.records || JSON.parse(localStorage.getItem('mc_data_v1') || '{}'));
         })
-        .catch(() => {
-            finishDelete(JSON.parse(localStorage.getItem('mc_data_v1') || '{}'));
-        });
+        .catch(() => finishDelete(JSON.parse(localStorage.getItem('mc_data_v1') || '{}')));
     } else {
         finishDelete(JSON.parse(localStorage.getItem('mc_data_v1') || '{}'));
     }
 }
 
+function openRecycleBin() {
+    if (!requireAdminAction('Recycle Bin')) return;
+    const existing = document.getElementById('recycleBinModal');
+    if (existing) existing.remove();
+
+    const bin = getRecycleBin();
+    const keys = Object.keys(bin).sort((a, b) => new Date(bin[b].deletedAt || 0) - new Date(bin[a].deletedAt || 0));
+    const rows = keys.length ? keys.map(pcode => {
+        const item = bin[pcode] || {};
+        const deletedAt = item.deletedAt ? new Date(item.deletedAt).toLocaleString('en-IN') : 'Unknown time';
+        return `
+        <div style="padding:12px;border-bottom:1px solid #eee;display:flex;gap:10px;align-items:center;justify-content:space-between;">
+            <div style="min-width:0;flex:1;">
+                <div style="font-weight:800;color:#333;font-size:14px;word-break:break-word;">${item.pcode || pcode}</div>
+                <div style="font-size:12px;color:#666;margin-top:2px;word-break:break-word;">${item.sku || ''}</div>
+                <div style="font-size:11px;color:#999;margin-top:3px;">Deleted: ${deletedAt}</div>
+            </div>
+            <div style="display:flex;gap:6px;flex-shrink:0;">
+                <button onclick="restoreDeletedRecord('${pcode}')" style="padding:8px 10px;border:none;border-radius:6px;background:#4CAF50;color:white;font-size:12px;font-weight:700;cursor:pointer;">Restore</button>
+                <button onclick="permanentlyDeleteRecord('${pcode}')" style="padding:8px 10px;border:none;border-radius:6px;background:#f44336;color:white;font-size:12px;font-weight:700;cursor:pointer;">Delete</button>
+            </div>
+        </div>`;
+    }).join('') : '<div style="padding:30px;text-align:center;color:#999;font-size:14px;">Recycle Bin is empty.</div>';
+
+    const modal = document.createElement('div');
+    modal.id = 'recycleBinModal';
+    modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:9999;display:flex;align-items:center;justify-content:center;padding:15px;box-sizing:border-box;';
+    modal.innerHTML = `
+    <div style="background:white;border-radius:14px;width:100%;max-width:520px;max-height:88vh;overflow:hidden;box-shadow:0 10px 40px rgba(0,0,0,0.35);">
+        <div style="background:linear-gradient(135deg,#4CAF50,#009688);padding:16px 18px;display:flex;align-items:center;justify-content:space-between;color:white;">
+            <div>
+                <div style="font-size:17px;font-weight:800;">♻️ Recycle Bin</div>
+                <div style="font-size:11px;opacity:0.85;">Restore accidentally deleted product records</div>
+            </div>
+            <button onclick="document.getElementById('recycleBinModal').remove()" style="background:rgba(255,255,255,0.2);border:none;color:white;font-size:22px;width:32px;height:32px;border-radius:50%;cursor:pointer;">×</button>
+        </div>
+        <div style="max-height:58vh;overflow-y:auto;">${rows}</div>
+        <div style="display:flex;gap:8px;padding:12px;background:#fafafa;border-top:1px solid #eee;">
+            <button onclick="downloadRecycleBinBackup('json')" style="flex:1;padding:10px;background:#667eea;color:white;border:none;border-radius:8px;font-weight:700;cursor:pointer;font-size:12px;">JSON</button>
+            <button onclick="downloadRecycleBinBackup('csv')" style="flex:1;padding:10px;background:#2196F3;color:white;border:none;border-radius:8px;font-weight:700;cursor:pointer;font-size:12px;">CSV</button>
+            <button onclick="clearRecycleBin()" style="flex:1;padding:10px;background:#f44336;color:white;border:none;border-radius:8px;font-weight:700;cursor:pointer;font-size:12px;">Clear</button>
+        </div>
+    </div>`;
+    document.body.appendChild(modal);
+    modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
+}
+
+function restoreDeletedRecord(pcode) {
+    if (!requireAdminAction('Restore record')) return;
+    const bin = getRecycleBin();
+    const data = JSON.parse(localStorage.getItem('mc_data_v1') || '{}');
+    if (!bin[pcode]) { alert('Deleted record not found.'); return; }
+    if (data[pcode] && !confirm('An active record with this PCode already exists. Replace it?')) return;
+    const restored = { ...bin[pcode] };
+    delete restored.deletedAt;
+    delete restored.deletedBy;
+    data[pcode] = restored;
+    delete bin[pcode];
+    localStorage.setItem('mc_data_v1', JSON.stringify(data));
+    saveRecycleBin(bin);
+    syncToServer();
+    showSuccessPopup('Record restored!');
+    const modal = document.getElementById('recycleBinModal');
+    if (modal) modal.remove();
+    openRecycleBin();
+    const searchTerm = document.getElementById('searchInput').value.trim();
+    if (searchTerm) searchData();
+}
+
+function permanentlyDeleteRecord(pcode) {
+    if (!requireAdminAction('Permanent delete')) return;
+    if (!confirm(`Permanently delete PCode ${pcode}? This cannot be restored.`)) return;
+    const bin = getRecycleBin();
+    delete bin[pcode];
+    saveRecycleBin(bin);
+    syncToServer();
+    showSyncToast('Record permanently deleted', '#f44336');
+    const modal = document.getElementById('recycleBinModal');
+    if (modal) modal.remove();
+    openRecycleBin();
+}
+
+function clearRecycleBin() {
+    if (!requireAdminAction('Clear Recycle Bin')) return;
+    if (!confirm('Clear all records from Recycle Bin permanently?')) return;
+    saveRecycleBin({});
+    syncToServer();
+    showSyncToast('Recycle Bin cleared', '#f44336');
+    const modal = document.getElementById('recycleBinModal');
+    if (modal) modal.remove();
+    openRecycleBin();
+}
+
+function openBackupExport() {
+    if (!requireAdminAction('Data backup export')) return;
+    const existing = document.getElementById('backupExportModal');
+    if (existing) existing.remove();
+    const activeCount = Object.keys(JSON.parse(localStorage.getItem('mc_data_v1') || '{}')).length;
+    const deletedCount = Object.keys(getRecycleBin()).length;
+    const modal = document.createElement('div');
+    modal.id = 'backupExportModal';
+    modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:9999;display:flex;align-items:center;justify-content:center;padding:15px;box-sizing:border-box;';
+    modal.innerHTML = `
+    <div style="background:white;border-radius:14px;width:100%;max-width:420px;overflow:hidden;box-shadow:0 10px 40px rgba(0,0,0,0.35);">
+        <div style="background:linear-gradient(135deg,#667eea,#764ba2);padding:16px 18px;color:white;display:flex;justify-content:space-between;align-items:center;">
+            <div>
+                <div style="font-size:17px;font-weight:800;">💾 Data Backup Export</div>
+                <div style="font-size:11px;opacity:0.85;">${activeCount} active records • ${deletedCount} deleted records</div>
+            </div>
+            <button onclick="document.getElementById('backupExportModal').remove()" style="background:rgba(255,255,255,0.2);border:none;color:white;font-size:22px;width:32px;height:32px;border-radius:50%;cursor:pointer;">×</button>
+        </div>
+        <div style="padding:18px;display:grid;gap:10px;">
+            <button onclick="downloadBackup('json')" style="padding:13px;background:#4CAF50;color:white;border:none;border-radius:8px;font-size:14px;font-weight:800;cursor:pointer;">Download Full JSON Backup</button>
+            <button onclick="downloadBackup('csv')" style="padding:13px;background:#2196F3;color:white;border:none;border-radius:8px;font-size:14px;font-weight:800;cursor:pointer;">Download CSV Backup</button>
+            <div style="font-size:12px;color:#777;line-height:1.5;background:#f7f7f7;border-radius:8px;padding:10px;">JSON includes records, recycle bin, passwords/settings, formulas, centerline data, guides, and access settings. CSV includes product records for spreadsheet use.</div>
+        </div>
+    </div>`;
+    document.body.appendChild(modal);
+    modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
+}
+
+function downloadBackup(type) {
+    if (!requireAdminAction('Download backup')) return;
+    const now = new Date();
+    const stamp = now.toISOString().replace(/[:.]/g, '-').slice(0, 19);
+    const records = JSON.parse(localStorage.getItem('mc_data_v1') || '{}');
+    const recycleBin = getRecycleBin();
+
+    if (type === 'csv') {
+        const activeRecords = {};
+        Object.keys(records).forEach(key => activeRecords[key] = { ...records[key], _recordType: 'active' });
+        const deletedRecords = {};
+        Object.keys(recycleBin).forEach(key => deletedRecords[key] = { ...recycleBin[key], _recordType: 'deleted' });
+        downloadTextFile('mc_data_backup_' + stamp + '.csv', buildRecordsCsv({ ...activeRecords, ...deletedRecords }, true), 'text/csv');
+    } else {
+        const backup = {
+            exportedAt: now.toISOString(),
+            app: 'Digital Control Copy',
+            records,
+            recycleBin,
+            locationSettings: {
+                loc_1: JSON.parse(localStorage.getItem('loc_1') || 'null'),
+                loc_2: JSON.parse(localStorage.getItem('loc_2') || 'null'),
+                loc_radius: localStorage.getItem('loc_radius') || '100',
+                loc_enabled: localStorage.getItem('loc_enabled') || 'false'
+            },
+            viewPassword: localStorage.getItem('view_password') || '2468',
+            adminPassword: localStorage.getItem('admin_password') || '1234',
+            customFormulas: JSON.parse(localStorage.getItem('customFormulas') || '{}'),
+            highlightNote: JSON.parse(localStorage.getItem('highlightNote') || '{}'),
+            centerlineData: JSON.parse(localStorage.getItem('centerlineData') || '[]'),
+            centerlinePrimary: JSON.parse(localStorage.getItem('centerlinePrimary') || '[]'),
+            centerlineSecondary: JSON.parse(localStorage.getItem('centerlineSecondary') || '[]'),
+            cl_lines: JSON.parse(localStorage.getItem('cl_lines') || '[2,3,4,5]'),
+            cl_skus: JSON.parse(localStorage.getItem('cl_skus') || '[]'),
+            cl_variants: JSON.parse(localStorage.getItem('cl_variants') || '[]'),
+            loginHistory: JSON.parse(localStorage.getItem('loginHistory') || '[]'),
+            accessControl: JSON.parse(localStorage.getItem('accessControl') || '{}'),
+            customGuides: JSON.parse(localStorage.getItem('customGuides') || '{}'),
+            palletPatterns: JSON.parse(localStorage.getItem('palletPatterns') || '{}')
+        };
+        downloadTextFile('mc_data_backup_' + stamp + '.json', JSON.stringify(backup, null, 2), 'application/json');
+    }
+
+    vibrateDevice([100]);
+    showSuccessPopup('Backup downloaded!');
+}
 function exportData() {
     const stored = JSON.parse(localStorage.getItem("mc_data_v1") || "{}");
     const keys = Object.keys(stored);
@@ -2428,18 +2641,7 @@ function exportData() {
         alert('No data to export');
         return;
     }
-    let csv = "PCode,SKU,BulkGCase,MRPOld,MRPNew,PerUnitMRP,PouchGCase,CaseGCase,ZPartition,CasePouch,PalletShipper,LSL,Target,USL,Tera,SecLsl,SecTarget,SecUsl,SecTera,Status\n";
-    keys.forEach(key => {
-        const item = stored[key];
-        csv += `${item.pcode},${item.sku},${item.bulkGCase},${item.mrpOld},${item.mrpNew},${item.perUnitMrp},${item.pouchGCase},${item.caseGCase},${item.zPartition},${item.casePouch},${item.palletShipper},${item.lsl},${item.target},${item.usl},${item.tera},${item.secLsl || ''},${item.secTarget || ''},${item.secUsl || ''},${item.secTera || ''},${item.status}\n`;
-    });
-    const blob = new Blob([csv], { type: "text/csv" });
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "mc_data_export.csv";
-    a.click();
-    window.URL.revokeObjectURL(url);
+    downloadTextFile('mc_data_export.csv', buildRecordsCsv(stored), 'text/csv');
     vibrateDevice([100]);
     showSuccessPopup('Data exported successfully!');
     toggleMenu();
@@ -2568,10 +2770,16 @@ function checkPassword() {
     if (input === 'krishna') {
         const newPwd = prompt('Master access granted!\nEnter new admin password (or cancel to keep current):');
         if (newPwd && newPwd.trim()) {
+            const viewPwd = localStorage.getItem('view_password') || '2468';
+            if (newPwd.trim() === viewPwd) {
+                alert('Admin password and user password cannot be same!');
+                return;
+            }
             localStorage.setItem('admin_password', newPwd.trim());
             syncToServer();
             alert('Admin password reset to: ' + newPwd.trim());
         }
+        window._pendingLoginMethod = 'Master password';
         unlockApp('admin');
         return;
     }
@@ -2612,24 +2820,14 @@ function checkPassword() {
         const viewPassword = localStorage.getItem('view_password') || '2468';
         const locEnabled = localStorage.getItem('loc_enabled') === 'true';
 
-        if (input === adminPassword) {
+        if (adminPassword === viewPassword && input === adminPassword) {
+            console.warn('Admin and user passwords are same. Opening as user for safety.');
             showCorrect();
             setTimeout(() => {
-                if (isJsonBinConfigured()) {
-                    syncFromServer().then(merged => {
-                        // Only show record count to admin
-                        if (merged) showSyncToast('🔄 Updated', '#667eea');
-                    });
-                }
-                unlockApp('admin');
-            }, 400);
-        } else if (input === viewPassword) {
-            showCorrect();
-            setTimeout(() => {
-                if (!locEnabled) { unlockApp('view'); return; }
+                if (!locEnabled) { window._pendingLoginMethod = window._pendingLoginMethod || 'Password'; unlockApp('view'); return; }
                 if (_locationReady) {
                     if (!isInRange()) { showWrong('Wrong Location!'); return; }
-                    unlockApp('view');
+                    window._pendingLoginMethod = window._pendingLoginMethod || 'Password'; unlockApp('view');
                 } else {
                     _showGpsWarning('Getting location...');
                     _requestGpsForView(
@@ -2637,7 +2835,39 @@ function checkPassword() {
                             const gw = document.getElementById('gpsWarning');
                             if (gw) gw.style.display = 'none';
                             if (!isInRange()) { showWrong('Wrong Location!'); return; }
-                            unlockApp('view');
+                            window._pendingLoginMethod = window._pendingLoginMethod || 'Password'; unlockApp('view');
+                        },
+                        msg => _showGpsWarning(msg)
+                    );
+                }
+            }, 400);
+        } else if (input === adminPassword) {
+            showCorrect();
+            setTimeout(() => {
+                if (isJsonBinConfigured()) {
+                    syncFromServer().then(merged => {
+                        // Only show record count to admin
+                        if (merged) showSyncToast('Updated', '#667eea');
+                    });
+                }
+                window._pendingLoginMethod = window._pendingLoginMethod || 'Password';
+            unlockApp('admin');
+            }, 400);
+        } else if (input === viewPassword) {
+            showCorrect();
+            setTimeout(() => {
+                if (!locEnabled) { window._pendingLoginMethod = window._pendingLoginMethod || 'Password'; unlockApp('view'); return; }
+                if (_locationReady) {
+                    if (!isInRange()) { showWrong('Wrong Location!'); return; }
+                    window._pendingLoginMethod = window._pendingLoginMethod || 'Password'; unlockApp('view');
+                } else {
+                    _showGpsWarning('Getting location...');
+                    _requestGpsForView(
+                        () => {
+                            const gw = document.getElementById('gpsWarning');
+                            if (gw) gw.style.display = 'none';
+                            if (!isInRange()) { showWrong('Wrong Location!'); return; }
+                            window._pendingLoginMethod = window._pendingLoginMethod || 'Password'; unlockApp('view');
                         },
                         msg => _showGpsWarning(msg)
                     );
@@ -2730,11 +2960,21 @@ function showErrorPopup(message) {
     }, 2000);
 }
 
+function requireAdminAction(actionName) {
+    if (window._userRole !== 'admin') {
+        showErrorPopup((actionName || 'Admin setting') + ' is admin only!');
+        const sideMenu = document.getElementById('sideMenu');
+        if (sideMenu) sideMenu.classList.remove('active');
+        return false;
+    }
+    return true;
+}
 
 function applyRoleAccess(role) {
     if (role === 'view') {
         // Hide all menu items first, then show only user-visible
         document.querySelectorAll('.menu-item').forEach(el => el.style.display = 'none');
+        document.querySelectorAll('.menu-item.admin-only').forEach(el => el.style.display = 'none');
         document.querySelectorAll('.menu-item.user-visible').forEach(el => el.style.display = 'block');
 
         // Apply access control
@@ -2881,6 +3121,7 @@ async function _authenticateFingerprint(role) {
 
 // Lock screen fingerprint button tap
 async function useFingerprintAuth(role) {
+    window._pendingLoginMethod = 'Fingerprint';
     if (!window.PublicKeyCredential) {
         showErrorPopup('Fingerprint not supported!');
         return;
@@ -2933,15 +3174,16 @@ async function useFingerprintAuth(role) {
                     if (merged) showSyncToast('🔄 Updated', '#667eea');
                 });
             }
+            window._pendingLoginMethod = window._pendingLoginMethod || 'Password';
             unlockApp('admin');
         } else {
             // User — location check
             const locEnabled = localStorage.getItem('loc_enabled') === 'true';
-            if (!locEnabled) { unlockApp('view'); return; }
+            if (!locEnabled) { window._pendingLoginMethod = window._pendingLoginMethod || 'Password'; unlockApp('view'); return; }
             const passwordBox = document.querySelector('.password-box');
             if (_locationReady) {
                 if (!isInRange()) { showErrorPopup('Wrong Location!'); vibrateDevice([50,50,50]); return; }
-                unlockApp('view');
+                window._pendingLoginMethod = window._pendingLoginMethod || 'Password'; unlockApp('view');
             } else {
                 _showGpsWarning('Getting location...');
                 _requestGpsForView(
@@ -2949,7 +3191,7 @@ async function useFingerprintAuth(role) {
                         const gw = document.getElementById('gpsWarning');
                         if (gw) gw.style.display = 'none';
                         if (!isInRange()) { showErrorPopup('Wrong Location!'); vibrateDevice([50,50,50]); return; }
-                        unlockApp('view');
+                        window._pendingLoginMethod = window._pendingLoginMethod || 'Password'; unlockApp('view');
                     },
                     msg => _showGpsWarning(msg)
                 );
@@ -2972,6 +3214,7 @@ async function useFingerprintAuth(role) {
 
 // Menu > Fingerprint Setup (admin only — manages admin fingerprint)
 function manageFingerprintAuth() {
+    if (!requireAdminAction('Fingerprint setup')) return;
     if (!window.PublicKeyCredential) {
         alert('Fingerprint not supported on this device.');
         toggleMenu();
@@ -3210,6 +3453,7 @@ function loadDarkMode() {
 
 // Change Password Function with PIN/Password Option
 function changePassword() {
+    if (!requireAdminAction('Admin password change')) return;
     const oldPassword = prompt('Enter current password:');
     const savedPassword = localStorage.getItem('admin_password') || '1234';
     
@@ -3251,6 +3495,13 @@ function changePassword() {
         vibrateDevice([50, 50, 50]);
         return;
     }
+
+    const viewPassword = localStorage.getItem('view_password') || '2468';
+    if (newPassword === viewPassword) {
+        alert('Admin password and user password cannot be same!');
+        vibrateDevice([50, 50, 50]);
+        return;
+    }
     
     localStorage.setItem('admin_password', newPassword);
     
@@ -3282,6 +3533,8 @@ function changeUserOwnPassword() {
     if (!newPwd || newPwd.length < 4) { alert('Password too short! Min 4 characters.'); return; }
     const confirmPwd = prompt('Confirm new password:');
     if (newPwd !== confirmPwd) { alert('Passwords do not match!'); return; }
+    const adminPwd = localStorage.getItem('admin_password') || '1234';
+    if (newPwd === adminPwd) { alert('User password and admin password cannot be same!'); return; }
     localStorage.setItem('view_password', newPwd);
     syncToServer();
     showSyncToast('✅ Password changed!', '#4CAF50');
@@ -3290,6 +3543,7 @@ function changeUserOwnPassword() {
 
 // Change User (view) Password — admin only, syncs to server
 function changeUserPassword() {
+    if (!requireAdminAction('User password change')) return;
     const adminPwd = prompt('Enter admin password to confirm:');
     if (adminPwd !== (localStorage.getItem('admin_password') || '1234')) {
         alert('Wrong admin password!');
@@ -3300,6 +3554,11 @@ function changeUserPassword() {
     if (!newPwd || newPwd.length < 4) { alert('Password too short! Min 4 characters.'); return; }
     const confirmPwd = prompt('Confirm new user password:');
     if (newPwd !== confirmPwd) { alert('Passwords do not match!'); vibrateDevice([50,50,50]); return; }
+    if (newPwd === (localStorage.getItem('admin_password') || '1234')) {
+        alert('User password and admin password cannot be same!');
+        vibrateDevice([50,50,50]);
+        return;
+    }
 
     localStorage.setItem('view_password', newPwd);
     // Sync to server so all user devices get updated
@@ -4032,6 +4291,691 @@ function downloadAPK() {
 // ============================================================
 // QR CODE SHARE
 // ============================================================
+
+function getPalletPatterns() {
+    const saved = JSON.parse(localStorage.getItem('palletPatterns') || '{}');
+    if (Object.keys(saved).length === 0) {
+        saved['Default 1kg'] = {
+            sku: 'Default 1kg',
+            note: 'Sample pattern',
+            layers: [
+                { count: 12, rows: 3, cols: 4, direction: 'lengthwise' },
+                { count: 12, rows: 3, cols: 4, direction: 'widthwise' },
+                { count: 10, rows: 2, cols: 5, direction: 'alternate' }
+            ]
+        };
+    }
+    return saved;
+}
+
+function savePalletPatterns(patterns) {
+    localStorage.setItem('palletPatterns', JSON.stringify(patterns || {}));
+}
+
+function parsePalletLayerLines(text) {
+    return text.split('\n').map(line => line.trim()).filter(Boolean).map((line, idx) => {
+        const parts = line.split(',').map(p => p.trim());
+        const count = Math.max(1, parseInt(parts[0] || '12', 10));
+        const rows = Math.max(1, parseInt(parts[1] || '3', 10));
+        const cols = Math.max(1, parseInt(parts[2] || Math.ceil(count / rows), 10));
+        const direction = (parts[3] || (idx % 2 ? 'widthwise' : 'lengthwise')).toLowerCase();
+        return { count, rows, cols, direction };
+    });
+}
+
+function palletLayerLines(pattern) {
+    return (pattern.layers || []).map(l => [l.count || 12, l.rows || 3, l.cols || 4, l.direction || 'lengthwise'].join(', ')).join('\n');
+}
+
+function generatePalletLayerLinesFromNumbers() {
+    const layerCount = Math.max(1, parseInt(document.getElementById('palletGenLayers')?.value || '4', 10));
+    const shipperCount = Math.max(1, parseInt(document.getElementById('palletGenCount')?.value || '11', 10));
+    const rows = Math.max(1, parseInt(document.getElementById('palletGenRows')?.value || '3', 10));
+    const cols = Math.max(1, parseInt(document.getElementById('palletGenCols')?.value || '4', 10));
+    const direction = document.getElementById('palletGenDirection')?.value || 'photo-443';
+    const lines = [];
+    for (let i = 0; i < layerCount; i++) {
+        lines.push([shipperCount, rows, cols, direction].join(', '));
+    }
+    document.getElementById('palletLayerLines').value = lines.join('\n');
+    updatePalletPatternPreview();
+}
+
+function updatePalletPatternPreview() {
+    const box = document.getElementById('palletPatternPreview');
+    const input = document.getElementById('palletLayerLines');
+    if (!box || !input) return;
+    const manualLayers = getManualPalletDataFromField();
+    const layers = parsePalletLayerLines(input.value);
+    if (manualLayers && manualLayers.some(l => l.boxes && l.boxes.length)) {
+        box.innerHTML = manualLayers.map((layer, idx) => {
+            const boxes = layer.boxes || [];
+            const size = getManualLayerBoxSize(layer);
+            return '<div style="background:white;border:1px solid #ddd;border-radius:8px;padding:8px;margin-bottom:8px;">' +
+                '<div style="font-size:11px;font-weight:800;color:#667eea;margin-bottom:5px;">Manual Layer ' + (idx + 1) + ' | ' + boxes.length + ' boxes | ' + size.length + ' x ' + size.width + ' mm</div>' +
+                '<div style="position:relative;border:2px solid #333;background:#f4f4f4;aspect-ratio:1200/1000;">' +
+                boxes.map(b => { const fp = getManualBoxFootprintPercent(layer, b); return '<div style="position:absolute;left:' + b.x + '%;top:' + b.y + '%;width:' + fp.w + '%;height:' + fp.h + '%;background:#d89445;border:1px solid #7c4a1f;border-radius:4px;box-sizing:border-box;transform:translate(-50%,-50%);"></div>'; }).join('') +
+                '</div></div>';
+        }).join('');
+        return;
+    }
+    if (!layers.length) {
+        box.innerHTML = '<div style="color:#999;text-align:center;padding:12px;">Preview will appear here</div>';
+        return;
+    }
+    box.innerHTML = layers.map((layer, idx) => {
+        const direction = (layer.direction || '').toLowerCase();
+        let cells = '';
+        if (direction === 'photo-443' || direction === 'interlock-443') {
+            const odd = idx % 2 === 1;
+            const rows = odd
+                ? [[0, 0, 0], [1, 1, 1, 1], [1, 1, 1, 1]]
+                : [[1, 1, 1, 1], [1, 1, 1, 1], [0, 0, 0]];
+            cells = rows.map((r, rowIdx) => {
+                const justify = r.length === 3 ? (odd ? 'flex-start' : 'flex-end') : 'space-between';
+                return '<div style="display:flex;gap:4px;justify-content:' + justify + ';margin:3px 0;">' +
+                    r.map((_, colIdx) => '<div title="Shipper" style="width:' + (r.length === 3 ? 34 : 30) + 'px;height:20px;border-radius:3px;background:' + (r.length === 3 ? '#ffb74d' : '#d89445') + ';border:1px solid #8a4d1f;transform:' + (r.length === 3 ? 'rotate(90deg)' : 'none') + ';"></div>').join('') +
+                    '</div>';
+            }).join('');
+        } else {
+            const count = parseInt(layer.count, 10) || 1;
+            const cols = Math.max(1, parseInt(layer.cols, 10) || 4);
+            for (let i = 0; i < count; i++) {
+                cells += '<div style="width:24px;height:16px;border-radius:3px;background:#d89445;border:1px solid #8a4d1f;transform:' + ((direction === 'widthwise' || direction === 'cross' && i % 2) ? 'rotate(90deg)' : 'none') + ';"></div>';
+            }
+            cells = '<div style="display:grid;grid-template-columns:repeat(' + cols + ', 26px);gap:4px;justify-content:center;">' + cells + '</div>';
+        }
+        return '<div style="background:white;border:1px solid #ddd;border-radius:8px;padding:8px;margin-bottom:8px;">' +
+            '<div style="font-size:11px;font-weight:800;color:#667eea;margin-bottom:5px;">Layer ' + (idx + 1) + ' • Write: ' + layer.count + ', ' + layer.rows + ', ' + layer.cols + ', ' + (layer.direction || 'lengthwise') + '</div>' +
+            '<div style="border:2px solid #333;padding:6px;background:#f4f4f4;min-height:72px;">' + cells + '</div>' +
+            '</div>';
+    }).join('');
+}
+
+const MANUAL_PALLET_WIDTH_MM = 1200;
+const MANUAL_PALLET_DEPTH_MM = 1000;
+const DEFAULT_SHIPPER_LENGTH_MM = 180;
+const DEFAULT_SHIPPER_WIDTH_MM = 120;
+let _manualPalletState = { layer: 0, selected: -1, layers: [{ boxes: [], size: 1, boxLength: DEFAULT_SHIPPER_LENGTH_MM, boxWidth: DEFAULT_SHIPPER_WIDTH_MM }] };
+
+function getManualLayerBoxSize(layer) {
+    const scale = layer.size || 1;
+    return {
+        length: Math.max(20, Math.min(MANUAL_PALLET_WIDTH_MM, parseFloat(layer.boxLength) || DEFAULT_SHIPPER_LENGTH_MM * scale)),
+        width: Math.max(20, Math.min(MANUAL_PALLET_DEPTH_MM, parseFloat(layer.boxWidth) || DEFAULT_SHIPPER_WIDTH_MM * scale))
+    };
+}
+
+function getManualBoxFootprintPercent(layer, box) {
+    const size = getManualLayerBoxSize(layer);
+    const rotated = Math.abs((box && box.rot) || 0) % 180 === 90;
+    return {
+        w: ((rotated ? size.width : size.length) / MANUAL_PALLET_WIDTH_MM) * 100,
+        h: ((rotated ? size.length : size.width) / MANUAL_PALLET_DEPTH_MM) * 100
+    };
+}
+
+function clampManualBoxToPallet(layer, box) {
+    if (!box) return box;
+    const fp = getManualBoxFootprintPercent(layer, box);
+    const halfW = Math.min(49.5, fp.w / 2);
+    const halfH = Math.min(49.5, fp.h / 2);
+    box.x = Math.round(Math.max(halfW, Math.min(100 - halfW, parseFloat(box.x) || 50)) * 10) / 10;
+    box.y = Math.round(Math.max(halfH, Math.min(100 - halfH, parseFloat(box.y) || 50)) * 10) / 10;
+    box.rot = Math.abs(parseInt(box.rot || 0, 10)) % 180 === 90 ? 90 : 0;
+    return box;
+}
+
+function normalizeManualLayers(layers) {
+    return (layers || []).map(layer => {
+        const normalized = {
+            boxes: Array.isArray(layer.boxes) ? layer.boxes : [],
+            size: Math.max(0.5, Math.min(2.5, parseFloat(layer.size) || 1)),
+            boxLength: Math.max(20, Math.min(MANUAL_PALLET_WIDTH_MM, parseFloat(layer.boxLength) || DEFAULT_SHIPPER_LENGTH_MM * (parseFloat(layer.size) || 1))),
+            boxWidth: Math.max(20, Math.min(MANUAL_PALLET_DEPTH_MM, parseFloat(layer.boxWidth) || DEFAULT_SHIPPER_WIDTH_MM * (parseFloat(layer.size) || 1)))
+        };
+        normalized.boxes = normalized.boxes.map(b => clampManualBoxToPallet(normalized, { x: b.x, y: b.y, rot: b.rot || 0 }));
+        return normalized;
+    });
+}
+
+function validateManualPalletMatch(manualLayers, layerLines) {
+    const usedManual = manualLayers && manualLayers.some(l => l.boxes && l.boxes.length);
+    if (!usedManual) return { ok: true, message: '' };
+    if (layerLines && layerLines.length && manualLayers.length !== layerLines.length) {
+        return { ok: false, message: 'Manual layers (' + manualLayers.length + ') and layer lines (' + layerLines.length + ') do not match.' };
+    }
+    if (layerLines && layerLines.length) {
+        for (let i = 0; i < layerLines.length; i++) {
+            const expected = parseInt(layerLines[i].count, 10) || 0;
+            const actual = (manualLayers[i] && manualLayers[i].boxes ? manualLayers[i].boxes.length : 0);
+            if (expected && expected !== actual) {
+                return { ok: false, message: 'Layer ' + (i + 1) + ' needs ' + expected + ' boxes, but manual layer has ' + actual + '.' };
+            }
+        }
+    }
+    return { ok: true, message: '' };
+}
+
+function getManualPalletDataFromField() {
+    try {
+        return JSON.parse(document.getElementById('palletManualData')?.value || '[]');
+    } catch (_) {
+        return [];
+    }
+}
+
+function setManualPalletDataToField(layers) {
+    const field = document.getElementById('palletManualData');
+    if (field) field.value = JSON.stringify(normalizeManualLayers(layers || []));
+}
+
+function initManualPalletBuilder(existingLayers) {
+    _manualPalletState = {
+        layer: 0,
+        selected: -1,
+        layers: normalizeManualLayers(existingLayers && existingLayers.length ? JSON.parse(JSON.stringify(existingLayers)) : [{ boxes: [], size: 1, boxLength: DEFAULT_SHIPPER_LENGTH_MM, boxWidth: DEFAULT_SHIPPER_WIDTH_MM }])
+    };
+    setManualPalletDataToField(_manualPalletState.layers);
+    renderManualPalletBuilder();
+}
+
+function renderManualPalletBuilder() {
+    const area = document.getElementById('manualPalletArea');
+    const layerInfo = document.getElementById('manualLayerInfo');
+    if (!area || !layerInfo) return;
+    const layer = _manualPalletState.layers[_manualPalletState.layer] || { boxes: [], size: 1, boxLength: DEFAULT_SHIPPER_LENGTH_MM, boxWidth: DEFAULT_SHIPPER_WIDTH_MM };
+    const size = getManualLayerBoxSize(layer);
+    layer.boxLength = size.length;
+    layer.boxWidth = size.width;
+    layer.boxes.forEach(b => clampManualBoxToPallet(layer, b));
+    const layerLines = parsePalletLayerLines(document.getElementById('palletLayerLines')?.value || '');
+    const expected = layerLines[_manualPalletState.layer] ? (parseInt(layerLines[_manualPalletState.layer].count, 10) || 0) : 0;
+    const matchText = expected ? (layer.boxes.length === expected ? 'Matched' : 'Need ' + expected) : 'No layer-line target';
+    layerInfo.textContent = 'Manual Layer ' + (_manualPalletState.layer + 1) + ' / ' + _manualPalletState.layers.length + ' | ' + layer.boxes.length + ' boxes | ' + size.length + ' x ' + size.width + ' mm | ' + matchText;
+    area.innerHTML = '<div style="position:absolute;right:6px;bottom:5px;font-size:10px;font-weight:800;color:#555;background:rgba(255,255,255,0.82);padding:2px 5px;border-radius:4px;">1200 x 1000</div>';
+    const status = document.getElementById('manualPalletStatus');
+    if (status) {
+        const validation = validateManualPalletMatch(_manualPalletState.layers, layerLines);
+        status.style.color = validation.ok ? '#2e7d32' : '#c62828';
+        status.textContent = validation.ok ? 'Fit OK: boxes stay inside pallet size.' : validation.message;
+    }
+    const lengthInput = document.getElementById('manualBoxLengthMm');
+    const widthInput = document.getElementById('manualBoxWidthMm');
+    if (lengthInput) lengthInput.value = size.length;
+    if (widthInput) widthInput.value = size.width;
+    layer.boxes.forEach((b, idx) => {
+        const el = document.createElement('div');
+        const fp = getManualBoxFootprintPercent(layer, b);
+        el.style.cssText = 'position:absolute;left:' + b.x + '%;top:' + b.y + '%;width:' + fp.w + '%;height:' + fp.h + '%;background:' + (idx === _manualPalletState.selected ? '#4CAF50' : '#d89445') + ';border:2px solid #7c4a1f;border-radius:4px;transform:translate(-50%,-50%);cursor:pointer;box-shadow:0 2px 5px rgba(0,0,0,0.25);box-sizing:border-box;';
+        el.title = 'Box ' + (idx + 1);
+        el.onclick = e => {
+            e.stopPropagation();
+            _manualPalletState.selected = idx;
+            renderManualPalletBuilder();
+        };
+        area.appendChild(el);
+    });
+    setManualPalletDataToField(_manualPalletState.layers);
+    updatePalletPatternPreview();
+}
+
+function manualPalletAreaClick(event) {
+    const area = document.getElementById('manualPalletArea');
+    const rect = area.getBoundingClientRect();
+    const x = ((event.clientX - rect.left) / rect.width) * 100;
+    const y = ((event.clientY - rect.top) / rect.height) * 100;
+    const layer = _manualPalletState.layers[_manualPalletState.layer];
+    layer.boxes.push(clampManualBoxToPallet(layer, { x: Math.round(x * 10) / 10, y: Math.round(y * 10) / 10, rot: 0 }));
+    _manualPalletState.selected = layer.boxes.length - 1;
+    renderManualPalletBuilder();
+}
+
+function moveManualBox(dx, dy) {
+    const layer = _manualPalletState.layers[_manualPalletState.layer];
+    const box = layer.boxes[_manualPalletState.selected];
+    if (!box) return;
+    box.x += dx;
+    box.y += dy;
+    clampManualBoxToPallet(layer, box);
+    renderManualPalletBuilder();
+}
+
+function rotateManualBox() {
+    const layer = _manualPalletState.layers[_manualPalletState.layer];
+    const box = layer.boxes[_manualPalletState.selected];
+    if (!box) return;
+    box.rot = ((box.rot || 0) + 90) % 180;
+    clampManualBoxToPallet(layer, box);
+    renderManualPalletBuilder();
+}
+
+function removeManualBox() {
+    const layer = _manualPalletState.layers[_manualPalletState.layer];
+    if (_manualPalletState.selected < 0) return;
+    layer.boxes.splice(_manualPalletState.selected, 1);
+    _manualPalletState.selected = Math.min(layer.boxes.length - 1, _manualPalletState.selected);
+    renderManualPalletBuilder();
+}
+
+function manualSize(delta) {
+    const layer = _manualPalletState.layers[_manualPalletState.layer];
+    const size = getManualLayerBoxSize(layer);
+    const factor = delta > 0 ? 1.08 : 0.92;
+    layer.boxLength = Math.round(Math.max(20, Math.min(MANUAL_PALLET_WIDTH_MM, size.length * factor)));
+    layer.boxWidth = Math.round(Math.max(20, Math.min(MANUAL_PALLET_DEPTH_MM, size.width * factor)));
+    layer.size = Math.max(0.5, Math.min(2.5, (layer.boxLength / DEFAULT_SHIPPER_LENGTH_MM + layer.boxWidth / DEFAULT_SHIPPER_WIDTH_MM) / 2));
+    layer.boxes.forEach(b => clampManualBoxToPallet(layer, b));
+    renderManualPalletBuilder();
+}
+
+function setManualBoxSizeFromInputs() {
+    const layer = _manualPalletState.layers[_manualPalletState.layer];
+    const lengthInput = document.getElementById('manualBoxLengthMm');
+    const widthInput = document.getElementById('manualBoxWidthMm');
+    layer.boxLength = Math.round(Math.max(20, Math.min(MANUAL_PALLET_WIDTH_MM, parseFloat(lengthInput?.value) || DEFAULT_SHIPPER_LENGTH_MM)));
+    layer.boxWidth = Math.round(Math.max(20, Math.min(MANUAL_PALLET_DEPTH_MM, parseFloat(widthInput?.value) || DEFAULT_SHIPPER_WIDTH_MM)));
+    layer.size = Math.max(0.5, Math.min(2.5, (layer.boxLength / DEFAULT_SHIPPER_LENGTH_MM + layer.boxWidth / DEFAULT_SHIPPER_WIDTH_MM) / 2));
+    layer.boxes.forEach(b => clampManualBoxToPallet(layer, b));
+    renderManualPalletBuilder();
+}
+
+function manualLayer(delta) {
+    const next = _manualPalletState.layer + delta;
+    if (next < 0 || next >= _manualPalletState.layers.length) return;
+    _manualPalletState.layer = next;
+    _manualPalletState.selected = -1;
+    renderManualPalletBuilder();
+}
+
+function addManualLayer(copyCurrent = false) {
+    const current = _manualPalletState.layers[_manualPalletState.layer] || { boxes: [], size: 1 };
+    const layer = copyCurrent ? JSON.parse(JSON.stringify(current)) : { boxes: [], size: current.size || 1, boxLength: current.boxLength || DEFAULT_SHIPPER_LENGTH_MM, boxWidth: current.boxWidth || DEFAULT_SHIPPER_WIDTH_MM };
+    _manualPalletState.layers.splice(_manualPalletState.layer + 1, 0, layer);
+    _manualPalletState.layer++;
+    _manualPalletState.selected = -1;
+    renderManualPalletBuilder();
+}
+
+function deleteManualLayer() {
+    if (_manualPalletState.layers.length <= 1) {
+        _manualPalletState.layers[0] = { boxes: [], size: 1, boxLength: DEFAULT_SHIPPER_LENGTH_MM, boxWidth: DEFAULT_SHIPPER_WIDTH_MM };
+        _manualPalletState.layer = 0;
+    } else {
+        _manualPalletState.layers.splice(_manualPalletState.layer, 1);
+        _manualPalletState.layer = Math.max(0, _manualPalletState.layer - 1);
+    }
+    _manualPalletState.selected = -1;
+    renderManualPalletBuilder();
+}
+
+function openPalletPatternSettings(editSku = '') {
+    if (!requireAdminAction('Pallet pattern settings')) return;
+    const existing = document.getElementById('palletPatternModal');
+    if (existing) existing.remove();
+    const patterns = getPalletPatterns();
+    const selected = editSku && patterns[editSku] ? patterns[editSku] : null;
+    const selectedManualLayers = selected && selected.manualLayers ? JSON.stringify(selected.manualLayers).replace(/"/g, '&quot;') : '[]';
+    const listHtml = Object.keys(patterns).sort().map(sku => {
+        const p = patterns[sku];
+        const total = (p.layers || []).reduce((sum, l) => sum + (parseInt(l.count, 10) || 0), 0);
+        return `<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:10px 0;border-bottom:1px solid #eee;">
+            <div style="min-width:0;flex:1;">
+                <div style="font-weight:800;color:#333;font-size:14px;word-break:break-word;">${sku}</div>
+                <div style="font-size:11px;color:#777;">${(p.layers || []).length} layers â€¢ ${total} shippers</div>
+            </div>
+            <button onclick="document.getElementById('palletPatternModal').remove();openPalletPatternSettings('${sku.replace(/'/g, "\\'")}')" style="padding:7px 9px;background:#2196F3;color:white;border:none;border-radius:6px;font-weight:700;cursor:pointer;font-size:12px;">Edit</button>
+            <button onclick="deletePalletPattern('${sku.replace(/'/g, "\\'")}')" style="padding:7px 9px;background:#f44336;color:white;border:none;border-radius:6px;font-weight:700;cursor:pointer;font-size:12px;">Delete</button>
+        </div>`;
+    }).join('') || '<div style="padding:15px;text-align:center;color:#999;">No SKU patterns yet.</div>';
+
+    const modal = document.createElement('div');
+    modal.id = 'palletPatternModal';
+    modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.65);z-index:9999;display:flex;align-items:center;justify-content:center;padding:14px;box-sizing:border-box;overflow-y:auto;';
+    modal.innerHTML = `
+    <div style="background:white;border-radius:14px;width:100%;max-width:760px;max-height:90vh;overflow:hidden;box-shadow:0 12px 45px rgba(0,0,0,0.35);">
+        <div style="background:linear-gradient(135deg,#667eea,#764ba2);padding:15px 18px;display:flex;justify-content:space-between;align-items:center;color:white;">
+            <div>
+                <div style="font-size:17px;font-weight:800;">Pallet Pattern Settings</div>
+                <div style="font-size:11px;opacity:0.85;">Add SKU-wise layer count, shipper count, rows/columns, and direction</div>
+            </div>
+            <button onclick="document.getElementById('palletPatternModal').remove()" style="background:rgba(255,255,255,0.2);border:none;color:white;font-size:22px;width:32px;height:32px;border-radius:50%;cursor:pointer;">Ã—</button>
+        </div>
+        <div style="display:grid;grid-template-columns:minmax(0,1fr) minmax(280px,360px);gap:0;max-height:calc(90vh - 62px);overflow:auto;">
+            <div style="padding:14px;border-right:1px solid #eee;">
+                <div style="font-weight:800;color:#333;margin-bottom:8px;">Saved SKU List</div>
+                ${listHtml}
+                <div style="font-weight:800;color:#333;margin:14px 0 8px;">Live Pattern Preview</div>
+                <div style="font-size:11px;color:#777;line-height:1.45;margin-bottom:8px;background:#f7f7f7;border-radius:7px;padding:8px;">Type layer lines on the right. This left preview shows exactly how each layer will be placed.</div>
+                <div id="palletPatternPreview" style="background:#fafafa;border:1px solid #eee;border-radius:8px;padding:8px;margin-bottom:10px;max-height:360px;overflow:auto;"></div>
+            </div>
+            <div style="padding:14px;">
+                <div style="font-weight:800;color:#333;margin-bottom:8px;">${selected ? 'Edit SKU Pattern' : 'Add New SKU Pattern'}</div>
+                <label style="font-size:12px;font-weight:700;color:#667eea;">SKU Name</label>
+                <input id="palletSkuName" value="${selected ? selected.sku : ''}" placeholder="Example: 1kg / Tide 1kg" style="width:100%;box-sizing:border-box;margin:5px 0 10px;padding:10px;border:2px solid #667eea;border-radius:7px;font-size:14px;">
+                <label style="font-size:12px;font-weight:700;color:#667eea;">Number-only Generator</label>
+                <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin:5px 0 8px;">
+                    <input id="palletGenLayers" type="number" min="1" value="4" placeholder="Layers" style="padding:9px;border:2px solid #ddd;border-radius:7px;font-size:13px;">
+                    <input id="palletGenCount" type="number" min="1" value="11" placeholder="Shippers / layer" style="padding:9px;border:2px solid #ddd;border-radius:7px;font-size:13px;">
+                    <input id="palletGenRows" type="number" min="1" value="3" placeholder="Rows" style="padding:9px;border:2px solid #ddd;border-radius:7px;font-size:13px;">
+                    <input id="palletGenCols" type="number" min="1" value="4" placeholder="Columns" style="padding:9px;border:2px solid #ddd;border-radius:7px;font-size:13px;">
+                </div>
+                <select id="palletGenDirection" style="width:100%;padding:9px;border:2px solid #ddd;border-radius:7px;font-size:13px;margin-bottom:8px;">
+                    <option value="photo-443">Photo Pattern 4+4+3 Interlock</option>
+                    <option value="alternate">Alternate</option>
+                    <option value="lengthwise">Lengthwise</option>
+                    <option value="widthwise">Widthwise</option>
+                    <option value="cross">Cross</option>
+                </select>
+                <button type="button" onclick="generatePalletLayerLinesFromNumbers()" style="width:100%;padding:9px;background:#FF9800;color:white;border:none;border-radius:7px;font-weight:800;cursor:pointer;font-size:12px;margin-bottom:8px;">Generate Lines With Commas</button>
+                <label style="font-size:12px;font-weight:700;color:#667eea;">Layer Lines</label>
+                <textarea id="palletLayerLines" rows="8" oninput="updatePalletPatternPreview()" placeholder="count, rows, columns, direction&#10;11, 3, 4, photo-443&#10;11, 3, 4, photo-443" style="width:100%;box-sizing:border-box;margin:5px 0 8px;padding:10px;border:2px solid #667eea;border-radius:7px;font-size:13px;font-family:monospace;">${selected ? palletLayerLines(selected) : ''}</textarea>
+                <div style="display:flex;gap:8px;margin-bottom:8px;flex-wrap:wrap;">
+                    <button type="button" onclick="document.getElementById('palletLayerLines').value='11, 3, 4, photo-443\n11, 3, 4, photo-443\n11, 3, 4, photo-443\n11, 3, 4, photo-443';updatePalletPatternPreview();" style="flex:1;min-width:150px;padding:9px;background:#4CAF50;color:white;border:none;border-radius:7px;font-weight:800;cursor:pointer;font-size:12px;">Use Photo 4+4+3</button>
+                    <button type="button" onclick="document.getElementById('palletLayerLines').value='10, 2, 5, alternate\n10, 2, 5, alternate\n10, 2, 5, alternate\n10, 2, 5, alternate\n10, 2, 5, alternate';updatePalletPatternPreview();" style="flex:1;min-width:150px;padding:9px;background:#667eea;color:white;border:none;border-radius:7px;font-weight:800;cursor:pointer;font-size:12px;">Use 10 x 5 Layers</button>
+                </div>
+                <div style="font-size:11px;color:#777;line-height:1.5;background:#f7f7f7;border-radius:7px;padding:8px;margin-bottom:10px;">Write format: <b>11, 3, 4, photo-443</b><br>Commas will stay in generated lines. Photo pattern alternates: Layer 1 = 4-4-3, Layer 2 = 3-4-4, Layer 3 = 4-4-3, Layer 4 = 3-4-4.</div>
+                <label style="font-size:12px;font-weight:700;color:#667eea;">Note</label>
+                <input id="palletPatternNote" value="${selected ? (selected.note || '') : ''}" placeholder="Optional note" style="width:100%;box-sizing:border-box;margin:5px 0 12px;padding:10px;border:2px solid #ddd;border-radius:7px;font-size:14px;">
+                <input id="palletManualData" type="hidden" value="${selectedManualLayers}">
+                <div style="font-weight:800;color:#333;margin:10px 0 8px;">Manual Box Builder</div>
+                <div style="font-size:11px;color:#777;line-height:1.45;background:#f7f7f7;border-radius:7px;padding:8px;margin-bottom:8px;">Click inside pallet area to place boxes. Pallet is fixed at 1200 x 1000 mm. Box size is saved per SKU/layer and auto-clamped inside the pallet.</div>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:8px;">
+                    <input id="manualBoxLengthMm" type="number" min="20" max="1200" step="1" onchange="setManualBoxSizeFromInputs()" placeholder="Shipper length mm" style="width:100%;box-sizing:border-box;padding:8px;border:2px solid #ddd;border-radius:6px;font-size:12px;">
+                    <input id="manualBoxWidthMm" type="number" min="20" max="1000" step="1" onchange="setManualBoxSizeFromInputs()" placeholder="Shipper width mm" style="width:100%;box-sizing:border-box;padding:8px;border:2px solid #ddd;border-radius:6px;font-size:12px;">
+                </div>
+                <div id="manualLayerInfo" style="font-size:12px;font-weight:800;color:#667eea;margin-bottom:5px;">Manual Layer</div>
+                <div id="manualPalletStatus" style="font-size:11px;font-weight:800;margin-bottom:6px;color:#2e7d32;">Fit OK</div>
+                <div id="manualPalletArea" onclick="manualPalletAreaClick(event)" style="position:relative;width:100%;aspect-ratio:1200 / 1000;background:#f0f0f0;border:3px solid #333;border-radius:6px;margin-bottom:8px;overflow:hidden;box-sizing:border-box;"></div>
+                <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:8px;">
+                    <button type="button" onclick="moveManualBox(0,-3)" style="padding:8px;border:none;border-radius:6px;background:#607D8B;color:white;font-weight:800;">Up</button>
+                    <button type="button" onclick="moveManualBox(-3,0)" style="padding:8px;border:none;border-radius:6px;background:#607D8B;color:white;font-weight:800;">Left</button>
+                    <button type="button" onclick="moveManualBox(3,0)" style="padding:8px;border:none;border-radius:6px;background:#607D8B;color:white;font-weight:800;">Right</button>
+                    <button type="button" onclick="moveManualBox(0,3)" style="padding:8px;border:none;border-radius:6px;background:#607D8B;color:white;font-weight:800;">Down</button>
+                    <button type="button" onclick="rotateManualBox()" style="padding:8px;border:none;border-radius:6px;background:#FF9800;color:white;font-weight:800;">Rotate</button>
+                    <button type="button" onclick="manualSize(-0.1)" style="padding:8px;border:none;border-radius:6px;background:#795548;color:white;font-weight:800;">Size -</button>
+                    <button type="button" onclick="manualSize(0.1)" style="padding:8px;border:none;border-radius:6px;background:#795548;color:white;font-weight:800;">Size +</button>
+                    <button type="button" onclick="removeManualBox()" style="padding:8px;border:none;border-radius:6px;background:#f44336;color:white;font-weight:800;">Remove</button>
+                </div>
+                <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:10px;">
+                    <button type="button" onclick="manualLayer(-1)" style="padding:8px;border:none;border-radius:6px;background:#667eea;color:white;font-weight:800;">Prev</button>
+                    <button type="button" onclick="manualLayer(1)" style="padding:8px;border:none;border-radius:6px;background:#667eea;color:white;font-weight:800;">Next</button>
+                    <button type="button" onclick="addManualLayer(true)" style="padding:8px;border:none;border-radius:6px;background:#4CAF50;color:white;font-weight:800;">Copy</button>
+                    <button type="button" onclick="deleteManualLayer()" style="padding:8px;border:none;border-radius:6px;background:#f44336;color:white;font-weight:800;">Del Layer</button>
+                </div>
+                <button onclick="savePalletPattern('${selected ? selected.sku.replace(/'/g, "\\'") : ''}')" style="width:100%;padding:12px;background:#4CAF50;color:white;border:none;border-radius:8px;font-weight:800;font-size:14px;cursor:pointer;">Save SKU Pattern</button>
+            </div>
+        </div>
+    </div>`;
+    document.body.appendChild(modal);
+    initManualPalletBuilder(selected && selected.manualLayers ? selected.manualLayers : []);
+    updatePalletPatternPreview();
+    modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
+}
+
+function savePalletPattern(oldSku = '') {
+    if (!requireAdminAction('Save pallet pattern')) return;
+    const sku = document.getElementById('palletSkuName').value.trim();
+    if (!sku) { alert('Enter SKU name.'); return; }
+    const layers = parsePalletLayerLines(document.getElementById('palletLayerLines').value);
+    const manualLayers = normalizeManualLayers(getManualPalletDataFromField());
+    const manualValidation = validateManualPalletMatch(manualLayers, layers);
+    if (!manualValidation.ok) { alert(manualValidation.message); return; }
+    if (layers.length === 0 && (!manualLayers || !manualLayers.some(l => l.boxes && l.boxes.length))) { alert('Add layer lines or create a manual layout.'); return; }
+    const patterns = getPalletPatterns();
+    if (oldSku && oldSku !== sku) delete patterns[oldSku];
+    patterns[sku] = { sku, note: document.getElementById('palletPatternNote').value.trim(), layers, manualLayers };
+    savePalletPatterns(patterns);
+    syncToServer();
+    showSuccessPopup('Pallet pattern saved!');
+    document.getElementById('palletPatternModal').remove();
+    openPalletPatternSettings(sku);
+}
+
+function deletePalletPattern(sku) {
+    if (!requireAdminAction('Delete pallet pattern')) return;
+    if (!confirm('Delete pallet pattern for ' + sku + '?')) return;
+    const patterns = getPalletPatterns();
+    delete patterns[sku];
+    savePalletPatterns(patterns);
+    syncToServer();
+    document.getElementById('palletPatternModal').remove();
+    openPalletPatternSettings();
+}
+
+function getSelectedPalletPattern() {
+    const patterns = getPalletPatterns();
+    const selected = localStorage.getItem('selectedPalletSku');
+    if (selected && patterns[selected]) return patterns[selected];
+    const first = Object.keys(patterns)[0];
+    return patterns[first];
+}
+
+function openPallet3D() {
+    const existing = document.getElementById('pallet3DModal');
+    if (existing) existing.remove();
+    const patterns = getPalletPatterns();
+    const selectedPattern = getSelectedPalletPattern();
+    const selectedSku = selectedPattern?.sku || Object.keys(patterns)[0] || 'Default 1kg';
+    const skuOptions = Object.keys(patterns).sort().map(sku => `<option value="${sku}" ${sku === selectedSku ? 'selected' : ''}>${sku}</option>`).join('');
+    const totalLayers = selectedPattern.layers.length;
+    const totalShippers = selectedPattern.layers.reduce((sum, l) => sum + (parseInt(l.count, 10) || 0), 0);
+    const modal = document.createElement('div');
+    modal.id = 'pallet3DModal';
+    modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.72);z-index:9999;display:flex;align-items:center;justify-content:center;padding:12px;box-sizing:border-box;';
+    modal.innerHTML = `
+    <div style="background:#10131a;color:white;width:100%;max-width:1040px;height:min(88vh,720px);border-radius:8px;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 18px 50px rgba(0,0,0,0.45);">
+        <div style="display:flex;align-items:center;gap:10px;padding:10px 14px;background:#1b2230;border-bottom:1px solid rgba(255,255,255,0.1);flex-shrink:0;flex-wrap:wrap;">
+            <div style="font-weight:800;font-size:15px;white-space:nowrap;">3D Pallet Loading</div>
+            <select id="pallet3DSku" style="padding:8px;border:none;border-radius:6px;background:#fff;color:#222;font-weight:700;max-width:180px;">${skuOptions}</select>
+            <div id="pallet3DCount" style="font-size:12px;color:#b8c3d9;flex:1;min-width:155px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${selectedSku}: 0 / ${totalShippers} shippers</div>
+            <button id="pallet3DPlay" style="padding:8px 10px;background:#4CAF50;color:white;border:none;border-radius:6px;font-weight:700;cursor:pointer;">Pause</button>
+            <button id="pallet3DReset" style="padding:8px 10px;background:#667eea;color:white;border:none;border-radius:6px;font-weight:700;cursor:pointer;">Reset</button>
+            <label style="font-size:12px;color:#b8c3d9;display:flex;align-items:center;gap:6px;">Speed <input id="pallet3DSpeed" type="range" min="0.5" max="3" step="0.5" value="1" style="width:78px;"></label>
+            <button onclick="document.getElementById('pallet3DModal').remove()" style="width:34px;height:34px;border:none;border-radius:50%;background:rgba(255,255,255,0.12);color:white;font-size:22px;cursor:pointer;line-height:1;">Ã—</button>
+        </div>
+        <div style="display:flex;flex:1;min-height:0;">
+            <div id="pallet3DCanvasWrap" style="position:relative;flex:1;min-width:0;background:linear-gradient(180deg,#182235 0%,#0e1118 100%);">
+                <div style="position:absolute;left:12px;bottom:10px;z-index:2;color:#cbd5e1;font-size:11px;background:rgba(0,0,0,0.35);padding:7px 9px;border-radius:6px;line-height:1.45;">Pouch/Packet â†’ Shipper/Carton â†’ Pallet<br>SKU-wise layer pattern animation.</div>
+            </div>
+            <div id="pallet3DSummary" style="width:220px;flex-shrink:0;background:#111827;border-left:1px solid rgba(255,255,255,0.1);padding:12px;overflow-y:auto;font-size:12px;color:#cbd5e1;">
+                <div style="font-weight:800;color:white;margin-bottom:8px;">${selectedSku}</div>
+                <div>${totalLayers} layers â€¢ ${totalShippers} total shippers</div>
+            </div>
+        </div>
+    </div>`;
+    document.body.appendChild(modal);
+    modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
+    document.getElementById('pallet3DSku').onchange = e => {
+        localStorage.setItem('selectedPalletSku', e.target.value);
+        modal.remove();
+        openPallet3D();
+    };
+    if (typeof THREE === 'undefined') {
+        document.getElementById('pallet3DCanvasWrap').innerHTML += '<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:white;font-weight:700;text-align:center;padding:20px;">3D library could not load. Please check internet connection.</div>';
+        return;
+    }
+    startPallet3DScene(selectedPattern);
+}
+
+function startPallet3DScene(pattern) {
+    const wrap = document.getElementById('pallet3DCanvasWrap');
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x111827);
+    const camera = new THREE.PerspectiveCamera(48, wrap.clientWidth / wrap.clientHeight, 0.1, 100);
+    camera.position.set(8.4, 6.4, 9.4);
+    camera.lookAt(0, 1.8, 0);
+    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+    renderer.setSize(wrap.clientWidth, wrap.clientHeight);
+    renderer.shadowMap.enabled = true;
+    wrap.appendChild(renderer.domElement);
+    scene.add(new THREE.HemisphereLight(0xffffff, 0x334155, 1.8));
+    const dir = new THREE.DirectionalLight(0xffffff, 2.4);
+    dir.position.set(5, 8, 4);
+    dir.castShadow = true;
+    scene.add(dir);
+    const floor = new THREE.Mesh(new THREE.PlaneGeometry(16, 12), new THREE.MeshStandardMaterial({ color: 0x1f2937, roughness: 0.9 }));
+    floor.rotation.x = -Math.PI / 2;
+    floor.position.y = -0.06;
+    floor.receiveShadow = true;
+    scene.add(floor);
+    const grid = new THREE.GridHelper(14, 14, 0x3b82f6, 0x374151);
+    grid.position.y = -0.04;
+    scene.add(grid);
+    const pallet = new THREE.Group();
+    const woodMat = new THREE.MeshStandardMaterial({ color: 0xb77935, roughness: 0.75 });
+    [-1.0, 0, 1.0].forEach(z => {
+        const plank = new THREE.Mesh(new THREE.BoxGeometry(5.2, 0.16, 0.42), woodMat);
+        plank.position.set(0, 0.08, z);
+        plank.castShadow = true;
+        plank.receiveShadow = true;
+        pallet.add(plank);
+    });
+    [-1.9, 0, 1.9].forEach(x => {
+        const beam = new THREE.Mesh(new THREE.BoxGeometry(0.36, 0.28, 2.75), woodMat);
+        beam.position.set(x, 0.32, 0);
+        beam.castShadow = true;
+        beam.receiveShadow = true;
+        pallet.add(beam);
+    });
+    scene.add(pallet);
+
+    const shipperGeo = new THREE.BoxGeometry(1.08, 0.72, 0.78);
+    const edgeGeo = new THREE.EdgesGeometry(shipperGeo);
+    const cartonMats = [0xd89445, 0xc97a2b, 0xe0a85e, 0xbe6b2a].map(c => new THREE.MeshStandardMaterial({ color: c, roughness: 0.68 }));
+    const shippers = [];
+    let idx = 0;
+    const layerGap = 0.76;
+    const sourceLayers = (pattern.manualLayers && pattern.manualLayers.some(l => l.boxes && l.boxes.length))
+        ? pattern.manualLayers.map(l => ({ manual: true, boxes: l.boxes || [], size: l.size || 1 }))
+        : (pattern.layers || []);
+    sourceLayers.forEach((layer, layerIndex) => {
+        if (layer.manual) {
+            layer.boxes.forEach((b, bi) => {
+                const size = getManualLayerBoxSize(layer);
+                const scale = layer.size || 1;
+                const target = new THREE.Vector3(((b.x || 50) - 50) / 50 * 2.25, 0.82 + layerIndex * layerGap, ((b.y || 50) - 50) / 50 * 1.35);
+                const geo = new THREE.BoxGeometry((size.length / MANUAL_PALLET_WIDTH_MM) * 4.5, 0.58 * Math.max(0.65, Math.min(1.6, scale)), (size.width / MANUAL_PALLET_DEPTH_MM) * 2.7);
+                const box = new THREE.Mesh(geo, cartonMats[(bi + layerIndex) % cartonMats.length]);
+                box.castShadow = true;
+                box.receiveShadow = true;
+                box.position.set(-6.2 - idx * 0.015, 0.82 + (idx % 4) * 0.08, -3.6);
+                const finalRot = ((b.rot || 0) * Math.PI) / 180;
+                box.rotation.y = finalRot - 0.45;
+                box.add(new THREE.LineSegments(new THREE.EdgesGeometry(geo), new THREE.LineBasicMaterial({ color: 0x7c4a1f })));
+                scene.add(box);
+                shippers.push({ box, target, finalRot, startDelay: idx * 0.24, layerIndex });
+                idx++;
+            });
+            return;
+        }
+        const count = parseInt(layer.count, 10) || 1;
+        const rows = Math.max(1, parseInt(layer.rows, 10) || 1);
+        const cols = Math.max(1, parseInt(layer.cols, 10) || Math.ceil(count / rows));
+        const direction = (layer.direction || 'lengthwise').toLowerCase();
+        for (let i = 0; i < count; i++) {
+            let row = Math.floor(i / cols);
+            let col = i % cols;
+            let usedRows = Math.min(rows, Math.ceil(count / cols));
+            let x = (col - (cols - 1) / 2) * 1.16;
+            let z = (row - (usedRows - 1) / 2) * 0.86;
+            let finalRot = 0;
+            if (direction === 'photo-443' || direction === 'interlock-443') {
+                const oddLayer = layerIndex % 2 === 1;
+                const photoPositions = oddLayer ? [
+                    [-1.15, -0.96], [0.00, -0.96], [1.15, -0.96],
+                    [-1.74,  0.00], [-0.58,  0.00], [0.58,  0.00], [1.74,  0.00],
+                    [-1.74,  0.88], [-0.58,  0.88], [0.58,  0.88], [1.74,  0.88]
+                ] : [
+                    [-1.74, -0.88], [-0.58, -0.88], [0.58, -0.88], [1.74, -0.88],
+                    [-1.74,  0.00], [-0.58,  0.00], [0.58,  0.00], [1.74,  0.00],
+                    [-1.15,  0.96], [0.00,  0.96], [1.15,  0.96]
+                ];
+                const p = photoPositions[i % photoPositions.length];
+                x = p[0];
+                z = p[1];
+                finalRot = oddLayer ? (i < 3 ? Math.PI / 2 : 0) : (i >= 8 ? Math.PI / 2 : 0);
+            }
+            const target = new THREE.Vector3(x, 0.82 + layerIndex * layerGap, z);
+            const box = new THREE.Mesh(shipperGeo, cartonMats[(i + layerIndex) % cartonMats.length]);
+            box.castShadow = true;
+            box.receiveShadow = true;
+            box.position.set(-6.2 - idx * 0.015, 0.82 + (idx % 4) * 0.08, -3.6);
+            if (direction === 'widthwise') finalRot = Math.PI / 2;
+            if (direction === 'alternate') finalRot = layerIndex % 2 ? Math.PI / 2 : 0;
+            if (direction === 'cross') finalRot = i % 2 ? Math.PI / 2 : 0;
+            box.rotation.y = finalRot - 0.45;
+            box.add(new THREE.LineSegments(edgeGeo, new THREE.LineBasicMaterial({ color: 0x7c4a1f })));
+            const label = new THREE.Mesh(new THREE.PlaneGeometry(0.55, 0.24), new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.75 }));
+            label.position.set(0, 0.02, 0.392);
+            box.add(label);
+            scene.add(box);
+            shippers.push({ box, target, finalRot, startDelay: idx * 0.24, layerIndex });
+            idx++;
+        }
+    });
+
+    const summary = document.getElementById('pallet3DSummary');
+    const layerHtml = (pattern.layers || []).map((l, i) => `<div style="padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.08);"><b style="color:white;">Layer ${i + 1}</b><br>${l.count} shippers â€¢ ${l.rows}x${l.cols}<br>${l.direction || 'lengthwise'}</div>`).join('');
+    summary.innerHTML = `<div style="font-weight:800;color:white;margin-bottom:8px;">${pattern.sku}</div><div style="margin-bottom:8px;">${pattern.layers.length} layers â€¢ ${shippers.length} total shippers</div>${pattern.note ? `<div style="background:rgba(255,255,255,0.08);padding:7px;border-radius:6px;margin-bottom:8px;">${pattern.note}</div>` : ''}${layerHtml}`;
+
+    let running = true;
+    let elapsed = 0;
+    const clock = new THREE.Clock();
+    const countEl = document.getElementById('pallet3DCount');
+    const speedEl = document.getElementById('pallet3DSpeed');
+    const playBtn = document.getElementById('pallet3DPlay');
+    playBtn.onclick = () => {
+        running = !running;
+        playBtn.textContent = running ? 'Pause' : 'Play';
+        playBtn.style.background = running ? '#4CAF50' : '#FF9800';
+    };
+    document.getElementById('pallet3DReset').onclick = () => {
+        elapsed = 0;
+        shippers.forEach((s, i) => {
+            s.box.position.set(-6.2 - i * 0.015, 0.82 + (i % 4) * 0.08, -3.6);
+            s.box.rotation.set(0, s.finalRot - 0.45, 0);
+        });
+    };
+    function ease(t) { return t < 0 ? 0 : t > 1 ? 1 : 1 - Math.pow(1 - t, 3); }
+    function animate() {
+        const modal = document.getElementById('pallet3DModal');
+        if (!modal) { renderer.dispose(); return; }
+        requestAnimationFrame(animate);
+        const dt = clock.getDelta();
+        if (running) elapsed += dt * parseFloat(speedEl.value || '1');
+        let loaded = 0;
+        let activeLayer = 1;
+        shippers.forEach((s, i) => {
+            const t = ease((elapsed - s.startDelay) / 1.05);
+            if (t > 0) {
+                const start = new THREE.Vector3(-6.2 - i * 0.015, 0.82 + (i % 4) * 0.08, -3.6);
+                const lift = Math.sin(Math.PI * t) * 1.55;
+                s.box.position.lerpVectors(start, s.target, t);
+                s.box.position.y += lift;
+                s.box.rotation.y = (s.finalRot - 0.45) * (1 - t) + s.finalRot * t;
+                activeLayer = s.layerIndex + 1;
+            }
+            if (t >= 1) loaded++;
+        });
+        const orbit = elapsed * 0.11;
+        camera.position.x = Math.cos(orbit) * 8.6;
+        camera.position.z = Math.sin(orbit) * 8.6;
+        camera.lookAt(0, 1.5 + Math.min(pattern.layers.length, 5) * 0.25, 0);
+        countEl.textContent = `${pattern.sku}: ${loaded} / ${shippers.length} shippers loaded â€¢ Layer ${Math.min(activeLayer, pattern.layers.length)}`;
+        renderer.render(scene, camera);
+    }
+    animate();
+    const resize = () => {
+        if (!document.getElementById('pallet3DModal')) { window.removeEventListener('resize', resize); return; }
+        camera.aspect = wrap.clientWidth / wrap.clientHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(wrap.clientWidth, wrap.clientHeight);
+    };
+    window.addEventListener('resize', resize);
+}
+
 function openQRShare() {
     const existing = document.getElementById('qrShareModal');
     if (existing) existing.remove();
@@ -4185,6 +5129,7 @@ function getCLTolerances() { return JSON.parse(localStorage.getItem('cl_toleranc
 
 // Admin: Manage Lines/SKUs/Variants
 function openCLListManager() {
+    if (!requireAdminAction('Centerline list manager')) return;
     toggleMenu();
     const existing = document.getElementById('clListMgrModal');
     if (existing) existing.remove();
@@ -4257,6 +5202,7 @@ function saveCLTolerances() {
 }
 
 function openCenterlineAdmin() {
+    if (!requireAdminAction('Centerline admin')) return;
     const existing = document.getElementById('clAdminModal');
     if (existing) existing.remove();
 
@@ -4293,9 +5239,11 @@ function openCenterlineAdmin() {
 
 // Static Centerline — opens full admin popup (Add Primary, Add Secondary, Manage CL Lists)
 function openStaticCenterline() {
+    if (!requireAdminAction('Static centerline')) return;
     openCenterlineAdmin();
 }
 function openCenterlineForm(type) {
+    if (!requireAdminAction('Centerline form')) return;
     const _adm = document.getElementById('clAdminModal');
     if (_adm) _adm.remove();
     const color = type === 'primary' ? '#667eea' : '#764ba2';
@@ -4365,6 +5313,7 @@ function openCenterlineForm(type) {
 }
 
 function saveCenterlineEntry(type) {
+    if (!requireAdminAction('Save centerline')) return;
     const line = document.getElementById('clf_line').value.trim();
     const sku  = document.getElementById('clf_sku').value.trim();
     const variant = document.getElementById('clf_variant').value.trim();
@@ -4570,6 +5519,7 @@ function runCLSearch(type) {
 }
 
 function deleteCLEntry(type, idx) {
+    if (!requireAdminAction('Delete centerline')) return;
     const pwd = prompt('Enter admin password to delete:');
     const adminPwd = localStorage.getItem('admin_password') || '1234';
     if (pwd !== adminPwd) { if (pwd !== null) alert('❌ Wrong password!'); return; }
@@ -4601,6 +5551,7 @@ function openCenterlineUser() {
 }
 
 function openCalculatorSettings() {
+    if (!requireAdminAction('Calculator settings')) return;
     toggleMenu();
     const existing = document.getElementById('calculatorSettingsModal');
     if (existing) existing.remove();
@@ -4666,7 +5617,7 @@ function openCalculatorSettings() {
 
         <!-- ADD NEW -->
         <div style="background:#e8f5e9;border:1.5px solid #4caf50;border-radius:10px;padding:15px;margin-bottom:15px;">
-            <h3 style="margin:0 0 10px;color:#2e7d32;font-size:15px;">➕ New Formula Add Karo</h3>
+            <h3 style="margin:0 0 10px;color:#2e7d32;font-size:15px;">➕ Add New Formula</h3>
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px;">
                 <div style="grid-column:1/-1;"><label style="font-size:12px;font-weight:600;color:#555;display:block;margin-bottom:3px;">Weight Name</label>
                     <input id="nName" placeholder="e.g. 1.5kg" style="width:100%;padding:9px;border:2px solid #ddd;border-radius:7px;font-size:14px;"></div>
@@ -4739,6 +5690,7 @@ function updateEditPreview() {
 }
 
 function saveEditedFormula() {
+    if (!requireAdminAction('Edit formula')) return;
     const key = document.getElementById('editWeightSel').value;
     if (!key) { alert('Please select a weight!'); return; }
     const ps  = parseInt(document.getElementById('ePS').value);
@@ -4755,6 +5707,7 @@ function saveEditedFormula() {
 }
 
 function saveNewFormula() {
+    if (!requireAdminAction('New formula')) return;
     const name = document.getElementById('nName').value.trim();
     const ps   = parseInt(document.getElementById('nPS').value);
     const sp   = parseInt(document.getElementById('nSP').value);
@@ -4771,6 +5724,7 @@ function saveNewFormula() {
 }
 
 function deleteCalcFormula(name) {
+    if (!requireAdminAction('Delete formula')) return;
     if (!confirm('Delete "'+name+'" formula?')) return;
     const custom = JSON.parse(localStorage.getItem('customFormulas')||'{}');
     delete custom[name];
@@ -4790,6 +5744,7 @@ function syncCalcFormulas() {
 // JULIAN CODE SETTINGS
 // ============================================================
 function openJulianCodeSettings() {
+    if (!requireAdminAction('Julian code settings')) return;
     const existing = document.getElementById('julianCodeModal');
     if (existing) existing.remove();
 
@@ -4839,6 +5794,7 @@ function openJulianCodeSettings() {
 }
 
 function saveJulianCode() {
+    if (!requireAdminAction('Save Julian code')) return;
     const code = document.getElementById('julianCodeInput').value.trim();
     if (!code) { alert('Please enter a code!'); return; }
     localStorage.setItem('julian_fixed_code', code);
@@ -4850,6 +5806,7 @@ function saveJulianCode() {
 // GUIDE EDITOR — Admin manually writes guides
 // ============================================================
 function openGuideEditor() {
+    if (!requireAdminAction('Guide editor')) return;
     const existing = document.getElementById('guideEditorModal');
     if (existing) existing.remove();
 
@@ -4928,6 +5885,7 @@ function switchGuideTab(tab) {
 }
 
 function saveCustomGuides() {
+    if (!requireAdminAction('Save guide')) return;
     const guides = {
         mainEn: document.getElementById('guide_mainEn').value,
         mainHi: document.getElementById('guide_mainHi').value,
@@ -4941,6 +5899,7 @@ function saveCustomGuides() {
 }
 
 function clearCustomGuides() {
+    if (!requireAdminAction('Clear guide')) return;
     if (!confirm('Clear all custom guides? Default guide will be shown.')) return;
     localStorage.removeItem('customGuides');
     syncToServer();
@@ -4969,6 +5928,7 @@ function previewCustomGuide() {
 }
 
 function openHighlightNote() {
+    if (!requireAdminAction('Highlight note')) return;
     toggleMenu();
     const existing = document.getElementById('highlightNoteModal');
     if (existing) existing.remove();
@@ -5020,6 +5980,7 @@ function toggleHighlightNoteSwitch() {
 }
 
 function saveHighlightNote() {
+    if (!requireAdminAction('Save highlight note')) return;
     const sw = document.getElementById('hnSwitch');
     const isOn = sw.style.background === 'rgb(76, 175, 80)';
     const text = document.getElementById('hnText').value.trim();
@@ -5058,25 +6019,25 @@ function showHighlightNotePopup() {
 // ACCESS CONTROL
 // ============================================================
 const ACCESS_ITEMS = [
-    { key: 'search',        label: '🔍 Search Products',        desc: 'Product search karna' },
-    { key: 'scanner',       label: '📷 QR/Barcode Scanner',     desc: 'Camera se scan karna' },
-    { key: 'centerline',    label: '📋 Centerline Search',      desc: 'Centerline data dekhna' },
-    { key: 'share',         label: '📤 Share Product',          desc: 'Product share karna' },
-    { key: 'filters',       label: '🔽 Advanced Filters',       desc: 'Filter aur sort karna' },
-    { key: 'qrshare',       label: '📲 Share App QR',           desc: 'App QR code dekhna' },
-    { key: 'guide',         label: '📖 User Guide',             desc: 'Guide dekhna' },
+    { key: 'search',        label: '🔍 Search Products',        desc: 'Search products' },
+    { key: 'scanner',       label: '📷 QR/Barcode Scanner',     desc: 'Scan with camera' },
+    { key: 'centerline',    label: '📋 Centerline Search',      desc: 'View centerline data' },
+    { key: 'share',         label: '📤 Share Product',          desc: 'Share product' },
+    { key: 'filters',       label: '🔽 Advanced Filters',       desc: 'Filter and sort' },
+    { key: 'qrshare',       label: '📲 Share App QR',           desc: 'View app QR code' },
+    { key: 'guide',         label: '📖 User Guide',             desc: 'View guide' },
     { key: 'darkmode',      label: '🌙 Dark Mode',              desc: 'Dark mode toggle' },
-    { key: 'verify_cb',     label: '☑️ Verify Checkboxes',      desc: 'Data verify karna' },
-    { key: 'calculator',    label: '🧮 Calculator',             desc: 'Calculator open karna' },
-    { key: 'manual_add',    label: '✏️ Add Manual Data',        desc: 'Manually data add karna' },
-    { key: 'upload_csv',    label: '📁 Upload CSV/Excel',       desc: 'File upload karna' },
-    { key: 'location',      label: '📍 Location Settings',      desc: 'Location settings dekhna' },
-    { key: 'theme',         label: '🎨 Change Theme',           desc: 'Theme change karna' },
-    { key: 'cl_add',        label: '📌 Add Centerline Data',    desc: 'Centerline data add karna' },
-    { key: 'export',        label: '📥 Export Data',            desc: 'Data export karna' },
-    { key: 'highlight_note',label: '📢 Highlight Note',         desc: 'Admin note dekhna' },
-    { key: 'print_card',    label: '🖨️ Print PDF',              desc: 'Product PDF print karna' },
-    { key: 'personal_access',label: '👤 Personal Access Control', desc: 'User apni personal settings set kar sake' },
+    { key: 'verify_cb',     label: '☑️ Verify Checkboxes',      desc: 'Verify data' },
+    { key: 'calculator',    label: '🧮 Calculator',             desc: 'Open calculator' },
+    { key: 'manual_add',    label: '✏️ Add Manual Data',        desc: 'Add data manually' },
+    { key: 'upload_csv',    label: '📁 Upload CSV/Excel',       desc: 'Upload file' },
+    { key: 'location',      label: '📍 Location Settings',      desc: 'View location settings' },
+    { key: 'theme',         label: '🎨 Change Theme',           desc: 'Change theme' },
+    { key: 'cl_add',        label: '📌 Add Centerline Data',    desc: 'Add centerline data' },
+    { key: 'export',        label: '📥 Export Data',            desc: 'Export data' },
+    { key: 'highlight_note',label: '📢 Highlight Note',         desc: 'View admin note' },
+    { key: 'print_card',    label: '🖨️ Print PDF',              desc: 'Print product PDF' },
+    { key: 'personal_access',label: '👤 Personal Access Control', desc: 'Allow users to set personal settings' },
 ];
 
 function getAccessControl() {
@@ -5095,6 +6056,7 @@ function isAccessAllowed(key) {
 }
 
 function openAccessControl() {
+    if (!requireAdminAction('Access control')) return;
     const existing = document.getElementById('accessControlModal');
     if (existing) existing.remove();
 
@@ -5122,13 +6084,13 @@ function openAccessControl() {
         <div style="background:linear-gradient(135deg,#667eea,#764ba2);padding:16px 20px;display:flex;justify-content:space-between;align-items:center;position:sticky;top:0;">
             <div>
                 <div style="color:white;font-weight:700;font-size:17px;">🔐 Access Control</div>
-                <div style="color:rgba(255,255,255,0.8);font-size:11px;">User ko kya access dena hai</div>
+                <div style="color:rgba(255,255,255,0.8);font-size:11px;">Choose what users can access</div>
             </div>
             <button onclick="document.getElementById('accessControlModal').remove()" style="background:rgba(255,255,255,0.2);border:none;color:white;font-size:22px;width:32px;height:32px;border-radius:50%;cursor:pointer;">✕</button>
         </div>
         <div style="padding:0 16px 16px;">
             <div style="background:#fff3e0;border-radius:8px;padding:10px 12px;margin:12px 0;font-size:12px;color:#e65100;border-left:3px solid #ff9800;">
-                ⚠️ Admin ke liye yeh settings apply nahi hoti — sirf User (view) ke liye
+                ⚠️ These settings do not apply to Admin — only to User (view)
             </div>
             ${rows}
             <div style="display:flex;gap:10px;margin-top:14px;">
@@ -5224,13 +6186,13 @@ function openPersonalAccess() {
         <div style="background:linear-gradient(135deg,#2196F3,#21CBF3);padding:16px 20px;display:flex;justify-content:space-between;align-items:center;position:sticky;top:0;">
             <div>
                 <div style="color:white;font-weight:700;font-size:17px;">👤 Personal Access</div>
-                <div style="color:rgba(255,255,255,0.8);font-size:11px;">Sirf is device ke liye — server pe nahi jayega</div>
+                <div style="color:rgba(255,255,255,0.8);font-size:11px;">Only for this device — not saved to server</div>
             </div>
             <button onclick="document.getElementById('personalAccessModal').remove()" style="background:rgba(255,255,255,0.2);border:none;color:white;font-size:22px;width:32px;height:32px;border-radius:50%;cursor:pointer;">✕</button>
         </div>
         <div style="padding:0 16px 16px;">
             <div style="background:#e3f2fd;border-radius:8px;padding:10px 12px;margin:12px 0;font-size:12px;color:#1565c0;border-left:3px solid #2196F3;">
-                💡 Yeh settings sirf is device pe apply hongi — dusre devices pe alag settings ho sakti hain
+                💡 These settings apply only to this device — other devices can have different settings
             </div>
             ${rows}
             <div style="display:flex;gap:10px;margin-top:14px;">
@@ -5308,6 +6270,7 @@ function applyPersonalAccess() {
 }
 
 function openPrivacySettings() {
+    if (!requireAdminAction('Privacy settings')) { openPersonalAccess(); return; }
     toggleMenu();
     const existing = document.getElementById('privacySettingsModal');
     if (existing) existing.remove();
@@ -5328,7 +6291,7 @@ function openPrivacySettings() {
                 <div style="width:42px;height:42px;background:#e8f5e9;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0;">🔐</div>
                 <div>
                     <div style="font-weight:700;color:#333;font-size:15px;">Access Control</div>
-                    <div style="font-size:12px;color:#888;margin-top:2px;">User ko kya access dena hai</div>
+                    <div style="font-size:12px;color:#888;margin-top:2px;">Choose what users can access</div>
                 </div>
                 <span style="margin-left:auto;color:#ccc;font-size:18px;">›</span>
             </div>
@@ -5344,7 +6307,7 @@ function openPrivacySettings() {
                 <div style="width:42px;height:42px;background:#e3f2fd;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0;">🔑</div>
                 <div>
                     <div style="font-weight:700;color:#333;font-size:15px;">Admin Password</div>
-                    <div style="font-size:12px;color:#888;margin-top:2px;">Admin ka password badlo</div>
+                    <div style="font-size:12px;color:#888;margin-top:2px;">Change admin password</div>
                 </div>
                 <span style="margin-left:auto;color:#ccc;font-size:18px;">›</span>
             </div>
@@ -5352,7 +6315,7 @@ function openPrivacySettings() {
                 <div style="width:42px;height:42px;background:#e8f5e9;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0;">🔑</div>
                 <div>
                     <div style="font-weight:700;color:#333;font-size:15px;">User Password</div>
-                    <div style="font-size:12px;color:#888;margin-top:2px;">User ka password badlo</div>
+                    <div style="font-size:12px;color:#888;margin-top:2px;">Change user password</div>
                 </div>
                 <span style="margin-left:auto;color:#ccc;font-size:18px;">›</span>
             </div>
@@ -5360,7 +6323,7 @@ function openPrivacySettings() {
                 <div style="width:42px;height:42px;background:#fff3e0;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0;">👆</div>
                 <div>
                     <div style="font-weight:700;color:#333;font-size:15px;">Fingerprint Setup</div>
-                    <div style="font-size:12px;color:#888;margin-top:2px;">Biometric login setup karo</div>
+                    <div style="font-size:12px;color:#888;margin-top:2px;">Set up biometric login</div>
                 </div>
                 <span style="margin-left:auto;color:#ccc;font-size:18px;">›</span>
             </div>
@@ -5473,71 +6436,118 @@ function logoutApp() {
 // ============================================================
 // LOGIN HISTORY SYSTEM
 // ============================================================
+function _getOrCreateDeviceId() {
+    let id = localStorage.getItem('device_id_v1');
+    if (!id) {
+        id = 'DEV-' + Date.now().toString(36).toUpperCase() + '-' + Math.random().toString(36).slice(2, 8).toUpperCase();
+        localStorage.setItem('device_id_v1', id);
+    }
+    return id;
+}
+
+function _getBrowserName(ua = navigator.userAgent) {
+    if (/Edg\//.test(ua)) return 'Edge';
+    if (/OPR\//.test(ua) || /Opera/.test(ua)) return 'Opera';
+    if (/Firefox\//.test(ua)) return 'Firefox';
+    if (/Chrome\//.test(ua) && !/Chromium/.test(ua)) return 'Chrome';
+    if (/Safari\//.test(ua) && !/Chrome/.test(ua)) return 'Safari';
+    return 'Unknown browser';
+}
+
+function _getOsName(ua = navigator.userAgent) {
+    const android = ua.match(/Android[\s/]([\d.]+)/);
+    if (android) return 'Android ' + android[1];
+    const iphone = ua.match(/iPhone OS ([\d_]+)/);
+    if (iphone) return 'iOS ' + iphone[1].replace(/_/g, '.');
+    const ipad = ua.match(/iPad.*OS ([\d_]+)/);
+    if (ipad) return 'iPadOS ' + ipad[1].replace(/_/g, '.');
+    if (/Windows NT 10/.test(ua)) return 'Windows 10/11';
+    if (/Windows NT 6/.test(ua)) return 'Windows 7/8';
+    const mac = ua.match(/Mac OS X ([\d_]+)/);
+    if (mac) return 'macOS ' + mac[1].replace(/_/g, '.');
+    if (/Linux/.test(ua)) return 'Linux';
+    return 'Unknown OS';
+}
+
+function _getDeviceModel(ua = navigator.userAgent) {
+    const androidMatch = ua.match(/Android[\s/][\d.]+.*?;\s*([^)]+)\)/);
+    if (androidMatch) return androidMatch[1].replace(/; wv|Build\/.*|;.*$/g, '').trim();
+    if (/iPhone/.test(ua)) return 'iPhone';
+    if (/iPad/.test(ua)) return 'iPad';
+    if (/Macintosh/.test(ua)) return 'Mac';
+    if (/Windows/.test(ua)) return 'Windows PC';
+    if (/Linux/.test(ua)) return 'Linux PC';
+    return 'Unknown device';
+}
+
 function _getDeviceInfo() {
+    const details = _getDeviceDetails();
+    const icon = /Android|iOS|iPad/.test(details.os) ? 'Phone' : 'PC';
+    return icon + ' ' + details.deviceModel + ' · ' + details.browser;
+}
+
+function _getLocationHistoryStatus() {
+    const enabled = localStorage.getItem('loc_enabled') === 'true';
+    if (!enabled) return 'Disabled';
+    if (_currentLat === null || _currentLng === null) return 'Unknown / not granted';
+    return isInRange() ? 'In range' : 'Out of range';
+}
+
+function _getDeviceDetails() {
     const ua = navigator.userAgent;
-    let device = '';
+    const connection = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+    return {
+        deviceId: _getOrCreateDeviceId(),
+        deviceModel: _getDeviceModel(ua),
+        browser: _getBrowserName(ua),
+        os: _getOsName(ua),
+        userAgent: ua,
+        language: navigator.language || 'Unknown',
+        screenSize: `${window.screen?.width || '?'} x ${window.screen?.height || '?'}`,
+        viewportSize: `${window.innerWidth || '?'} x ${window.innerHeight || '?'}`,
+        pixelRatio: window.devicePixelRatio || 1,
+        onlineStatus: navigator.onLine ? 'Online' : 'Offline',
+        connectionType: connection?.effectiveType || connection?.type || 'Unknown',
+        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'Unknown',
+        locationStatus: _getLocationHistoryStatus(),
+        locationEnabled: localStorage.getItem('loc_enabled') === 'true' ? 'Yes' : 'No',
+        locationLatLng: (_currentLat !== null && _currentLng !== null) ? `${_currentLat.toFixed(6)}, ${_currentLng.toFixed(6)}` : 'Not available',
+        apiConfigured: isJsonBinConfigured() ? 'Yes' : 'No',
+        lastSyncStatus: localStorage.getItem('last_sync_status') || 'Unknown',
+        lastSyncTime: localStorage.getItem('last_sync_time') || 'Not recorded',
+        appVersion: localStorage.getItem('app_version') || 'Single-file HTML'
+    };
+}
 
-    // Android — extract model name
-    const androidMatch = ua.match(/Android[\s/]([\d.]+).*?;\s*([^)]+)\)/);
-    if (androidMatch) {
-        const model = androidMatch[2].trim();
-        // Detect common brands
-        const brand = model.split(' ')[0];
-        device = '📱 ' + model;
-        return device;
-    }
-
-    // iPhone
-    const iphoneMatch = ua.match(/iPhone OS ([\d_]+)/);
-    if (iphoneMatch) {
-        const ver = iphoneMatch[1].replace(/_/g, '.');
-        device = '📱 iPhone (iOS ' + ver + ')';
-        return device;
-    }
-
-    // iPad
-    const ipadMatch = ua.match(/iPad.*OS ([\d_]+)/);
-    if (ipadMatch) {
-        device = '📱 iPad (iOS ' + ipadMatch[1].replace(/_/g, '.') + ')';
-        return device;
-    }
-
-    // Windows PC — processor info
-    if (/Windows NT 10/.test(ua)) device = '� Windows 10/11 PC';
-    else if (/Windows NT 6/.test(ua)) device = '� Windows 7/8 PC';
-    else if (/Windows/.test(ua)) device = '💻 Windows PC';
-    else if (/Macintosh/.test(ua)) {
-        const macMatch = ua.match(/Mac OS X ([\d_]+)/);
-        device = '💻 Mac' + (macMatch ? ' (macOS ' + macMatch[1].replace(/_/g, '.') + ')' : '');
-    }
-    else if (/Linux/.test(ua)) device = '💻 Linux PC';
-    else device = '❓ Unknown Device';
-
-    // Add browser info
-    let browser = '';
-    if (/Chrome\//.test(ua) && !/Chromium/.test(ua) && !/Edg/.test(ua)) browser = 'Chrome';
-    else if (/Edg\//.test(ua)) browser = 'Edge';
-    else if (/Firefox\//.test(ua)) browser = 'Firefox';
-    else if (/Safari\//.test(ua) && !/Chrome/.test(ua)) browser = 'Safari';
-    if (browser) device += ' · ' + browser;
-
-    return device;
+function _formatDuration(ms) {
+    if (!ms || ms < 0) return null;
+    const totalSeconds = Math.round(ms / 1000);
+    const mins = Math.floor(totalSeconds / 60);
+    const secs = totalSeconds % 60;
+    if (mins < 60) return mins + 'm ' + secs + 's';
+    return Math.floor(mins / 60) + 'h ' + (mins % 60) + 'm';
 }
 
 function _saveLoginLog(role) {
     const logs = JSON.parse(localStorage.getItem('loginHistory') || '[]');
     const now = new Date();
-    logs.unshift({
+    const details = _getDeviceDetails();
+    const log = {
         role: role,
+        loginMethod: window._pendingLoginMethod || 'Password',
         device: _getDeviceInfo(),
         loginTime: now.toLocaleString('en-IN'),
         loginTs: now.getTime(),
         logoutTime: null,
-        duration: null
-    });
-    if (logs.length > 50) logs.splice(50);
+        logoutTs: null,
+        duration: null,
+        sessionStatus: 'Active',
+        ...details
+    };
+    window._pendingLoginMethod = null;
+    logs.unshift(log);
+    if (logs.length > 100) logs.splice(100);
     localStorage.setItem('loginHistory', JSON.stringify(logs));
-    // Also save to server
     setTimeout(() => syncToServer(), 1000);
 }
 
@@ -5546,13 +6556,78 @@ function _saveLogoutLog() {
     if (logs.length > 0 && !logs[0].logoutTime && logs[0].loginTs) {
         const now = new Date();
         logs[0].logoutTime = now.toLocaleString('en-IN');
-        const mins = Math.round((now.getTime() - logs[0].loginTs) / 60000);
-        logs[0].duration = mins < 60 ? mins + ' min' : Math.floor(mins/60) + 'h ' + (mins%60) + 'm';
+        logs[0].logoutTs = now.getTime();
+        logs[0].duration = _formatDuration(now.getTime() - logs[0].loginTs);
+        logs[0].sessionStatus = 'Logged out';
+        logs[0].logoutOnlineStatus = navigator.onLine ? 'Online' : 'Offline';
+        logs[0].logoutLocationStatus = _getLocationHistoryStatus();
         localStorage.setItem('loginHistory', JSON.stringify(logs));
+        setTimeout(() => syncToServer(), 1000);
     }
 }
 
+function _historyDetailRow(label, value) {
+    return `<div style="display:flex;justify-content:space-between;gap:12px;padding:8px 0;border-bottom:1px solid #f0f0f0;">
+        <span style="font-size:12px;color:#777;font-weight:700;min-width:115px;">${label}</span>
+        <span style="font-size:12px;color:#222;text-align:right;word-break:break-word;">${value || 'Not available'}</span>
+    </div>`;
+}
+
+function showLoginHistoryDetail(index) {
+    const logs = JSON.parse(localStorage.getItem('loginHistory') || '[]');
+    const l = logs[index];
+    if (!l) return;
+    const old = document.getElementById('loginDetailModal');
+    if (old) old.remove();
+    const modal = document.createElement('div');
+    modal.id = 'loginDetailModal';
+    modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.65);display:flex;align-items:center;justify-content:center;padding:15px;box-sizing:border-box;z-index:10000;';
+    const rows = [
+        ['Role', l.role === 'admin' ? 'Admin' : 'User'],
+        ['Login Method', l.loginMethod || 'Password'],
+        ['Session Status', l.logoutTime ? 'Logged out' : 'Currently active'],
+        ['Login Time', l.loginTime],
+        ['Logout Time', l.logoutTime || 'Active now'],
+        ['Duration', l.duration || 'Running'],
+        ['Device ID', l.deviceId],
+        ['Device', l.deviceModel || l.device],
+        ['Browser', l.browser],
+        ['OS', l.os],
+        ['Screen', l.screenSize],
+        ['Viewport', l.viewportSize],
+        ['Pixel Ratio', l.pixelRatio],
+        ['Online at Login', l.onlineStatus],
+        ['Online at Logout', l.logoutOnlineStatus],
+        ['Connection', l.connectionType],
+        ['Location Status', l.locationStatus],
+        ['Logout Location', l.logoutLocationStatus],
+        ['Lat/Lng', l.locationLatLng],
+        ['Location Enabled', l.locationEnabled],
+        ['Timezone', l.timezone],
+        ['Language', l.language],
+        ['API Configured', l.apiConfigured],
+        ['Last Sync Status', l.lastSyncStatus],
+        ['Last Sync Time', l.lastSyncTime],
+        ['App Version', l.appVersion],
+        ['User Agent', l.userAgent]
+    ].map(r => _historyDetailRow(r[0], r[1])).join('');
+    modal.innerHTML = `
+        <div style="background:white;border-radius:14px;width:100%;max-width:520px;max-height:88vh;overflow:hidden;box-shadow:0 10px 40px rgba(0,0,0,0.35);">
+            <div style="background:linear-gradient(135deg,#667eea,#764ba2);padding:15px 18px;display:flex;justify-content:space-between;align-items:center;color:white;">
+                <div>
+                    <div style="font-size:17px;font-weight:800;">Login Details</div>
+                    <div style="font-size:11px;opacity:0.85;">Tap outside or close to return</div>
+                </div>
+                <button onclick="document.getElementById('loginDetailModal').remove()" style="background:rgba(255,255,255,0.2);border:none;color:white;font-size:22px;width:32px;height:32px;border-radius:50%;cursor:pointer;">×</button>
+            </div>
+            <div style="padding:14px 16px;max-height:72vh;overflow-y:auto;">${rows}</div>
+        </div>`;
+    document.body.appendChild(modal);
+    modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
+}
+
 function openLoginHistory() {
+    if (!requireAdminAction('Login history')) return;
     const adminPwd = localStorage.getItem('admin_password') || '1234';
     const pwd = prompt('Enter admin password to view login history:');
     if (pwd !== adminPwd) { alert('Wrong password!'); return; }
@@ -5565,27 +6640,34 @@ function openLoginHistory() {
 
     const rows = logs.length === 0
         ? '<p style="color:#999;text-align:center;padding:20px;">No login history yet</p>'
-        : logs.map((l, i) => `
-            <div style="background:${l.role==='admin'?'#e8eaf6':'#e8f5e9'};border-radius:8px;padding:10px 12px;margin-bottom:8px;border-left:4px solid ${l.role==='admin'?'#667eea':'#4CAF50'};">
-                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
-                    <span style="font-weight:700;font-size:13px;color:${l.role==='admin'?'#667eea':'#2e7d32'};">${l.role==='admin'?'👑 Admin':'👤 User'}</span>
-                    <span style="font-size:11px;color:#888;">#${logs.length - i}</span>
+        : logs.map((l, i) => {
+            const active = !l.logoutTime;
+            const roleColor = l.role === 'admin' ? '#667eea' : '#2e7d32';
+            const bg = l.role === 'admin' ? '#e8eaf6' : '#e8f5e9';
+            return `
+            <div onclick="showLoginHistoryDetail(${i})" style="background:${bg};border-radius:8px;padding:10px 12px;margin-bottom:8px;border-left:4px solid ${roleColor};cursor:pointer;">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;gap:8px;">
+                    <span style="font-weight:700;font-size:13px;color:${roleColor};">${l.role==='admin'?'Admin':'User'} · ${l.loginMethod || 'Password'}</span>
+                    <span style="font-size:11px;color:#888;white-space:nowrap;">#${logs.length - i}</span>
                 </div>
-                <div style="font-size:12px;color:#555;">📱 ${l.device}</div>
-                <div style="font-size:12px;color:#555;">🔓 Login: ${l.loginTime}</div>
-                ${l.logoutTime ? `<div style="font-size:12px;color:#555;">🔒 Logout: ${l.logoutTime}</div>` : '<div style="font-size:12px;color:#4CAF50;font-weight:600;">🟢 Currently Active</div>'}
-                ${l.duration ? `<div style="font-size:12px;color:#667eea;font-weight:600;">⏱️ Duration: ${l.duration}</div>` : ''}
-            </div>`).join('');
+                <div style="font-size:12px;color:#555;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${l.device || l.deviceModel || 'Unknown device'}</div>
+                <div style="font-size:12px;color:#555;">Login: ${l.loginTime || 'Unknown'}</div>
+                <div style="display:flex;justify-content:space-between;gap:8px;align-items:center;margin-top:4px;">
+                    <span style="font-size:12px;color:${active?'#4CAF50':'#667eea'};font-weight:700;">${active ? 'Active now' : 'Duration: ' + (l.duration || 'Unknown')}</span>
+                    <span style="font-size:11px;color:#777;">Tap for full info</span>
+                </div>
+            </div>`;
+        }).join('');
 
     modal.innerHTML = `
         <div style="background:white;border-radius:14px;width:100%;max-width:480px;margin:auto;overflow:hidden;">
             <div style="background:linear-gradient(135deg,#667eea,#764ba2);padding:14px 18px;display:flex;justify-content:space-between;align-items:center;position:sticky;top:0;">
                 <div>
-                    <div style="color:white;font-weight:700;font-size:16px;">📋 Login History</div>
-                    <div style="color:rgba(255,255,255,0.8);font-size:11px;">${logs.length} records</div>
+                    <div style="color:white;font-weight:700;font-size:16px;">Login History</div>
+                    <div style="color:rgba(255,255,255,0.8);font-size:11px;">${logs.length} records · tap row for details</div>
                 </div>
                 <div style="display:flex;gap:8px;align-items:center;">
-                    <button onclick="clearLoginHistory()" style="background:rgba(255,255,255,0.2);border:1px solid rgba(255,255,255,0.4);color:white;padding:4px 10px;border-radius:6px;cursor:pointer;font-size:12px;">🗑️ Clear</button>
+                    <button onclick="clearLoginHistory()" style="background:rgba(255,255,255,0.2);border:1px solid rgba(255,255,255,0.4);color:white;padding:4px 10px;border-radius:6px;cursor:pointer;font-size:12px;">Clear</button>
                     <span onclick="document.getElementById('loginHistoryModal').remove()" style="color:white;font-size:24px;cursor:pointer;line-height:1;">×</span>
                 </div>
             </div>
@@ -5598,14 +6680,16 @@ function openLoginHistory() {
 function clearLoginHistory() {
     if (!confirm('Clear all login history?')) return;
     localStorage.removeItem('loginHistory');
-    document.getElementById('loginHistoryModal').remove();
-    showSyncToast('🗑️ Login history cleared', '#f44336');
+    document.getElementById('loginHistoryModal')?.remove();
+    showSyncToast('Login history cleared', '#f44336');
+    syncToServer();
 }
 
 // ============================================================
 // CALCULATOR FORMULA MANAGER
 // ============================================================
 function openCalcFormulaManager() {
+    if (!requireAdminAction('Calculator formulas')) return;
     const saved = JSON.parse(localStorage.getItem('customFormulas') || '{}');
     const modal = document.createElement('div');
     modal.id = 'calcFormulaModal';
@@ -5715,6 +6799,7 @@ function saveCalcFormula() {
 }
 
 function deleteCalcFormula(name) {
+    if (!requireAdminAction('Delete formula')) return;
     if (!confirm(`Delete "${name}" formula?`)) return;
     const formulas = JSON.parse(localStorage.getItem('customFormulas') || '{}');
     delete formulas[name];
@@ -5728,6 +6813,7 @@ function deleteCalcFormula(name) {
 
 // API Settings
 function openApiSettings() {
+    if (!requireAdminAction('API settings')) return;
     toggleMenu();
     const currentKey = getApiKey();
     const currentBin = getBinId();
@@ -5795,6 +6881,7 @@ function clearApiSettings() {
 // ============================================================
 
 function openLocationSettings() {
+    if (!requireAdminAction('Location settings')) return;
     const adminPassword = localStorage.getItem('admin_password') || '1234';
     const pwd = prompt('Enter admin password:');
     if (pwd !== adminPassword) { alert('Wrong password!'); return; }
@@ -6190,9 +7277,17 @@ async function syncFromServer() {
             if (merged.length > 50) merged.splice(50);
             localStorage.setItem('loginHistory', JSON.stringify(merged));
         }
+        // Recycle bin sync
+        if (rec.recycleBin) {
+            localStorage.setItem('mc_deleted_records_v1', JSON.stringify(rec.recycleBin));
+        }
         // Access control sync
         if (rec.accessControl) {
             localStorage.setItem('accessControl', JSON.stringify(rec.accessControl));
+        }
+        // Pallet patterns sync
+        if (rec.palletPatterns) {
+            localStorage.setItem('palletPatterns', JSON.stringify(rec.palletPatterns));
         }
         // Custom guides sync
         if (rec.customGuides) {
@@ -6202,9 +7297,13 @@ async function syncFromServer() {
         const msg = window._userRole === 'admin'
             ? '🔄 Updated  •  ' + count + ' records'
             : '🔄 Updated';
+        localStorage.setItem('last_sync_status', 'Success from server');
+        localStorage.setItem('last_sync_time', new Date().toLocaleString('en-IN'));
         showSyncToast(msg, '#4CAF50');
         return serverData;
     } catch (err) {
+        localStorage.setItem('last_sync_status', 'Failed from server: ' + err.message);
+        localStorage.setItem('last_sync_time', new Date().toLocaleString('en-IN'));
         showSyncToast('❌ ' + err.message, '#f44336');
     }
 }
@@ -6228,15 +7327,19 @@ async function syncToServer() {
                 'Content-Type': 'application/json',
                 'X-Access-Key': getApiKey()
             },
-            body: JSON.stringify({ records: data, locationSettings, viewPassword, adminPassword: localStorage.getItem('admin_password') || '1234', customFormulas: JSON.parse(localStorage.getItem('customFormulas') || '{}'), highlightNote: JSON.parse(localStorage.getItem('highlightNote') || '{}'), centerlineData: JSON.parse(localStorage.getItem('centerlineData') || '[]'), centerlinePrimary: JSON.parse(localStorage.getItem('centerlinePrimary') || '[]'), centerlineSecondary: JSON.parse(localStorage.getItem('centerlineSecondary') || '[]'), cl_lines: JSON.parse(localStorage.getItem('cl_lines') || '[2,3,4,5]'), cl_skus: JSON.parse(localStorage.getItem('cl_skus') || '[]'), cl_variants: JSON.parse(localStorage.getItem('cl_variants') || '[]'), loginHistory: JSON.parse(localStorage.getItem('loginHistory') || '[]'), accessControl: JSON.parse(localStorage.getItem('accessControl') || '{}'), customGuides: JSON.parse(localStorage.getItem('customGuides') || '{}') })
+            body: JSON.stringify({ records: data, locationSettings, viewPassword, adminPassword: localStorage.getItem('admin_password') || '1234', customFormulas: JSON.parse(localStorage.getItem('customFormulas') || '{}'), highlightNote: JSON.parse(localStorage.getItem('highlightNote') || '{}'), centerlineData: JSON.parse(localStorage.getItem('centerlineData') || '[]'), centerlinePrimary: JSON.parse(localStorage.getItem('centerlinePrimary') || '[]'), centerlineSecondary: JSON.parse(localStorage.getItem('centerlineSecondary') || '[]'), cl_lines: JSON.parse(localStorage.getItem('cl_lines') || '[2,3,4,5]'), cl_skus: JSON.parse(localStorage.getItem('cl_skus') || '[]'), cl_variants: JSON.parse(localStorage.getItem('cl_variants') || '[]'), loginHistory: JSON.parse(localStorage.getItem('loginHistory') || '[]'), accessControl: JSON.parse(localStorage.getItem('accessControl') || '{}'), customGuides: JSON.parse(localStorage.getItem('customGuides') || '{}'), recycleBin: JSON.parse(localStorage.getItem('mc_deleted_records_v1') || '{}'), palletPatterns: JSON.parse(localStorage.getItem('palletPatterns') || '{}') })
         });
         if (!res.ok) {
             if (res.status === 401) throw new Error('401 - API Key wrong!');
             if (res.status === 404) throw new Error('404 - Bin ID not found!');
             throw new Error('HTTP ' + res.status);
         }
+        localStorage.setItem('last_sync_status', 'Saved to server');
+        localStorage.setItem('last_sync_time', new Date().toLocaleString('en-IN'));
         showSyncToast('☁️ Saved to server', '#2196F3');
     } catch (err) {
+        localStorage.setItem('last_sync_status', 'Save failed: ' + err.message);
+        localStorage.setItem('last_sync_time', new Date().toLocaleString('en-IN'));
         showSyncToast('❌ ' + err.message, '#f44336');
     }
 }
@@ -6318,6 +7421,21 @@ function unlockApp(role) {
 </script>
 </body>
 </html>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

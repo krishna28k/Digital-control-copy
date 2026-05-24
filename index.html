@@ -1258,6 +1258,10 @@ body.dark-mode .corner {
 .dot-blink {
     animation: blink 1s infinite;
 }
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
 /* Remove number input spinner */
 .no-spinner::-webkit-outer-spin-button,
 .no-spinner::-webkit-inner-spin-button {
@@ -2777,10 +2781,10 @@ function applyRoleAccess(role) {
         });
 
         // Personal Access Control — show to user only if admin has enabled it
-        const privacyItem = document.querySelector('.menu-item[onclick*="openPrivacySettings"]');
+        const privacyItem = document.querySelector('.menu-item[onclick*="openPrivacySettings"], .menu-item[onclick*="openPersonalAccess"]');
         if (privacyItem) {
             if (ac.personal_access !== false) {
-                // Show only Personal Access — not full Privacy Settings
+                // User ko sirf Personal Access dikhao
                 privacyItem.setAttribute('onclick', 'openPersonalAccess();toggleMenu()');
                 privacyItem.querySelector('span').innerHTML = '👤 Personal Settings';
                 privacyItem.style.display = 'block';
@@ -2790,9 +2794,15 @@ function applyRoleAccess(role) {
         }
 
     } else {
-        // Admin — show everything
+        // Admin — show everything + restore Privacy Settings to original
         document.querySelectorAll('.menu-item').forEach(el => el.style.display = '');
         document.querySelectorAll('.admin-only').forEach(el => el.style.display = '');
+        // Privacy Settings restore karo admin ke liye
+        const privacyItemAdmin = document.querySelector('.menu-item[onclick*="openPersonalAccess"]');
+        if (privacyItemAdmin) {
+            privacyItemAdmin.setAttribute('onclick', 'openPrivacySettings()');
+            privacyItemAdmin.querySelector('span').innerHTML = '🔐 Privacy Settings';
+        }
     }
 }
 
@@ -5065,6 +5075,7 @@ const ACCESS_ITEMS = [
     { key: 'cl_add',        label: '📌 Add Centerline Data',    desc: 'Centerline data add karna' },
     { key: 'export',        label: '📥 Export Data',            desc: 'Data export karna' },
     { key: 'highlight_note',label: '📢 Highlight Note',         desc: 'Admin note dekhna' },
+    { key: 'print_card',    label: '🖨️ Print PDF',              desc: 'Product PDF print karna' },
     { key: 'personal_access',label: '👤 Personal Access Control', desc: 'User apni personal settings set kar sake' },
 ];
 
@@ -5303,16 +5314,16 @@ function openPrivacySettings() {
 
     const modal = document.createElement('div');
     modal.id = 'privacySettingsModal';
-    modal.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.6);display:flex;justify-content:center;align-items:center;z-index:9999;padding:15px;box-sizing:border-box;';
+    modal.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.6);display:flex;justify-content:center;align-items:flex-start;z-index:9999;padding:15px;box-sizing:border-box;overflow-y:auto;';
     modal.innerHTML = `
-    <div style="background:white;border-radius:14px;padding:0;max-width:400px;width:100%;overflow:hidden;box-shadow:0 10px 40px rgba(0,0,0,0.3);">
+    <div style="background:white;border-radius:14px;padding:0;max-width:400px;width:100%;overflow:hidden;box-shadow:0 10px 40px rgba(0,0,0,0.3);margin:auto;">
         <!-- Header -->
-        <div style="background:linear-gradient(135deg,#667eea,#764ba2);padding:18px 20px;display:flex;justify-content:space-between;align-items:center;">
+        <div style="background:linear-gradient(135deg,#667eea,#764ba2);padding:18px 20px;display:flex;justify-content:space-between;align-items:center;position:sticky;top:0;z-index:1;">
             <h2 style="margin:0;color:white;font-size:18px;">🔐 Privacy Settings</h2>
             <button onclick="document.getElementById('privacySettingsModal').remove()" style="background:rgba(255,255,255,0.2);border:none;color:white;font-size:22px;width:34px;height:34px;border-radius:50%;cursor:pointer;display:flex;align-items:center;justify-content:center;">&#215;</button>
         </div>
         <!-- Options -->
-        <div style="padding:10px 0;">
+        <div style="padding:10px 0;overflow-y:auto;max-height:calc(100vh - 120px);">
             <div onclick="document.getElementById('privacySettingsModal').remove();openAccessControl();" style="display:flex;align-items:center;gap:14px;padding:16px 20px;cursor:pointer;border-bottom:1px solid #f0f0f0;transition:background 0.2s;" onmouseover="this.style.background='#f5f5f5'" onmouseout="this.style.background='white'">
                 <div style="width:42px;height:42px;background:#e8f5e9;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0;">🔐</div>
                 <div>
@@ -5324,8 +5335,8 @@ function openPrivacySettings() {
             <div onclick="document.getElementById('privacySettingsModal').remove();openPersonalAccess();" style="display:flex;align-items:center;gap:14px;padding:16px 20px;cursor:pointer;border-bottom:1px solid #f0f0f0;transition:background 0.2s;" onmouseover="this.style.background='#f5f5f5'" onmouseout="this.style.background='white'">
                 <div style="width:42px;height:42px;background:#e3f2fd;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0;">👤</div>
                 <div>
-                    <div style="font-weight:700;color:#333;font-size:15px;">Personal Access Control</div>
-                    <div style="font-size:12px;color:#888;margin-top:2px;">Sirf is device ke liye — server pe nahi jayega</div>
+                    <div style="font-weight:700;color:#333;font-size:15px;">Personal Access</div>
+                    <div style="font-size:12px;color:#888;margin-top:2px;">This device only settings</div>
                 </div>
                 <span style="margin-left:auto;color:#ccc;font-size:18px;">›</span>
             </div>
@@ -5411,9 +5422,51 @@ function logoutApp() {
     document.getElementById('searchInput').value = '';
     document.getElementById('resultsContainer').innerHTML = '';
     hideResultCount();
-    document.getElementById('passwordScreen').style.display = 'flex';
-    document.getElementById('passwordInput').value = '';
-    document.getElementById('passwordError').textContent = '';
+    // Password screen restore karo — spinner hata do
+    const pwdScreen = document.getElementById('passwordScreen');
+    pwdScreen.style.display = 'flex';
+    // Password box original content restore karo
+    const pwdBox = document.querySelector('.password-box');
+    if (pwdBox) {
+        pwdBox.innerHTML = `
+            <div style="position:relative;display:inline-block;margin-bottom:10px;">
+                <div class="lock-icon" style="margin-bottom:0;">🔒</div>
+                <div id="locationDot" style="position:absolute;top:0;right:-4px;width:12px;height:12px;border-radius:50%;background:#ccc;box-shadow:0 0 6px rgba(0,0,0,0.3);transition:background 0.5s;border:2px solid white;" title="Location Status"></div>
+            </div>
+            <div onclick="openUserGuide()" style="position:absolute;top:12px;left:15px;width:26px;height:26px;background:rgba(102,126,234,0.15);border-radius:50%;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:14px;font-weight:700;color:#667eea;border:1.5px solid #667eea;" title="User Guide">?</div>
+            <button onclick="openCalculator()" style="position:absolute;top:12px;right:15px;width:36px;height:36px;background:rgba(102,126,234,0.15);border-radius:8px;display:flex;align-items:center;justify-content:center;cursor:pointer;border:1.5px solid #667eea;padding:0;-webkit-tap-highlight-color:transparent;" title="Calculator">
+                <svg width="22" height="22" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+                    <rect width="100" height="100" fill="#667eea" rx="15"/>
+                    <rect x="10" y="10" width="35" height="35" fill="white" rx="5"/>
+                    <rect x="20" y="24" width="5" height="7" fill="#ff0000"/>
+                    <rect x="24" y="20" width="7" height="5" fill="#ff0000"/>
+                    <rect x="55" y="10" width="35" height="35" fill="white" rx="5"/>
+                    <rect x="65" y="24" width="15" height="7" fill="#ff0000"/>
+                    <circle cx="50" cy="50" r="20" fill="white" stroke="#667eea" stroke-width="3"/>
+                    <rect x="38" y="46" width="12" height="3" fill="#ff0000"/>
+                    <rect x="38" y="54" width="12" height="3" fill="#ff0000"/>
+                    <rect x="10" y="55" width="35" height="35" fill="white" rx="5"/>
+                    <line x1="20" y1="65" x2="30" y2="80" stroke="#ff0000" stroke-width="3" stroke-linecap="round"/>
+                    <line x1="30" y1="65" x2="20" y2="80" stroke="#ff0000" stroke-width="3" stroke-linecap="round"/>
+                    <rect x="55" y="55" width="35" height="35" fill="white" rx="5"/>
+                    <text x="72" y="82" font-size="14" font-weight="bold" fill="#ff0000" text-anchor="middle">Lite</text>
+                </svg>
+            </button>
+            <h2>Digital Control Copy</h2>
+            <p>Enter password to access</p>
+            <div id="gpsWarning" style="display:none;color:#f44336;font-size:12px;font-weight:600;margin-bottom:8px;text-align:center;"></div>
+            <input type="password" id="passwordInput" placeholder="Enter Password" onkeypress="if(event.key==='Enter') checkPassword()" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
+            <button onclick="checkPassword()">Unlock</button>
+            <div style="display:flex;justify-content:center;margin-top:15px;">
+                <div style="text-align:center;">
+                    <div onclick="useFingerprintAuth('auto')" style="width:55px;height:55px;background:linear-gradient(135deg,#667eea,#4CAF50);border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto;cursor:pointer;transition:all 0.3s;box-shadow:0 2px 15px rgba(102,126,234,0.5);" onmouseover="this.style.transform='scale(1.1)'" onmouseout="this.style.transform='scale(1)'">
+                        <span style="font-size:28px;">👆</span>
+                    </div>
+                    <p style="font-size:10px;color:#888;margin-top:5px;font-weight:600;">Fingerprint</p>
+                </div>
+            </div>
+            <p class="password-error" id="passwordError"></p>`;
+    }
     showPasswordScreen();
 }
 
@@ -5772,25 +5825,31 @@ function autoFillLocation(num) {
     if (!navigator.geolocation) { alert('GPS not supported on this device!'); return; }
     const latEl = document.getElementById('loc' + num + 'lat');
     const lngEl = document.getElementById('loc' + num + 'lng');
-    // Clear and show loading
     latEl.value = '';
     lngEl.value = '';
     latEl.placeholder = '⏳ GPS...';
     lngEl.placeholder = '⏳ GPS...';
+
+    // Pehle low accuracy se try karo — fast hota hai
     navigator.geolocation.getCurrentPosition(
         pos => {
             latEl.value = pos.coords.latitude.toFixed(6);
             lngEl.value = pos.coords.longitude.toFixed(6);
             latEl.placeholder = 'Latitude';
             lngEl.placeholder = 'Longitude';
-            showSuccessPopup('📍 Location ' + num + ' location add done');
+            showSuccessPopup('📍 Location ' + num + ' added!');
         },
         err => {
             latEl.placeholder = 'Latitude';
             lngEl.placeholder = 'Longitude';
-            alert('Location not found!\n\nReason: ' + err.message + '\n\nPlease enable GPS and try again.');
+            let msg = 'Location not found!\n\n';
+            if (err.code === 1) msg += 'Permission denied — allow location in browser settings.';
+            else if (err.code === 2) msg += 'GPS unavailable — try outdoors or enable WiFi.';
+            else if (err.code === 3) msg += 'Timeout — GPS taking too long. Try again.';
+            else msg += err.message;
+            alert(msg);
         },
-        { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+        { enableHighAccuracy: false, timeout: 20000, maximumAge: 60000 }
     );
 }
 
@@ -6183,7 +6242,6 @@ function autoLockApp() {}
 
 function unlockApp(role) {
     window._userRole = role || 'admin';
-    document.getElementById('passwordScreen').style.display = 'none';
     // Save login history
     _saveLoginLog(role || 'admin');
     // Close side menu if open
@@ -6192,19 +6250,40 @@ function unlockApp(role) {
     vibrateDevice([100]);
     loadDarkMode();
     loadTheme();
-    showEmptyState();
+
+    // Show loading on password screen while syncing
+    const pwdBox = document.querySelector('.password-box');
+    if (pwdBox) {
+        pwdBox.innerHTML = `
+            <div style="text-align:center;padding:20px 0;">
+                <div style="width:60px;height:60px;border:5px solid rgba(102,126,234,0.2);border-top:5px solid #667eea;border-radius:50%;animation:spin 0.8s linear infinite;margin:0 auto 20px;"></div>
+                <div style="font-size:16px;font-weight:700;color:#667eea;">Syncing data...</div>
+                <div style="font-size:12px;color:#aaa;margin-top:6px;">Please wait</div>
+            </div>`;
+    }
+
     // Sync on login — access control server se aane ke BAAD apply karo
     if (getBinId()) {
         syncFromServer().then(() => {
-            // Server se data aane ke baad access control apply karo
+            // Hide password screen now
+            document.getElementById('passwordScreen').style.display = 'none';
+            showEmptyState();
             applyRoleAccess(window._userRole);
             setTimeout(() => applyPersonalAccess(), 100);
             const term = document.getElementById('searchInput')?.value?.trim();
             if (term) searchData();
             setTimeout(showHighlightNotePopup, 800);
+        }).catch(() => {
+            // Sync fail — still open app
+            document.getElementById('passwordScreen').style.display = 'none';
+            showEmptyState();
+            applyRoleAccess(window._userRole);
+            setTimeout(() => applyPersonalAccess(), 100);
         });
     } else {
-        // No server — local access control apply karo
+        // No server — open immediately
+        document.getElementById('passwordScreen').style.display = 'none';
+        showEmptyState();
         applyRoleAccess(window._userRole);
         setTimeout(() => applyPersonalAccess(), 100);
         setTimeout(showHighlightNotePopup, 800);

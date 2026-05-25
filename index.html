@@ -145,11 +145,16 @@ h1 {
     left: -300px;
     top: 0;
     width: 280px;
-    height: 100%;
+    height: 100vh;
+    height: 100dvh;
+    max-height: 100dvh;
     background: white;
     box-shadow: 2px 0 10px rgba(0,0,0,0.3);
     transition: left 0.3s ease;
     z-index: 1000;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
 }
 
 .side-menu.active {
@@ -163,6 +168,7 @@ h1 {
     display: flex;
     justify-content: space-between;
     align-items: center;
+    flex-shrink: 0;
 }
 
 .menu-header h2 {
@@ -177,7 +183,12 @@ h1 {
 }
 
 .menu-content {
-    padding: 10px 0;
+    padding: 10px 0 22px;
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
 }
 
 .menu-item {
@@ -1477,8 +1488,8 @@ body { -webkit-user-select: none; -moz-user-select: none; user-select: none; }
             <div class="menu-item" onclick="downloadTemplate()">
                 <span>📥 Download CSV Template</span>
             </div>
-            <div class="menu-item admin-only" onclick="openRecycleBin();toggleMenu()">
-                <span>♻️ Recycle Bin</span>
+            <div class="menu-item user-visible" onclick="openSecondaryIft();toggleMenu()">
+                <span>✅ Secondary IFT</span>
             </div>
             <div class="menu-item admin-only" onclick="openBackupExport();toggleMenu()">
                 <span>💾 Data Backup Export</span>
@@ -1489,11 +1500,8 @@ body { -webkit-user-select: none; -moz-user-select: none; user-select: none; }
             <div class="menu-item user-visible" onclick="openCenterlineSearch();toggleMenu()">
                 <span>🔍 Centerline Search</span>
             </div>
-            <div class="menu-item user-visible" onclick="openPallet3D();toggleMenu()">
-                <span>📦 3D Pallet Loading</span>
-            </div>
-            <div class="menu-item admin-only" onclick="openPalletPatternSettings();toggleMenu()">
-                <span>📦 Pallet Pattern Settings</span>
+            <div class="menu-item user-visible" onclick="openCaseSpsPatternUpcoming();toggleMenu()">
+                <span>📦 CASE SPS PATTERN</span>
             </div>
             <div class="menu-item admin-only" onclick="openStaticCenterline();toggleMenu()">
                 <span>📌 Static Centerline</span>
@@ -1517,8 +1525,14 @@ body { -webkit-user-select: none; -moz-user-select: none; user-select: none; }
             <div class="menu-item admin-only" onclick="openGuideEditor();toggleMenu()">
                 <span>📝 Edit Guide</span>
             </div>
-            <div class="menu-item admin-only" onclick="openJulianCodeSettings();toggleMenu()">
-                <span>📅 Julian Code Settings</span>
+<div class="menu-item admin-only" onclick="openRecycleBin();toggleMenu()">
+                <span>♻️ Recycle Bin</span>
+            </div>
+            <div class="menu-item admin-only" onclick="openUserFeedbackList();toggleMenu()">
+                <span>⭐ User Feedback</span>
+            </div>
+            <div class="menu-item user-visible" onclick="openFeedbackModal();toggleMenu()">
+                <span>💬 Feedback</span>
             </div>
             <div class="menu-item" onclick="logoutApp()" style="border-top: 2px solid #f44336;">
                 <span style="color:#f44336;">🚪 Logout</span>
@@ -2626,7 +2640,10 @@ function downloadBackup(type) {
             loginHistory: JSON.parse(localStorage.getItem('loginHistory') || '[]'),
             accessControl: JSON.parse(localStorage.getItem('accessControl') || '{}'),
             customGuides: JSON.parse(localStorage.getItem('customGuides') || '{}'),
-            palletPatterns: JSON.parse(localStorage.getItem('palletPatterns') || '{}')
+            palletPatterns: JSON.parse(localStorage.getItem('palletPatterns') || '{}'),
+                        secondaryIftRecords: JSON.parse(localStorage.getItem('secondaryIftRecords') || '[]'),
+            secondaryIftRecycleBin: JSON.parse(localStorage.getItem('secondaryIftRecycleBin') || '[]'),
+            userFeedbackRecords: JSON.parse(localStorage.getItem('userFeedbackRecords') || '[]')
         };
         downloadTextFile('mc_data_backup_' + stamp + '.json', JSON.stringify(backup, null, 2), 'application/json');
     }
@@ -4288,9 +4305,510 @@ function downloadAPK() {
     toggleMenu();
 }
 
+
+// ============================================================
+// USER FEEDBACK
+// ============================================================
+const USER_FEEDBACK_KEY = 'userFeedbackRecords';
+
+function getUserFeedbackRecords() {
+    try { return JSON.parse(localStorage.getItem(USER_FEEDBACK_KEY) || '[]'); }
+    catch (_) { return []; }
+}
+function saveUserFeedbackRecords(records) {
+    localStorage.setItem(USER_FEEDBACK_KEY, JSON.stringify(records || []));
+}
+function _feedbackEscape(value) {
+    return String(value || '').replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
+}
+function openFeedbackModal() {
+    const existing = document.getElementById('feedbackModal');
+    if (existing) existing.remove();
+    const modal = document.createElement('div');
+    modal.id = 'feedbackModal';
+    modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.65);z-index:9999;display:flex;align-items:flex-start;justify-content:center;padding:16px;box-sizing:border-box;overflow-y:auto;';
+    modal.innerHTML = `
+    <div style="width:100%;max-width:420px;background:white;border-radius:12px;overflow:hidden;box-shadow:0 12px 40px rgba(0,0,0,0.35);margin:auto;">
+        <div style="background:#17202f;color:white;padding:13px 15px;display:flex;justify-content:space-between;align-items:center;gap:10px;">
+            <div>
+                <div style="font-size:18px;font-weight:900;">Feedback</div>
+                <div style="font-size:11px;color:#c9d2df;">Name, rating, and comment</div>
+            </div>
+            <button onclick="document.getElementById('feedbackModal').remove()" style="background:rgba(255,255,255,0.18);border:none;color:white;font-size:22px;width:34px;height:34px;border-radius:50%;cursor:pointer;">&times;</button>
+        </div>
+        <div style="padding:14px;">
+            <label style="font-size:11px;font-weight:900;color:#38506b;">NAME</label>
+            <input id="feedbackName" placeholder="Name" style="width:100%;padding:10px;border:1px solid #d7dce5;border-radius:8px;margin:4px 0 10px;">
+            <label style="font-size:11px;font-weight:900;color:#38506b;">RATING</label>
+            <select id="feedbackRating" style="width:100%;padding:10px;border:1px solid #d7dce5;border-radius:8px;margin:4px 0 10px;background:white;">
+                <option value="5">5 - Excellent</option>
+                <option value="4">4 - Good</option>
+                <option value="3">3 - OK</option>
+                <option value="2">2 - Need improvement</option>
+                <option value="1">1 - Poor</option>
+            </select>
+            <label style="font-size:11px;font-weight:900;color:#38506b;">COMMENT</label>
+            <textarea id="feedbackComment" placeholder="Comment" rows="4" style="width:100%;padding:10px;border:1px solid #d7dce5;border-radius:8px;resize:vertical;"></textarea>
+            <button onclick="saveFeedbackRecord()" style="width:100%;margin-top:12px;padding:11px;background:#2e8b57;color:white;border:none;border-radius:8px;font-weight:900;cursor:pointer;">Submit Feedback</button>
+        </div>
+    </div>`;
+    document.body.appendChild(modal);
+    modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
+    setTimeout(() => document.getElementById('feedbackName')?.focus(), 50);
+}
+function saveFeedbackRecord() {
+    const name = (document.getElementById('feedbackName')?.value || '').trim();
+    const comment = (document.getElementById('feedbackComment')?.value || '').trim();
+    const rating = document.getElementById('feedbackRating')?.value || '5';
+    if (!name) { showSyncToast('Name required', '#f44336'); return; }
+    if (!comment) { showSyncToast('Comment required', '#f44336'); return; }
+    const now = new Date();
+    const records = getUserFeedbackRecords();
+    records.unshift({
+        id: 'fb-' + Date.now(),
+        name,
+        rating,
+        comment,
+        role: window._userRole || 'user',
+        dateTime: now.toLocaleString('en-IN'),
+        savedAt: now.toISOString()
+    });
+    saveUserFeedbackRecords(records);
+    syncToServer();
+    document.getElementById('feedbackModal')?.remove();
+    showSyncToast('Feedback saved', '#4CAF50');
+}
+function openUserFeedbackList() {
+    if (!requireAdminAction('User Feedback')) return;
+    const existing = document.getElementById('userFeedbackModal');
+    if (existing) existing.remove();
+    const records = getUserFeedbackRecords();
+    const rows = records.length ? records.map(r => (
+        '<div style="border:1px solid #d7dce5;border-radius:9px;padding:10px;background:white;margin-bottom:8px;">' +
+        '<div style="display:flex;justify-content:space-between;gap:8px;align-items:center;font-weight:900;color:#17202f;"><span>' + _feedbackEscape(r.name) + '</span><span style="color:#f0a429;">' + '★'.repeat(Number(r.rating || 0)) + '</span></div>' +
+        '<div style="font-size:11px;color:#657386;margin-top:3px;">' + _feedbackEscape(r.dateTime || '') + ' | ' + _feedbackEscape(r.role || 'user') + '</div>' +
+        '<div style="font-size:13px;color:#17202f;line-height:1.45;margin-top:8px;white-space:pre-wrap;">' + _feedbackEscape(r.comment) + '</div>' +
+        '<button onclick="deleteUserFeedbackRecord(\'' + _feedbackEscape(r.id) + '\')" style="margin-top:8px;padding:7px 10px;background:#bd3d3d;color:white;border:none;border-radius:7px;font-weight:900;cursor:pointer;">Delete</button>' +
+        '</div>'
+    )).join('') : '<div style="padding:12px;background:white;border-radius:9px;color:#777;font-size:13px;">No feedback found.</div>';
+    const modal = document.createElement('div');
+    modal.id = 'userFeedbackModal';
+    modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.65);z-index:9999;display:flex;align-items:flex-start;justify-content:center;padding:16px;box-sizing:border-box;overflow-y:auto;';
+    modal.innerHTML = '<div style="width:100%;max-width:520px;background:#f3f5f8;border-radius:12px;overflow:hidden;box-shadow:0 12px 40px rgba(0,0,0,0.35);"><div style="background:#17202f;color:white;padding:13px 15px;display:flex;justify-content:space-between;align-items:center;gap:10px;"><div><div style="font-size:18px;font-weight:900;">User Feedback</div><div style="font-size:11px;color:#c9d2df;">All received feedback list</div></div><button onclick="document.getElementById(\'userFeedbackModal\').remove()" style="background:rgba(255,255,255,0.18);border:none;color:white;font-size:22px;width:34px;height:34px;border-radius:50%;cursor:pointer;">&times;</button></div><div style="padding:12px;max-height:78vh;overflow-y:auto;">' + rows + '</div></div>';
+    document.body.appendChild(modal);
+    modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
+}
+function deleteUserFeedbackRecord(id) {
+    if (!requireAdminAction('Delete User Feedback')) return;
+    if (!confirm('Delete this feedback?')) return;
+    const records = getUserFeedbackRecords().filter(r => String(r.id) !== String(id));
+    saveUserFeedbackRecords(records);
+    syncToServer();
+    document.getElementById('userFeedbackModal')?.remove();
+    openUserFeedbackList();
+    showSyncToast('Feedback deleted', '#bd3d3d');
+}
+
 // ============================================================
 // QR CODE SHARE
 // ============================================================
+
+
+// ============================================================
+// SECONDARY IFT
+// ============================================================
+const SECONDARY_IFT_KEY = 'secondaryIftRecords';
+const SECONDARY_IFT_RECYCLE_KEY = 'secondaryIftRecycleBin';
+const SECONDARY_IFT_HDL_SUFFIX = { HDL2: '1', HDL3: '1', HDL4: '2', HDL5: '3' };
+const SECONDARY_IFT_FALLBACK = {
+    '1KG|ARIEL TL': { pcode: 'P-AR-TL-1KG', gcase: 'GC-1001', lcl: '980', usl: '1020' },
+    '1KG|ARIEL FL': { pcode: 'P-AR-FL-1KG', gcase: 'GC-1002', lcl: '980', usl: '1020' },
+    '1KG|TIDE ALL': { pcode: 'P-TD-ALL-1KG', gcase: 'GC-1003', lcl: '975', usl: '1025' },
+    '2KG|ARIEL TL': { pcode: 'P-AR-TL-2KG', gcase: 'GC-2001', lcl: '1960', usl: '2040' },
+    '2KG|ARIEL FL': { pcode: 'P-AR-FL-2KG', gcase: 'GC-2002', lcl: '1960', usl: '2040' },
+    '2KG|TIDE ALL': { pcode: 'P-TD-ALL-2KG', gcase: 'GC-2003', lcl: '1950', usl: '2050' },
+    '500G|ARIEL TL': { pcode: 'P-AR-TL-500G', gcase: 'GC-0501', lcl: '490', usl: '510' },
+    '500G|ARIEL FL': { pcode: 'P-AR-FL-500G', gcase: 'GC-0502', lcl: '490', usl: '510' },
+    '500G|TIDE ALL': { pcode: 'P-TD-ALL-500G', gcase: 'GC-0503', lcl: '485', usl: '515' }
+};
+
+function _iftPad2(value) { return String(value).padStart(2, '0'); }
+function _iftJulianBase(date = new Date()) {
+    const start = new Date(date.getFullYear(), 0, 0);
+    const day = Math.floor((date - start) / 86400000);
+    return String(date.getFullYear()).slice(-1) + String(day).padStart(3, '0');
+}
+function _iftDateParts() {
+    const now = new Date();
+    return {
+        date: _iftPad2(now.getDate()) + '/' + _iftPad2(now.getMonth() + 1) + '/' + String(now.getFullYear()).slice(-2),
+        time: _iftPad2(now.getHours()) + ':' + _iftPad2(now.getMinutes()),
+        julian: _iftJulianBase(now)
+    };
+}
+function getSecondaryIftRecords() {
+    try { return JSON.parse(localStorage.getItem(SECONDARY_IFT_KEY) || '[]'); }
+    catch (_) { return []; }
+}
+function saveSecondaryIftRecords(records) {
+    localStorage.setItem(SECONDARY_IFT_KEY, JSON.stringify(records || []));
+}
+function getSecondaryIftRecycleBin() {
+    try { return JSON.parse(localStorage.getItem(SECONDARY_IFT_RECYCLE_KEY) || '[]'); }
+    catch (_) { return []; }
+}
+function saveSecondaryIftRecycleBin(records) {
+    localStorage.setItem(SECONDARY_IFT_RECYCLE_KEY, JSON.stringify(records || []));
+}
+function _secondaryIftSafeId(id) {
+    return String(id || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+}
+function _secondaryIftValue(id) {
+    const el = document.getElementById(id);
+    return el ? el.value : '';
+}
+function _secondaryIftVariant() {
+    const value = _secondaryIftValue('secondaryIftVariant');
+    return value === 'CUSTOM' ? (_secondaryIftValue('secondaryIftCustomVariant').trim() || 'CUSTOM') : value;
+}
+function _secondaryIftSku() {
+    const value = _secondaryIftValue('secondaryIftSku');
+    return value === 'CUSTOM' ? (_secondaryIftValue('secondaryIftCustomSku').trim() || 'CUSTOM') : value;
+}
+function _secondaryIftCode() {
+    const julian = document.getElementById('secondaryIftJulian')?.value || _iftJulianBase();
+    const hdl = _secondaryIftValue('secondaryIftHdl') || 'HDL2';
+    return julian + 'B095' + (SECONDARY_IFT_HDL_SUFFIX[hdl] || '1') + '#';
+}
+function _secondaryIftFindCard(sku, variant) {
+    const records = JSON.parse(localStorage.getItem('mc_data_v1') || '{}');
+    const skuNeedle = String(sku || '').toLowerCase().replace(/\s+/g, '');
+    const variantWords = String(variant || '').toLowerCase().split(/\s+/).filter(Boolean);
+    const found = Object.values(records).find(item => {
+        const text = [item.pcode, item.sku, item.note].join(' ').toLowerCase();
+        const skuOk = !skuNeedle || text.replace(/\s+/g, '').includes(skuNeedle.toLowerCase());
+        const variantOk = variantWords.length === 0 || variantWords.every(w => text.includes(w));
+        return skuOk && variantOk;
+    });
+    if (found) {
+        return {
+            pcode: found.pcode || '',
+            gcase: found.caseGCase || found.bulkGCase || '',
+            lcl: found.secLsl || found.lsl || '',
+            usl: found.secUsl || found.usl || ''
+        };
+    }
+    return SECONDARY_IFT_FALLBACK[sku + '|' + variant] || { pcode: 'CUSTOM-PCODE', gcase: 'CUSTOM-GCASE', lcl: '', usl: '' };
+}
+function updateSecondaryIftAuto() {
+    const custom = _secondaryIftValue('secondaryIftSku') === 'CUSTOM' || _secondaryIftValue('secondaryIftVariant') === 'CUSTOM';
+    const customRow = document.getElementById('secondaryIftCustomRow');
+    if (customRow) customRow.style.display = custom ? 'grid' : 'none';
+    [
+        ['secondaryIftPcodeText', 'secondaryIftPcode'],
+        ['secondaryIftGcaseText', 'secondaryIftGcase'],
+        ['secondaryIftLclAutoText', 'secondaryIftLclAuto'],
+        ['secondaryIftUslAutoText', 'secondaryIftUslAuto']
+    ].forEach(([textId, inputId]) => {
+        const text = document.getElementById(textId);
+        const input = document.getElementById(inputId);
+        if (text) text.style.display = custom ? 'none' : 'block';
+        if (input) input.style.display = custom ? 'block' : 'none';
+    });
+    if (custom) {
+        updateSecondaryIftClock();
+        return;
+    }
+    const sku = _secondaryIftSku();
+    const variant = _secondaryIftVariant();
+    const card = _secondaryIftFindCard(sku, variant);
+    document.getElementById('secondaryIftPcode').value = card.pcode || '';
+    document.getElementById('secondaryIftGcase').value = card.gcase || '';
+    document.getElementById('secondaryIftPcodeText').textContent = card.pcode || '-';
+    document.getElementById('secondaryIftGcaseText').textContent = card.gcase || '-';
+    document.getElementById('secondaryIftLclAuto').value = card.lcl || '';
+    document.getElementById('secondaryIftUslAuto').value = card.usl || '';
+    document.getElementById('secondaryIftLclAutoText').textContent = card.lcl || '-';
+    document.getElementById('secondaryIftUslAutoText').textContent = card.usl || '-';
+    updateSecondaryIftClock();
+}
+function updateSecondaryIftClock() {
+    const parts = _iftDateParts();
+    const date = document.getElementById('secondaryIftDate');
+    const time = document.getElementById('secondaryIftTime');
+    const dateTime = document.getElementById('secondaryIftDateTime');
+    const julian = document.getElementById('secondaryIftJulian');
+    if (date) date.value = parts.date;
+    if (time) time.value = parts.time;
+    if (dateTime) dateTime.value = parts.date + ' ' + parts.time;
+    if (julian) julian.value = parts.julian;
+    const code = document.getElementById('secondaryIftJulianCode');
+    if (code) code.textContent = _secondaryIftCode();
+}
+function _secondaryIftCurrentRecord() {
+    updateSecondaryIftClock();
+    const customMode = _secondaryIftValue('secondaryIftSku') === 'CUSTOM' || _secondaryIftValue('secondaryIftVariant') === 'CUSTOM';
+    const checks = {
+        lcl: !!document.getElementById('secondaryIftLclCheck')?.checked,
+        usl: !!document.getElementById('secondaryIftUslCheck')?.checked,
+        ocr: !!document.getElementById('secondaryIftOcrCheck')?.checked,
+        twoD: !!document.getElementById('secondaryIft2dCheck')?.checked
+    };
+    return {
+        id: (_secondaryIftValue('secondaryIftGcase') || '') + '-' + _secondaryIftCode(),
+        date: _secondaryIftValue('secondaryIftDate'),
+        time: _secondaryIftValue('secondaryIftTime'),
+        julian: _secondaryIftValue('secondaryIftJulian'),
+        julianCode: _secondaryIftCode(),
+        testName: _secondaryIftValue('secondaryIftTestName').trim(),
+        sku: _secondaryIftSku(),
+        variant: _secondaryIftVariant(),
+        customMode,
+        hdl: _secondaryIftValue('secondaryIftHdl'),
+        pcode: _secondaryIftValue('secondaryIftPcode'),
+        gcase: _secondaryIftValue('secondaryIftGcase'),
+        lclAuto: _secondaryIftValue('secondaryIftLclAuto'),
+        lclCurrent: _secondaryIftValue('secondaryIftLclCurrent'),
+        uslAuto: _secondaryIftValue('secondaryIftUslAuto'),
+        uslCurrent: _secondaryIftValue('secondaryIftUslCurrent'),
+        checks,
+        pass: checks.lcl && checks.usl && checks.ocr && checks.twoD,
+        savedAt: new Date().toISOString()
+    };
+}
+function saveSecondaryIftRecord() {
+    const rec = _secondaryIftCurrentRecord();
+    if (!rec.testName) { showSyncToast('Test Done By required', '#f44336'); return; }
+    if (!rec.gcase) { showSyncToast('GCase missing', '#f44336'); return; }
+    if (rec.customMode && (!rec.pcode || !rec.lclAuto || !rec.uslAuto || !rec.lclCurrent || !rec.uslCurrent)) {
+        showSyncToast('CUSTOM me PCode, GCase, LSL, USL aur current WT required', '#f44336');
+        return;
+    }
+    const records = getSecondaryIftRecords();
+    const idx = records.findIndex(r => r.gcase === rec.gcase && (r.julianCode || r.julian) === rec.julianCode);
+    if (idx >= 0) records[idx] = rec; else records.unshift(rec);
+    saveSecondaryIftRecords(records);
+    syncToServer();
+    renderSecondaryIftCards();
+    showSyncToast((rec.pass ? 'PASS saved: ' : 'Pending saved: ') + rec.gcase, rec.pass ? '#4CAF50' : '#ff9800');
+}
+function _secondaryIftCardHtml(r, options = {}) {
+    const status = r.pass ? '<span style="color:#2e8b57;font-weight:900;">PASS</span>' : '<span style="color:#bd3d3d;font-weight:900;">PENDING</span>';
+    const deleteBtn = (!options.recycle && window._userRole === 'admin') ? '<button onclick="deleteSecondaryIftRecord(\'' + _secondaryIftSafeId(r.id) + '\')" style="margin-top:8px;padding:7px 10px;background:#bd3d3d;color:white;border:none;border-radius:7px;font-weight:900;cursor:pointer;">Delete</button>' : '';
+    const recycleActions = options.recycle ? '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;"><button onclick="restoreSecondaryIftRecord(\'' + _secondaryIftSafeId(r.id) + '\')" style="flex:1;min-width:90px;padding:7px 10px;background:#2e8b57;color:white;border:none;border-radius:7px;font-weight:900;cursor:pointer;">Restore</button><button onclick="permanentDeleteSecondaryIftRecord(\'' + _secondaryIftSafeId(r.id) + '\')" style="flex:1;min-width:120px;padding:7px 10px;background:#bd3d3d;color:white;border:none;border-radius:7px;font-weight:900;cursor:pointer;">Delete Forever</button></div>' : '';
+    const deletedInfo = options.recycle ? '<br>Deleted: ' + (r.deletedAt ? new Date(r.deletedAt).toLocaleString() : '-') : '';
+    return '<div style="border:1px solid #d7dce5;border-radius:8px;padding:10px;background:white;margin-top:8px;">' +
+        '<div style="display:flex;justify-content:space-between;gap:8px;font-size:13px;font-weight:900;color:#17202f;"><span>' + (r.variant || '-') + ' | ' + (r.sku || '-') + ' | ' + (r.hdl || '-') + '</span>' + status + '</div>' +
+        '<div style="margin-top:6px;font-size:11px;line-height:1.5;color:#526173;">' +
+        '<span style="color:#17202f;font-weight:900;">Date Time: ' + (r.date || '') + ' ' + (r.time || '') + '</span><br>' +
+        '<b style="color:#17202f;">' + (r.julianCode || r.julian || '') + '</b><br>' +
+        'GCase: <b>' + (r.gcase || '-') + '</b> | PCode: ' + (r.pcode || '-') + '<br>' +
+        'Test Done By: ' + (r.testName || '-') + '<br>' +
+        'LSL: ' + (r.lclAuto || '-') + ' &nbsp; current pass WT: ' + (r.lclCurrent || '-') + '<br>' +
+        'USL: ' + (r.uslAuto || '-') + ' &nbsp; current pass WT: ' + (r.uslCurrent || '-') + '<br>' +
+        'LSL: ' + (r.checks?.lcl ? 'PASS' : 'NO') + ' | USL: ' + (r.checks?.usl ? 'PASS' : 'NO') + ' | OCR: ' + (r.checks?.ocr ? 'PASS' : 'NO') + ' | 2D: ' + (r.checks?.twoD ? 'PASS' : 'NO') + deletedInfo +
+        '</div>' + deleteBtn + recycleActions + '</div>';
+}
+function deleteSecondaryIftRecord(id) {
+    if (!requireAdminAction('Delete Secondary IFT')) return;
+    if (!confirm('Move this IFT card to IFT Recycle Bin?')) return;
+    const records = getSecondaryIftRecords();
+    const idx = records.findIndex(r => String(r.id) === String(id));
+    if (idx < 0) { showSyncToast('IFT card not found', '#f44336'); return; }
+    const [removed] = records.splice(idx, 1);
+    const bin = getSecondaryIftRecycleBin();
+    bin.unshift({ ...removed, deletedAt: new Date().toISOString(), deletedBy: 'admin' });
+    saveSecondaryIftRecords(records);
+    saveSecondaryIftRecycleBin(bin);
+    syncToServer();
+    renderSecondaryIftCards();
+    showSyncToast('IFT card moved to IFT Recycle Bin', '#ff9800');
+}
+function openSecondaryIftRecycleBin() {
+    if (!requireAdminAction('IFT Recycle Bin')) return;
+    const existing = document.getElementById('secondaryIftRecycleModal');
+    if (existing) existing.remove();
+    const modal = document.createElement('div');
+    modal.id = 'secondaryIftRecycleModal';
+    modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.72);z-index:10000;display:flex;align-items:flex-start;justify-content:center;padding:14px;overflow:auto;';
+    modal.innerHTML = '<div style="width:100%;max-width:520px;background:#f3f5f8;border-radius:10px;overflow:hidden;box-shadow:0 18px 50px rgba(0,0,0,0.35);"><div style="background:#17202f;color:white;padding:12px 14px;display:flex;align-items:center;justify-content:space-between;gap:10px;"><div><div style="font-size:18px;font-weight:900;">IFT Recycle Bin</div><div style="font-size:11px;color:#c9d2df;">Deleted Secondary IFT cards</div></div><button onclick="document.getElementById(\'secondaryIftRecycleModal\').remove()" style="background:rgba(255,255,255,0.18);border:none;color:white;font-size:22px;width:34px;height:34px;border-radius:50%;cursor:pointer;">&times;</button></div><div style="padding:10px;"><div style="display:flex;gap:8px;flex-wrap:wrap;"><button onclick="clearSecondaryIftRecycleBin()" style="padding:9px 10px;background:#bd3d3d;color:white;border:none;border-radius:7px;font-weight:900;cursor:pointer;">Clear IFT Bin</button></div><div id="secondaryIftRecycleList"></div></div></div>';
+    document.body.appendChild(modal);
+    renderSecondaryIftRecycleBin();
+    modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
+}
+function renderSecondaryIftRecycleBin() {
+    const list = document.getElementById('secondaryIftRecycleList');
+    if (!list) return;
+    const bin = getSecondaryIftRecycleBin();
+    list.innerHTML = bin.length ? bin.map(r => _secondaryIftCardHtml(r, { recycle: true })).join('') : '<div style="padding:10px;color:#777;font-size:12px;background:white;border-radius:8px;margin-top:8px;">IFT Recycle Bin is empty.</div>';
+}
+function restoreSecondaryIftRecord(id) {
+    if (!requireAdminAction('Restore Secondary IFT')) return;
+    const bin = getSecondaryIftRecycleBin();
+    const idx = bin.findIndex(r => String(r.id) === String(id));
+    if (idx < 0) return;
+    const [rec] = bin.splice(idx, 1);
+    delete rec.deletedAt;
+    delete rec.deletedBy;
+    const records = getSecondaryIftRecords();
+    records.unshift(rec);
+    saveSecondaryIftRecycleBin(bin);
+    saveSecondaryIftRecords(records);
+    syncToServer();
+    renderSecondaryIftRecycleBin();
+    renderSecondaryIftCards();
+    showSyncToast('IFT card restored', '#4CAF50');
+}
+function permanentDeleteSecondaryIftRecord(id) {
+    if (!requireAdminAction('Permanent delete Secondary IFT')) return;
+    if (!confirm('Permanent delete this IFT card?')) return;
+    const bin = getSecondaryIftRecycleBin().filter(r => String(r.id) !== String(id));
+    saveSecondaryIftRecycleBin(bin);
+    syncToServer();
+    renderSecondaryIftRecycleBin();
+    showSyncToast('IFT card deleted forever', '#bd3d3d');
+}
+function clearSecondaryIftRecycleBin() {
+    if (!requireAdminAction('Clear IFT Recycle Bin')) return;
+    if (!confirm('Clear all deleted IFT cards?')) return;
+    saveSecondaryIftRecycleBin([]);
+    syncToServer();
+    renderSecondaryIftRecycleBin();
+    showSyncToast('IFT Recycle Bin cleared', '#bd3d3d');
+}
+function renderSecondaryIftCards() {
+    const findInput = document.getElementById('secondaryIftFindInput');
+    const q = (findInput?.value || '').trim().toLowerCase();
+    const records = getSecondaryIftRecords().filter(r => {
+        const hay = [r.gcase, r.date, r.julian, r.julianCode, r.time, r.sku, r.variant, r.pcode, r.hdl, r.testName].join(' ').toLowerCase();
+        return !q || hay.includes(q);
+    });
+    const list = document.getElementById('secondaryIftCards');
+    if (list) list.innerHTML = records.length ? records.map(_secondaryIftCardHtml).join('') : '<div style="padding:10px;color:#777;font-size:12px;background:#f7f7f7;border-radius:8px;margin-top:8px;">No IFT cards found.</div>';
+    const last = document.getElementById('secondaryIftLastCard');
+    if (last) last.innerHTML = getSecondaryIftRecords().length ? '<div style="font-size:13px;font-weight:900;color:#17202f;margin-top:12px;">Last Saved Card</div>' + _secondaryIftCardHtml(getSecondaryIftRecords()[0]) : '';
+}
+function openSecondaryIftFind() {
+    const box = document.getElementById('secondaryIftFindBox');
+    if (box) box.open = true;
+    document.getElementById('secondaryIftFindInput')?.focus();
+    renderSecondaryIftCards();
+}
+function clearSecondaryIftFind() {
+    const input = document.getElementById('secondaryIftFindInput');
+    if (input) input.value = '';
+    renderSecondaryIftCards();
+}
+function openSecondaryIft() {
+    const existing = document.getElementById('secondaryIftModal');
+    if (existing) existing.remove();
+    const modal = document.createElement('div');
+    modal.id = 'secondaryIftModal';
+    modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.72);z-index:9999;display:flex;align-items:flex-start;justify-content:center;padding:14px;overflow:auto;';
+    modal.innerHTML = `
+    <div style="width:100%;max-width:540px;background:#f3f5f8;border-radius:10px;overflow:hidden;box-shadow:0 18px 50px rgba(0,0,0,0.35);">
+        <div style="background:#17202f;color:white;padding:12px 14px;display:flex;align-items:center;justify-content:space-between;gap:10px;border-bottom:4px solid #f0a429;">
+            <div>
+                <div style="font-size:18px;font-weight:900;">Secondary IFT</div>
+                <div style="font-size:11px;color:#c9d2df;">Auto date/time, Julian, card data, and IFT FIND</div>
+            </div>
+            <button onclick="document.getElementById('secondaryIftModal').remove()" style="background:rgba(255,255,255,0.18);border:none;color:white;font-size:22px;width:34px;height:34px;border-radius:50%;cursor:pointer;">&times;</button>
+        </div>
+        <div style="padding:10px;">
+            <div style="border:2px solid #d7dce5;border-radius:8px;padding:10px;background:white;">
+                <div style="font-size:18px;font-weight:900;color:#17202f;margin-bottom:8px;">IFT</div>
+                <div style="display:grid;grid-template-columns:1.15fr .75fr .75fr;gap:6px;">
+                    <div><label style="font-size:10px;font-weight:900;color:#38506b;">VARIANT</label><select id="secondaryIftVariant" onchange="updateSecondaryIftAuto()" style="width:100%;padding:7px;border:1px solid #d7dce5;border-radius:6px;"><option>ARIEL TL</option><option>ARIEL FL</option><option>TIDE ALL</option><option>CUSTOM</option></select></div>
+                    <div><label style="font-size:10px;font-weight:900;color:#38506b;">SKU</label><select id="secondaryIftSku" onchange="updateSecondaryIftAuto()" style="width:100%;padding:7px;border:1px solid #d7dce5;border-radius:6px;"><option>1KG</option><option>2KG</option><option>500G</option><option>CUSTOM</option></select></div>
+                    <div><label style="font-size:10px;font-weight:900;color:#38506b;">HDL</label><select id="secondaryIftHdl" onchange="updateSecondaryIftClock()" style="width:100%;padding:7px;border:1px solid #d7dce5;border-radius:6px;"><option>HDL2</option><option>HDL3</option><option>HDL4</option><option>HDL5</option></select></div>
+                </div>
+                <div id="secondaryIftCustomRow" style="display:none;grid-template-columns:1fr 1fr;gap:6px;margin-top:6px;">
+                    <div><label style="font-size:10px;font-weight:900;color:#38506b;">CUSTOM SKU</label><input id="secondaryIftCustomSku" oninput="updateSecondaryIftAuto()" placeholder="SKU" style="width:100%;padding:7px;border:1px solid #d7dce5;border-radius:6px;"></div>
+                    <div><label style="font-size:10px;font-weight:900;color:#38506b;">CUSTOM VARIANT</label><input id="secondaryIftCustomVariant" oninput="updateSecondaryIftAuto()" placeholder="Variant" style="width:100%;padding:7px;border:1px solid #d7dce5;border-radius:6px;"></div>
+                </div>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px;">
+                    <div>
+                        <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;">
+                            <div><label style="font-size:10px;font-weight:900;color:#38506b;">LSL AUTO</label><div id="secondaryIftLclAutoText" style="padding:2px 0;color:#17202f;font-size:12px;font-weight:400;min-height:18px;">-</div><input id="secondaryIftLclAuto" type="number" step="0.01" placeholder="LSL" style="display:none;width:100%;padding:7px;border:1px solid #d7dce5;border-radius:6px;"></div>
+                            <div><label style="font-size:10px;font-weight:900;color:#38506b;">LSL CURRENT</label><input id="secondaryIftLclCurrent" type="number" step="0.01" placeholder="WT" style="width:100%;padding:7px;border:1px solid #d7dce5;border-radius:6px;"></div>
+                            <div><label style="font-size:10px;font-weight:900;color:#38506b;">USL AUTO</label><div id="secondaryIftUslAutoText" style="padding:2px 0;color:#17202f;font-size:12px;font-weight:400;min-height:18px;">-</div><input id="secondaryIftUslAuto" type="number" step="0.01" placeholder="USL" style="display:none;width:100%;padding:7px;border:1px solid #d7dce5;border-radius:6px;"></div>
+                            <div><label style="font-size:10px;font-weight:900;color:#38506b;">USL CURRENT</label><input id="secondaryIftUslCurrent" type="number" step="0.01" placeholder="WT" style="width:100%;padding:7px;border:1px solid #d7dce5;border-radius:6px;"></div>
+                        </div>
+                        <div style="display:grid;gap:5px;margin-top:6px;">
+                            <label style="display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center;padding:6px 8px;border:1px solid #d7dce5;border-radius:7px;background:#fafbfc;font-weight:900;font-size:12px;">LSL WT Pass <input id="secondaryIftLclCheck" type="checkbox" style="width:18px;height:18px;"></label>
+                            <label style="display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center;padding:6px 8px;border:1px solid #d7dce5;border-radius:7px;background:#fafbfc;font-weight:900;font-size:12px;">USL WT Pass <input id="secondaryIftUslCheck" type="checkbox" style="width:18px;height:18px;"></label>
+                            <label style="display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center;padding:6px 8px;border:1px solid #d7dce5;border-radius:7px;background:#fafbfc;font-weight:900;font-size:12px;">OCR Camera <input id="secondaryIftOcrCheck" type="checkbox" style="width:18px;height:18px;"></label>
+                            <label style="display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center;padding:6px 8px;border:1px solid #d7dce5;border-radius:7px;background:#fafbfc;font-weight:900;font-size:12px;">2D Check <input id="secondaryIft2dCheck" type="checkbox" style="width:18px;height:18px;"></label>
+                        </div>
+                    </div>
+                    <div>
+                        <label style="font-size:10px;font-weight:900;color:#38506b;">DATE TIME</label><input id="secondaryIftDateTime" readonly style="width:100%;padding:7px;border:1px solid #d7dce5;border-radius:6px;"><input id="secondaryIftDate" type="hidden"><input id="secondaryIftTime" type="hidden">
+                        <input id="secondaryIftJulian" type="hidden"><div id="secondaryIftJulianCode" style="margin-top:6px;padding:8px;border-radius:7px;background:#17202f;color:white;font-size:16px;font-weight:900;text-align:center;">----</div>
+                        <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:6px;">
+                            <div><label style="font-size:10px;font-weight:900;color:#38506b;">GCASE AUTO</label><div id="secondaryIftGcaseText" style="padding:6px 7px;border:1px solid #d7dce5;border-radius:6px;background:#f8fafc;color:#526173;font-size:11px;font-weight:900;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">-</div><input id="secondaryIftGcase" placeholder="GCase" style="display:none;width:100%;padding:7px;border:1px solid #d7dce5;border-radius:6px;"></div>
+                            <div><label style="font-size:10px;font-weight:900;color:#38506b;">PCODE AUTO</label><div id="secondaryIftPcodeText" style="padding:6px 7px;border:1px solid #d7dce5;border-radius:6px;background:#f8fafc;color:#526173;font-size:11px;font-weight:900;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">-</div><input id="secondaryIftPcode" placeholder="PCode" style="display:none;width:100%;padding:7px;border:1px solid #d7dce5;border-radius:6px;"></div>
+                        </div>
+                        <label style="font-size:10px;font-weight:900;color:#38506b;margin-top:4px;display:block;">TEST DONE BY</label><input id="secondaryIftTestName" placeholder="Name" style="width:100%;padding:7px;border:1px solid #d7dce5;border-radius:6px;">
+                    </div>
+                </div>
+            </div>
+            <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;">
+                <button onclick="saveSecondaryIftRecord()" style="flex:1;min-width:145px;padding:10px;background:#2e8b57;color:white;border:none;border-radius:7px;font-weight:900;">Save / Update IFT</button>
+                <button onclick="openSecondaryIftFind()" style="flex:1;min-width:110px;padding:10px;background:#657386;color:white;border:none;border-radius:7px;font-weight:900;">IFT FIND</button>
+                            <button class="admin-only" onclick="openSecondaryIftRecycleBin()" style="flex:1;min-width:135px;padding:10px;background:#bd3d3d;color:white;border:none;border-radius:7px;font-weight:900;">IFT Recycle Bin</button>
+            </div>
+            <div id="secondaryIftLastCard"></div>
+            <details id="secondaryIftFindBox" style="margin-top:12px;border:1px solid #d7dce5;border-radius:8px;background:#fff;overflow:hidden;">
+                <summary style="padding:10px 12px;cursor:pointer;font-weight:900;color:#17202f;background:#eef3f9;">IFT FIND</summary>
+                <div style="padding:10px;">
+                    <input id="secondaryIftFindInput" placeholder="Search GCase, date, Julian, time, SKU" oninput="renderSecondaryIftCards()" style="width:100%;padding:9px;border:2px solid #d7dce5;border-radius:7px;">
+                    <button onclick="clearSecondaryIftFind()" style="margin-top:8px;padding:8px 10px;background:#bd3d3d;color:white;border:none;border-radius:7px;font-weight:900;">Clear Find</button>
+                    <div id="secondaryIftCards"></div>
+                </div>
+            </details>
+        </div>
+    </div>`;
+    document.body.appendChild(modal);
+    updateSecondaryIftAuto();
+    renderSecondaryIftCards();
+    window._secondaryIftTimer = setInterval(() => {
+        if (!document.getElementById('secondaryIftModal')) { clearInterval(window._secondaryIftTimer); return; }
+        updateSecondaryIftClock();
+    }, 1000);
+    modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
+}
+
+// ============================================================
+// CASE SPS PATTERN - Upcoming placeholder
+// ============================================================
+function openCaseSpsPatternUpcoming() {
+    const existing = document.getElementById('caseSpsPatternModal');
+    if (existing) existing.remove();
+    const modal = document.createElement('div');
+    modal.id = 'caseSpsPatternModal';
+    modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.72);z-index:9999;display:flex;align-items:center;justify-content:center;padding:18px;';
+    modal.innerHTML = `
+    <div style="width:100%;max-width:520px;background:white;border-radius:10px;overflow:hidden;box-shadow:0 18px 50px rgba(0,0,0,0.35);">
+        <div style="background:linear-gradient(135deg,#17202f,#2f6f9f);color:white;padding:16px 18px;display:flex;align-items:center;justify-content:space-between;gap:12px;">
+            <div>
+                <div style="font-size:18px;font-weight:900;">CASE SPS PATTERN</div>
+                <div style="font-size:12px;opacity:0.86;">2D pattern view and layer setting</div>
+            </div>
+            <button onclick="document.getElementById('caseSpsPatternModal').remove()" style="background:rgba(255,255,255,0.18);border:none;color:white;font-size:22px;width:34px;height:34px;border-radius:50%;cursor:pointer;">&times;</button>
+        </div>
+        <div style="padding:22px;text-align:center;">
+            <div style="font-size:44px;margin-bottom:8px;">📦</div>
+            <div style="font-size:20px;font-weight:900;color:#17202f;margin-bottom:8px;">Upcoming</div>
+            <div style="font-size:13px;line-height:1.6;color:#526173;background:#f3f5f8;border-radius:8px;padding:12px;text-align:left;">
+                This section will be used for CASE SPS pattern setup.<br>
+                Admin will add first layer, second layer, total shippers, and pallet pattern view here.
+            </div>
+            <button onclick="document.getElementById('caseSpsPatternModal').remove()" style="margin-top:16px;width:100%;padding:12px;background:#2f6f9f;color:white;border:none;border-radius:8px;font-weight:900;cursor:pointer;">Close</button>
+        </div>
+    </div>`;
+    document.body.appendChild(modal);
+    modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
+}
 
 function getPalletPatterns() {
     const saved = JSON.parse(localStorage.getItem('palletPatterns') || '{}');
@@ -5738,68 +6256,6 @@ function syncCalcFormulas() {
     const adminPwd = localStorage.getItem('admin_password')||'1234';
     if (pwd!==adminPwd) { if (pwd!==null) alert('❌ Wrong password!'); return; }
     syncToServer().then(()=>showSyncToast('✅ Formulas synced! All users will receive updates.','#4caf50'));
-}
-
-// ============================================================
-// JULIAN CODE SETTINGS
-// ============================================================
-function openJulianCodeSettings() {
-    if (!requireAdminAction('Julian code settings')) return;
-    const existing = document.getElementById('julianCodeModal');
-    if (existing) existing.remove();
-
-    const currentCode = localStorage.getItem('julian_fixed_code') || 'B095L#';
-
-    // Current julian info
-    const now = new Date();
-    const start = new Date(now.getFullYear(), 0, 0);
-    const julian = Math.floor((now - start) / 86400000);
-    const yearDigit = now.getFullYear() % 10;
-    const dd = String(now.getDate()).padStart(2,'0');
-    const mm = String(now.getMonth()+1).padStart(2,'0');
-    const yy = String(now.getFullYear()).slice(-2);
-
-    const modal = document.createElement('div');
-    modal.id = 'julianCodeModal';
-    modal.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.6);display:flex;justify-content:center;align-items:center;padding:15px;box-sizing:border-box;z-index:9999;';
-    modal.innerHTML = `
-    <div style="background:white;border-radius:14px;max-width:380px;width:100%;overflow:hidden;box-shadow:0 10px 40px rgba(0,0,0,0.3);">
-        <div style="background:linear-gradient(135deg,#667eea,#764ba2);padding:14px 18px;display:flex;justify-content:space-between;align-items:center;">
-            <div style="color:white;font-weight:700;font-size:17px;">📅 Julian Code Settings</div>
-            <button onclick="document.getElementById('julianCodeModal').remove()" style="background:rgba(255,255,255,0.2);border:none;color:white;font-size:22px;width:32px;height:32px;border-radius:50%;cursor:pointer;">✕</button>
-        </div>
-        <div style="padding:20px;">
-            <!-- Preview -->
-            <div style="background:#1a3a4a;border-radius:10px;padding:14px;text-align:right;margin-bottom:16px;">
-                <div style="font-size:18px;font-weight:800;color:#fff;letter-spacing:1px;" id="julianPreview">${yearDigit}${julian}${currentCode}</div>
-                <div style="font-size:12px;color:rgba(255,255,255,0.55);margin-top:3px;">${dd}/${mm}/${yy}</div>
-                <div style="font-size:10px;color:rgba(255,255,255,0.4);margin-top:2px;">Today: Day ${julian} of ${now.getFullYear()}</div>
-            </div>
-
-            <label style="font-size:13px;font-weight:700;color:#333;display:block;margin-bottom:6px;">Fixed Code (permanent part):</label>
-            <input id="julianCodeInput" type="text" value="${currentCode}" placeholder="e.g. B095L#"
-                style="width:100%;padding:11px;border:2px solid #667eea;border-radius:8px;font-size:16px;font-weight:700;box-sizing:border-box;letter-spacing:1px;margin-bottom:8px;"
-                oninput="document.getElementById('julianPreview').textContent='${yearDigit}${julian}'+this.value">
-
-            <div style="background:#f5f5f5;border-radius:8px;padding:10px 12px;margin-bottom:14px;font-size:12px;color:#666;">
-                <b>Format:</b> [Year digit][Julian day][Fixed code]<br>
-                <b>Today:</b> ${yearDigit} + ${julian} + ${currentCode} = <b>${yearDigit}${julian}${currentCode}</b>
-            </div>
-
-            <button onclick="saveJulianCode()" style="width:100%;padding:12px;background:#667eea;color:white;border:none;border-radius:8px;font-size:15px;cursor:pointer;font-weight:700;">💾 Save</button>
-        </div>
-    </div>`;
-    document.body.appendChild(modal);
-    modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
-}
-
-function saveJulianCode() {
-    if (!requireAdminAction('Save Julian code')) return;
-    const code = document.getElementById('julianCodeInput').value.trim();
-    if (!code) { alert('Please enter a code!'); return; }
-    localStorage.setItem('julian_fixed_code', code);
-    document.getElementById('julianCodeModal').remove();
-    showSyncToast('✅ Julian code saved: ' + code, '#4CAF50');
 }
 
 // ============================================================
@@ -7289,6 +7745,16 @@ async function syncFromServer() {
         if (rec.palletPatterns) {
             localStorage.setItem('palletPatterns', JSON.stringify(rec.palletPatterns));
         }
+        // Secondary IFT sync
+        if (rec.secondaryIftRecords) {
+            localStorage.setItem('secondaryIftRecords', JSON.stringify(rec.secondaryIftRecords));
+        }
+                if (rec.secondaryIftRecycleBin) {
+            localStorage.setItem('secondaryIftRecycleBin', JSON.stringify(rec.secondaryIftRecycleBin));
+        }
+        if (rec.userFeedbackRecords) {
+            localStorage.setItem('userFeedbackRecords', JSON.stringify(rec.userFeedbackRecords));
+        }
         // Custom guides sync
         if (rec.customGuides) {
             localStorage.setItem('customGuides', JSON.stringify(rec.customGuides));
@@ -7327,7 +7793,7 @@ async function syncToServer() {
                 'Content-Type': 'application/json',
                 'X-Access-Key': getApiKey()
             },
-            body: JSON.stringify({ records: data, locationSettings, viewPassword, adminPassword: localStorage.getItem('admin_password') || '1234', customFormulas: JSON.parse(localStorage.getItem('customFormulas') || '{}'), highlightNote: JSON.parse(localStorage.getItem('highlightNote') || '{}'), centerlineData: JSON.parse(localStorage.getItem('centerlineData') || '[]'), centerlinePrimary: JSON.parse(localStorage.getItem('centerlinePrimary') || '[]'), centerlineSecondary: JSON.parse(localStorage.getItem('centerlineSecondary') || '[]'), cl_lines: JSON.parse(localStorage.getItem('cl_lines') || '[2,3,4,5]'), cl_skus: JSON.parse(localStorage.getItem('cl_skus') || '[]'), cl_variants: JSON.parse(localStorage.getItem('cl_variants') || '[]'), loginHistory: JSON.parse(localStorage.getItem('loginHistory') || '[]'), accessControl: JSON.parse(localStorage.getItem('accessControl') || '{}'), customGuides: JSON.parse(localStorage.getItem('customGuides') || '{}'), recycleBin: JSON.parse(localStorage.getItem('mc_deleted_records_v1') || '{}'), palletPatterns: JSON.parse(localStorage.getItem('palletPatterns') || '{}') })
+            body: JSON.stringify({ records: data, locationSettings, viewPassword, adminPassword: localStorage.getItem('admin_password') || '1234', customFormulas: JSON.parse(localStorage.getItem('customFormulas') || '{}'), highlightNote: JSON.parse(localStorage.getItem('highlightNote') || '{}'), centerlineData: JSON.parse(localStorage.getItem('centerlineData') || '[]'), centerlinePrimary: JSON.parse(localStorage.getItem('centerlinePrimary') || '[]'), centerlineSecondary: JSON.parse(localStorage.getItem('centerlineSecondary') || '[]'), cl_lines: JSON.parse(localStorage.getItem('cl_lines') || '[2,3,4,5]'), cl_skus: JSON.parse(localStorage.getItem('cl_skus') || '[]'), cl_variants: JSON.parse(localStorage.getItem('cl_variants') || '[]'), loginHistory: JSON.parse(localStorage.getItem('loginHistory') || '[]'), accessControl: JSON.parse(localStorage.getItem('accessControl') || '{}'), customGuides: JSON.parse(localStorage.getItem('customGuides') || '{}'), recycleBin: JSON.parse(localStorage.getItem('mc_deleted_records_v1') || '{}'), palletPatterns: JSON.parse(localStorage.getItem('palletPatterns') || '{}'), secondaryIftRecords: JSON.parse(localStorage.getItem('secondaryIftRecords') || '[]'), secondaryIftRecycleBin: JSON.parse(localStorage.getItem('secondaryIftRecycleBin') || '[]'), userFeedbackRecords: JSON.parse(localStorage.getItem('userFeedbackRecords') || '[]') })
         });
         if (!res.ok) {
             if (res.status === 401) throw new Error('401 - API Key wrong!');

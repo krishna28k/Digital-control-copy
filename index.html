@@ -1482,7 +1482,10 @@ body { -webkit-user-select: none; -moz-user-select: none; user-select: none; }
             <span class="close-btn" onclick="toggleMenu()">&times;</span>
         </div>
         <div class="menu-content">
-            <div class="menu-item" onclick="openUploadModal()">
+                        <div class="menu-item admin-only" onclick="openUsageDashboard();toggleMenu()">
+                <span>📊 Dashboard</span>
+            </div>
+<div class="menu-item" onclick="openUploadModal()">
                 <span>📁 Upload File (CSV/Excel)</span>
             </div>
             <div class="menu-item" onclick="downloadTemplate()">
@@ -1509,7 +1512,13 @@ body { -webkit-user-select: none; -moz-user-select: none; user-select: none; }
             <div class="menu-item" onclick="openPrivacySettings()" style="background:linear-gradient(135deg,#667eea15,#764ba215);border-left:3px solid #667eea;">
                 <span>🔐 Privacy Settings</span>
             </div>
-            <div class="menu-item" onclick="openFullGuide();toggleMenu()">
+            <div class="menu-item admin-only" onclick="openAutoLogoutSettings();toggleMenu()">
+                <span>⏱️ Auto Logout Time</span>
+            </div>
+            <div class="menu-item admin-only" onclick="openActiveUsers();toggleMenu()">
+                <span>🟢 Active Users</span>
+            </div>
+<div class="menu-item" onclick="openFullGuide();toggleMenu()">
                 <span>📖 Guide</span>
             </div>
             <div class="menu-item" onclick="downloadAPK()"><span>📱 Download APK for Android</span></div>
@@ -2056,6 +2065,10 @@ function displayResults(data, searchTerm = '') {
         html += createProductCard(item, isCompact, searchTerm);
     });
     container.innerHTML = html;
+    if (keys.length === 1) {
+        const opened = data[keys[0]];
+        trackUsage('product', opened?.pcode || keys[0], opened?.sku || '');
+    }
 
     document.querySelectorAll('.product-card').forEach(card => {
         const firstBtn = card.querySelector('.toggle-btn');
@@ -4415,11 +4428,145 @@ function deleteUserFeedbackRecord(id) {
 
 
 // ============================================================
+// USAGE DASHBOARD
+// ============================================================
+const USAGE_ANALYTICS_KEY = 'usageAnalytics';
+
+function getUsageAnalytics() {
+    return JSON.parse(localStorage.getItem(USAGE_ANALYTICS_KEY) || '[]');
+}
+
+function saveUsageAnalytics(list) {
+    localStorage.setItem(USAGE_ANALYTICS_KEY, JSON.stringify(list.slice(-2000)));
+}
+
+function trackUsage(type, name, detail = '') {
+    if (!name) return;
+    const list = getUsageAnalytics();
+    list.push({
+        id: Date.now().toString(36) + Math.random().toString(36).slice(2, 7),
+        type,
+        name: String(name),
+        detail: String(detail || ''),
+        role: window._userRole || 'locked',
+        deviceId: localStorage.getItem('device_id_v1') || '',
+        deviceName: localStorage.getItem('device_name_v1') || '',
+        ts: Date.now(),
+        time: new Date().toLocaleString('en-IN')
+    });
+    saveUsageAnalytics(list);
+    if (window._userRole && isJsonBinConfigured()) {
+        clearTimeout(window._usageSyncTimer);
+        window._usageSyncTimer = setTimeout(() => syncToServer(), 1200);
+    }
+}
+
+function _usagePeriodStart(period) {
+    const now = new Date();
+    if (period === 'year') return new Date(now.getFullYear(), 0, 1).getTime();
+    if (period === 'month') return new Date(now.getFullYear(), now.getMonth(), 1).getTime();
+    const d = new Date(now);
+    d.setHours(0, 0, 0, 0);
+    d.setDate(d.getDate() - 6);
+    return d.getTime();
+}
+
+function _usageSummary(period) {
+    const start = _usagePeriodStart(period);
+    const filtered = getUsageAnalytics().filter(x => (x.ts || 0) >= start);
+    const group = (type) => {
+        const map = {};
+        filtered.filter(x => x.type === type).forEach(x => {
+            const key = x.name || 'Unknown';
+            if (!map[key]) map[key] = { name: key, count: 0, detail: x.detail || '', last: x.time || '' };
+            map[key].count += 1;
+            map[key].last = x.time || map[key].last;
+            if (x.detail) map[key].detail = x.detail;
+        });
+        return Object.values(map).sort((a, b) => b.count - a.count).slice(0, 10);
+    };
+    return {
+        total: filtered.length,
+        products: group('product'),
+        features: group('feature'),
+        calculator: filtered.filter(x => x.name === 'Calculator').length,
+        ift: filtered.filter(x => x.name === 'Secondary IFT').length
+    };
+}
+
+function _usageRows(items, emptyText) {
+    if (!items.length) return '<p style="text-align:center;color:#999;padding:16px;">' + emptyText + '</p>';
+    const max = Math.max(...items.map(i => i.count), 1);
+    return items.map((item, idx) => {
+        const width = Math.max(8, Math.round((item.count / max) * 100));
+        return `<div style="background:white;border:1px solid #e1e6ef;border-radius:8px;padding:10px;margin-bottom:8px;">
+            <div style="display:flex;justify-content:space-between;gap:10px;align-items:center;">
+                <div style="min-width:0;">
+                    <div style="font-size:13px;font-weight:900;color:#172033;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">#${idx + 1} ${item.name}</div>
+                    <div style="font-size:11px;color:#667;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${item.detail || 'Last: ' + item.last}</div>
+                </div>
+                <div style="font-size:18px;font-weight:900;color:#667eea;">${item.count}</div>
+            </div>
+            <div style="height:6px;background:#edf1f7;border-radius:999px;overflow:hidden;margin-top:8px;">
+                <div style="width:${width}%;height:100%;background:linear-gradient(90deg,#667eea,#43a047);"></div>
+            </div>
+        </div>`;
+    }).join('');
+}
+
+function renderUsageDashboard(period = 'week') {
+    const modal = document.getElementById('usageDashboardModal');
+    if (!modal) return;
+    const s = _usageSummary(period);
+    const label = period === 'year' ? 'Yearly' : period === 'month' ? 'Monthly' : 'Weekly';
+    const body = document.getElementById('usageDashboardBody');
+    body.innerHTML = `
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:10px;">
+            <div style="background:#172033;color:white;border-radius:8px;padding:10px;text-align:center;"><div style="font-size:11px;">Total Opens</div><div style="font-size:20px;font-weight:900;">${s.total}</div></div>
+            <div style="background:#e8f5e9;color:#2e7d32;border-radius:8px;padding:10px;text-align:center;"><div style="font-size:11px;">IFT</div><div style="font-size:20px;font-weight:900;">${s.ift}</div></div>
+            <div style="background:#fff8e1;color:#8a5b00;border-radius:8px;padding:10px;text-align:center;"><div style="font-size:11px;">Calculator</div><div style="font-size:20px;font-weight:900;">${s.calculator}</div></div>
+        </div>
+        <div style="font-size:13px;font-weight:900;color:#172033;margin:8px 0;">Top Products - ${label}</div>
+        ${_usageRows(s.products, 'No product opened in this period')}
+        <div style="font-size:13px;font-weight:900;color:#172033;margin:12px 0 8px;">Top Features - ${label}</div>
+        ${_usageRows(s.features, 'No feature opened in this period')}
+    `;
+}
+
+function openUsageDashboard() {
+    if (!requireAdminAction('Dashboard')) return;
+    const existing = document.getElementById('usageDashboardModal');
+    if (existing) existing.remove();
+    const modal = document.createElement('div');
+    modal.id = 'usageDashboardModal';
+    modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.65);display:flex;align-items:flex-start;justify-content:center;padding:14px;box-sizing:border-box;overflow-y:auto;z-index:9999;';
+    modal.innerHTML = `
+        <div style="width:100%;max-width:520px;background:#f5f7fb;border-radius:14px;overflow:hidden;margin:auto;box-shadow:0 18px 50px rgba(0,0,0,.35);">
+            <div style="background:linear-gradient(135deg,#172033,#667eea);color:white;padding:14px 16px;display:flex;justify-content:space-between;align-items:center;">
+                <div>
+                    <div style="font-size:17px;font-weight:900;">Dashboard</div>
+                    <div style="font-size:11px;opacity:.85;">Most opened product, calculator and IFT</div>
+                </div>
+                <button onclick="document.getElementById('usageDashboardModal').remove()" style="background:rgba(255,255,255,.2);border:none;color:white;font-size:22px;width:34px;height:34px;border-radius:50%;cursor:pointer;">×</button>
+            </div>
+            <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:0;border-bottom:1px solid #dfe5ef;">
+                <button onclick="renderUsageDashboard('week')" style="padding:11px;border:none;background:white;font-weight:900;color:#667eea;cursor:pointer;">Weekly</button>
+                <button onclick="renderUsageDashboard('month')" style="padding:11px;border:none;background:white;font-weight:900;color:#2e7d32;cursor:pointer;">Monthly</button>
+                <button onclick="renderUsageDashboard('year')" style="padding:11px;border:none;background:white;font-weight:900;color:#8a5b00;cursor:pointer;">Yearly</button>
+            </div>
+            <div id="usageDashboardBody" style="padding:12px;max-height:75vh;overflow-y:auto;"></div>
+        </div>`;
+    document.body.appendChild(modal);
+    modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
+    renderUsageDashboard('week');
+}
+
+// ============================================================
 // SECONDARY IFT
 // ============================================================
 const SECONDARY_IFT_KEY = 'secondaryIftRecords';
 const SECONDARY_IFT_RECYCLE_KEY = 'secondaryIftRecycleBin';
-const SECONDARY_IFT_HDL_SUFFIX = { HDL2: '1', HDL3: '1', HDL4: '2', HDL5: '3' };
+const SECONDARY_IFT_HDL_SUFFIX = { HDL1: '1', HDL2: '1', HDL3: '1', HDL4: '2', HDL5: '3', HDL6: '2', HDL7: '5', HDL8: '6' };
 const SECONDARY_IFT_FALLBACK = {
     '1KG|ARIEL TL': { pcode: 'P-AR-TL-1KG', gcase: 'GC-1001', lcl: '980', usl: '1020' },
     '1KG|ARIEL FL': { pcode: 'P-AR-FL-1KG', gcase: 'GC-1002', lcl: '980', usl: '1020' },
@@ -4471,13 +4618,56 @@ function _secondaryIftVariant() {
     const value = _secondaryIftValue('secondaryIftVariant');
     return value === 'CUSTOM' ? (_secondaryIftValue('secondaryIftCustomVariant').trim() || 'CUSTOM') : value;
 }
+function normalizeSecondaryIftSkuLabel(value) {
+    const raw = String(value || '').toUpperCase().replace(/\s+/g, '');
+    const match = raw.match(/(\d+(?:\.\d+)?)(KG|GM|G|ML|L)\b/);
+    if (!match) return '';
+    const unit = match[2] === 'GM' ? 'G' : match[2];
+    const num = String(match[1]).replace(/\.0+$/, '');
+    return num + unit;
+}
+function getSecondaryIftSkuListFromPcode() {
+    const data = JSON.parse(localStorage.getItem('mc_data_v1') || '{}');
+    const fixed = ['1KG', '2KG', '3KG', '4KG', '5KG', '6KG'];
+    const seen = new Set(fixed);
+    Object.values(data).forEach(item => {
+        const text = [item?.sku, item?.pcode, item?.note, item?.description].join(' ');
+        const label = normalizeSecondaryIftSkuLabel(text);
+        if (label) seen.add(label);
+    });
+    const order = sku => {
+        const fixedIndex = fixed.indexOf(String(sku).toUpperCase());
+        if (fixedIndex >= 0) return fixedIndex;
+        const m = String(sku).match(/(\d+(?:\.\d+)?)(KG|G|ML|L)/);
+        if (!m) return 999999;
+        const n = parseFloat(m[1]);
+        const unit = m[2];
+        const gramValue = unit === 'KG' ? n * 1000 : unit === 'L' ? n * 1000 : n;
+        return 100 + gramValue;
+    };
+    return Array.from(seen).sort((a, b) => order(a) - order(b));
+}
+function getSecondaryIftSkuOptionsHtml() {
+    return getSecondaryIftSkuListFromPcode()
+        .map(sku => '<option>' + sku + '</option>')
+        .join('') + '<option>CUSTOM</option>';
+}
 function _secondaryIftSku() {
     const value = _secondaryIftValue('secondaryIftSku');
     return value === 'CUSTOM' ? (_secondaryIftValue('secondaryIftCustomSku').trim() || 'CUSTOM') : value;
 }
+function _secondaryIftHdl() {
+    const value = _secondaryIftValue('secondaryIftHdl') || 'HDL2';
+    return value === 'CUSTOM' ? (_secondaryIftValue('secondaryIftCustomHdl').trim().toUpperCase() || 'CUSTOM') : value;
+}
+function updateSecondaryIftHdlCustom() {
+    const row = document.getElementById('secondaryIftCustomHdlRow');
+    if (row) row.style.display = _secondaryIftValue('secondaryIftHdl') === 'CUSTOM' ? 'block' : 'none';
+    updateSecondaryIftClock();
+}
 function _secondaryIftCode() {
     const julian = document.getElementById('secondaryIftJulian')?.value || _iftJulianBase();
-    const hdl = _secondaryIftValue('secondaryIftHdl') || 'HDL2';
+    const hdl = _secondaryIftHdl();
     return julian + 'B095' + (SECONDARY_IFT_HDL_SUFFIX[hdl] || '1') + '#';
 }
 function _secondaryIftFindCard(sku, variant) {
@@ -4545,6 +4735,44 @@ function updateSecondaryIftClock() {
     const code = document.getElementById('secondaryIftJulianCode');
     if (code) code.textContent = _secondaryIftCode();
 }
+function getSecondaryIftCustomLines() {
+    const raw = document.getElementById('secondaryIftCustomLinesStore')?.value || '[]';
+    try {
+        const parsed = JSON.parse(raw);
+        return Array.isArray(parsed) ? parsed.map(x => String(x || '').trim()).filter(Boolean) : [];
+    } catch (_) {
+        return [];
+    }
+}
+function setSecondaryIftCustomLines(lines) {
+    const clean = (lines || []).map(x => String(x || '').trim()).filter(Boolean);
+    const store = document.getElementById('secondaryIftCustomLinesStore');
+    if (store) store.value = JSON.stringify(clean);
+    renderSecondaryIftCustomLines();
+}
+function addSecondaryIftCustomLine() {
+    const input = document.getElementById('secondaryIftCustomLineInput');
+    const value = (input?.value || '').trim();
+    if (!value) { showSyncToast('Custom line likho', '#f44336'); return; }
+    const lines = getSecondaryIftCustomLines();
+    lines.push(value);
+    if (input) input.value = '';
+    setSecondaryIftCustomLines(lines);
+}
+function removeSecondaryIftCustomLine(index) {
+    const lines = getSecondaryIftCustomLines();
+    lines.splice(index, 1);
+    setSecondaryIftCustomLines(lines);
+}
+function renderSecondaryIftCustomLines() {
+    const list = document.getElementById('secondaryIftCustomLinesList');
+    if (!list) return;
+    const lines = getSecondaryIftCustomLines();
+    list.innerHTML = lines.length ? lines.map((line, i) =>
+        '<div style="display:flex;align-items:center;gap:6px;background:#eef3f9;border:1px solid #d7dce5;border-radius:6px;padding:6px 7px;margin-top:5px;font-size:11px;color:#17202f;"><span style="flex:1;word-break:break-word;">' + line.replace(/[&<>]/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[ch])) + '</span><button onclick="removeSecondaryIftCustomLine(' + i + ')" style="background:#bd3d3d;color:white;border:none;border-radius:5px;padding:3px 7px;font-weight:900;cursor:pointer;">×</button></div>'
+    ).join('') : '<div style="font-size:11px;color:#999;margin-top:5px;">No custom line added</div>';
+}
+
 function _secondaryIftCurrentRecord() {
     updateSecondaryIftClock();
     const customMode = _secondaryIftValue('secondaryIftSku') === 'CUSTOM' || _secondaryIftValue('secondaryIftVariant') === 'CUSTOM';
@@ -4564,13 +4792,14 @@ function _secondaryIftCurrentRecord() {
         sku: _secondaryIftSku(),
         variant: _secondaryIftVariant(),
         customMode,
-        hdl: _secondaryIftValue('secondaryIftHdl'),
+        hdl: _secondaryIftHdl(),
         pcode: _secondaryIftValue('secondaryIftPcode'),
         gcase: _secondaryIftValue('secondaryIftGcase'),
         lclAuto: _secondaryIftValue('secondaryIftLclAuto'),
         lclCurrent: _secondaryIftValue('secondaryIftLclCurrent'),
         uslAuto: _secondaryIftValue('secondaryIftUslAuto'),
         uslCurrent: _secondaryIftValue('secondaryIftUslCurrent'),
+        customLines: getSecondaryIftCustomLines(),
         checks,
         pass: checks.lcl && checks.usl && checks.ocr && checks.twoD,
         savedAt: new Date().toISOString()
@@ -4593,6 +4822,9 @@ function saveSecondaryIftRecord() {
     showSyncToast((rec.pass ? 'PASS saved: ' : 'Pending saved: ') + rec.gcase, rec.pass ? '#4CAF50' : '#ff9800');
 }
 function _secondaryIftCardHtml(r, options = {}) {
+    const customLineHtml = Array.isArray(r.customLines) && r.customLines.length
+        ? '<div style="margin-top:6px;padding:6px 8px;background:#fff8e1;border-left:3px solid #f0a429;border-radius:0 6px 6px 0;color:#17202f;">' + r.customLines.map((line, i) => '<div><b>Line ' + (i + 1) + ':</b> ' + String(line || '-').replace(/[&<>]/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[ch])) + '</div>').join('') + '</div>'
+        : '';
     const status = r.pass ? '<span style="color:#2e8b57;font-weight:900;">PASS</span>' : '<span style="color:#bd3d3d;font-weight:900;">PENDING</span>';
     const deleteBtn = (!options.recycle && window._userRole === 'admin') ? '<button onclick="deleteSecondaryIftRecord(\'' + _secondaryIftSafeId(r.id) + '\')" style="margin-top:8px;padding:7px 10px;background:#bd3d3d;color:white;border:none;border-radius:7px;font-weight:900;cursor:pointer;">Delete</button>' : '';
     const recycleActions = options.recycle ? '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;"><button onclick="restoreSecondaryIftRecord(\'' + _secondaryIftSafeId(r.id) + '\')" style="flex:1;min-width:90px;padding:7px 10px;background:#2e8b57;color:white;border:none;border-radius:7px;font-weight:900;cursor:pointer;">Restore</button><button onclick="permanentDeleteSecondaryIftRecord(\'' + _secondaryIftSafeId(r.id) + '\')" style="flex:1;min-width:120px;padding:7px 10px;background:#bd3d3d;color:white;border:none;border-radius:7px;font-weight:900;cursor:pointer;">Delete Forever</button></div>' : '';
@@ -4606,6 +4838,7 @@ function _secondaryIftCardHtml(r, options = {}) {
         'Test Done By: ' + (r.testName || '-') + '<br>' +
         'LSL: ' + (r.lclAuto || '-') + ' &nbsp; current pass WT: ' + (r.lclCurrent || '-') + '<br>' +
         'USL: ' + (r.uslAuto || '-') + ' &nbsp; current pass WT: ' + (r.uslCurrent || '-') + '<br>' +
+        customLineHtml +
         'LSL: ' + (r.checks?.lcl ? 'PASS' : 'NO') + ' | USL: ' + (r.checks?.usl ? 'PASS' : 'NO') + ' | OCR: ' + (r.checks?.ocr ? 'PASS' : 'NO') + ' | 2D: ' + (r.checks?.twoD ? 'PASS' : 'NO') + deletedInfo +
         '</div>' + deleteBtn + recycleActions + '</div>';
 }
@@ -4680,7 +4913,7 @@ function renderSecondaryIftCards() {
     const findInput = document.getElementById('secondaryIftFindInput');
     const q = (findInput?.value || '').trim().toLowerCase();
     const records = getSecondaryIftRecords().filter(r => {
-        const hay = [r.gcase, r.date, r.julian, r.julianCode, r.time, r.sku, r.variant, r.pcode, r.hdl, r.testName].join(' ').toLowerCase();
+        const hay = [r.gcase, r.date, r.julian, r.julianCode, r.time, r.sku, r.variant, r.pcode, r.hdl, r.testName, ...(r.customLines || [])].join(' ').toLowerCase();
         return !q || hay.includes(q);
     });
     const list = document.getElementById('secondaryIftCards');
@@ -4700,6 +4933,7 @@ function clearSecondaryIftFind() {
     renderSecondaryIftCards();
 }
 function openSecondaryIft() {
+    trackUsage('feature', 'Secondary IFT', 'IFT form opened');
     const existing = document.getElementById('secondaryIftModal');
     if (existing) existing.remove();
     const modal = document.createElement('div');
@@ -4719,8 +4953,8 @@ function openSecondaryIft() {
                 <div style="font-size:18px;font-weight:900;color:#17202f;margin-bottom:8px;">IFT</div>
                 <div style="display:grid;grid-template-columns:1.15fr .75fr .75fr;gap:6px;">
                     <div><label style="font-size:10px;font-weight:900;color:#38506b;">VARIANT</label><select id="secondaryIftVariant" onchange="updateSecondaryIftAuto()" style="width:100%;padding:7px;border:1px solid #d7dce5;border-radius:6px;"><option>ARIEL TL</option><option>ARIEL FL</option><option>TIDE ALL</option><option>CUSTOM</option></select></div>
-                    <div><label style="font-size:10px;font-weight:900;color:#38506b;">SKU</label><select id="secondaryIftSku" onchange="updateSecondaryIftAuto()" style="width:100%;padding:7px;border:1px solid #d7dce5;border-radius:6px;"><option>1KG</option><option>2KG</option><option>500G</option><option>CUSTOM</option></select></div>
-                    <div><label style="font-size:10px;font-weight:900;color:#38506b;">HDL</label><select id="secondaryIftHdl" onchange="updateSecondaryIftClock()" style="width:100%;padding:7px;border:1px solid #d7dce5;border-radius:6px;"><option>HDL2</option><option>HDL3</option><option>HDL4</option><option>HDL5</option></select></div>
+                    <div><label style="font-size:10px;font-weight:900;color:#38506b;">SKU</label><select id="secondaryIftSku" onchange="updateSecondaryIftAuto()" style="width:100%;padding:7px;border:1px solid #d7dce5;border-radius:6px;">${getSecondaryIftSkuOptionsHtml()}</select></div>
+                    <div><label style="font-size:10px;font-weight:900;color:#38506b;">HDL</label><select id="secondaryIftHdl" onchange="updateSecondaryIftHdlCustom()" style="width:100%;padding:7px;border:1px solid #d7dce5;border-radius:6px;"><option>HDL1</option><option>HDL2</option><option>HDL3</option><option>HDL4</option><option>HDL5</option><option>HDL6</option><option>HDL7</option><option>HDL8</option><option>CUSTOM</option></select><div id="secondaryIftCustomHdlRow" style="display:none;margin-top:5px;"><input id="secondaryIftCustomHdl" oninput="updateSecondaryIftClock()" placeholder="CUSTOM HDL" style="width:100%;padding:7px;border:1px solid #d7dce5;border-radius:6px;"></div></div>
                 </div>
                 <div id="secondaryIftCustomRow" style="display:none;grid-template-columns:1fr 1fr;gap:6px;margin-top:6px;">
                     <div><label style="font-size:10px;font-weight:900;color:#38506b;">CUSTOM SKU</label><input id="secondaryIftCustomSku" oninput="updateSecondaryIftAuto()" placeholder="SKU" style="width:100%;padding:7px;border:1px solid #d7dce5;border-radius:6px;"></div>
@@ -4749,6 +4983,15 @@ function openSecondaryIft() {
                             <div><label style="font-size:10px;font-weight:900;color:#38506b;">PCODE AUTO</label><div id="secondaryIftPcodeText" style="padding:6px 7px;border:1px solid #d7dce5;border-radius:6px;background:#f8fafc;color:#526173;font-size:11px;font-weight:900;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">-</div><input id="secondaryIftPcode" placeholder="PCode" style="display:none;width:100%;padding:7px;border:1px solid #d7dce5;border-radius:6px;"></div>
                         </div>
                         <label style="font-size:10px;font-weight:900;color:#38506b;margin-top:4px;display:block;">TEST DONE BY</label><input id="secondaryIftTestName" placeholder="Name" style="width:100%;padding:7px;border:1px solid #d7dce5;border-radius:6px;">
+                        <div style="margin-top:6px;padding:7px;border:1px solid #d7dce5;border-radius:7px;background:#fafbfc;">
+                            <label style="font-size:10px;font-weight:900;color:#38506b;display:block;margin-bottom:4px;">CUSTOM LINE</label>
+                            <div style="display:flex;gap:5px;">
+                                <input id="secondaryIftCustomLineInput" placeholder="Custom line text" onkeypress="if(event.key==='Enter'){event.preventDefault();addSecondaryIftCustomLine();}" style="flex:1;min-width:0;padding:7px;border:1px solid #d7dce5;border-radius:6px;">
+                                <button onclick="addSecondaryIftCustomLine()" style="padding:7px 9px;background:#667eea;color:white;border:none;border-radius:6px;font-weight:900;cursor:pointer;">Add</button>
+                            </div>
+                            <input id="secondaryIftCustomLinesStore" type="hidden" value="[]">
+                            <div id="secondaryIftCustomLinesList"></div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -4770,6 +5013,8 @@ function openSecondaryIft() {
     </div>`;
     document.body.appendChild(modal);
     updateSecondaryIftAuto();
+    updateSecondaryIftHdlCustom();
+    renderSecondaryIftCustomLines();
     renderSecondaryIftCards();
     window._secondaryIftTimer = setInterval(() => {
         if (!document.getElementById('secondaryIftModal')) { clearInterval(window._secondaryIftTimer); return; }
@@ -5575,6 +5820,7 @@ function shareQRLink() {
 
 // ===== CALCULATOR =====
 function openCalculator() {
+    trackUsage('feature', 'Calculator', 'Calculator opened');
     window.open('calculator.html', '_blank');
 }
 
@@ -5879,6 +6125,7 @@ function saveCenterlineEntry(type) {
 
 // User: Centerline Search — first show Primary/Secondary popup
 function openCenterlineSearch() {
+    trackUsage('feature', 'Centerline Search', 'Centerline opened');
     const existing = document.getElementById('clSearchModal');
     if (existing) existing.remove();
 
@@ -6829,11 +7076,14 @@ function openPrivacySettings() {
     modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
 }
 
-function logoutApp() {
-    toggleMenu();
-    if (!confirm('Are you sure you want to logout?')) return;
+function logoutApp(skipConfirm = false, sessionStatus = 'Logged out') {
+    if (!skipConfirm) {
+        toggleMenu();
+        if (!confirm('Are you sure you want to logout?')) return;
+    }
     // Save logout time
-    _saveLogoutLog();
+    _saveLogoutLog(sessionStatus);
+    stopAutoLock();
     window._userRole = null;
     stopLocationWatch();
     _currentLat = null;
@@ -6968,6 +7218,9 @@ function _getDeviceDetails() {
         locationStatus: _getLocationHistoryStatus(),
         locationEnabled: localStorage.getItem('loc_enabled') === 'true' ? 'Yes' : 'No',
         locationLatLng: (_currentLat !== null && _currentLng !== null) ? `${_currentLat.toFixed(6)}, ${_currentLng.toFixed(6)}` : 'Not available',
+        loginLocationStatus: _getLocationHistoryStatus(),
+        loginLocationLatLng: (_currentLat !== null && _currentLng !== null) ? `${_currentLat.toFixed(6)}, ${_currentLng.toFixed(6)}` : 'Not available',
+        deviceName: localStorage.getItem('device_name_v1') || _getDeviceModel(),
         apiConfigured: isJsonBinConfigured() ? 'Yes' : 'No',
         lastSyncStatus: localStorage.getItem('last_sync_status') || 'Unknown',
         lastSyncTime: localStorage.getItem('last_sync_time') || 'Not recorded',
@@ -6988,6 +7241,7 @@ function _saveLoginLog(role) {
     const logs = JSON.parse(localStorage.getItem('loginHistory') || '[]');
     const now = new Date();
     const details = _getDeviceDetails();
+    const isFirstDeviceLogin = !logs.some(l => l.deviceId && l.deviceId === details.deviceId);
     const log = {
         role: role,
         loginMethod: window._pendingLoginMethod || 'Password',
@@ -6998,6 +7252,8 @@ function _saveLoginLog(role) {
         logoutTs: null,
         duration: null,
         sessionStatus: 'Active',
+        isNewUser: isFirstDeviceLogin,
+        newUserLabel: isFirstDeviceLogin ? 'New User' : 'Existing User',
         ...details
     };
     window._pendingLoginMethod = null;
@@ -7007,16 +7263,17 @@ function _saveLoginLog(role) {
     setTimeout(() => syncToServer(), 1000);
 }
 
-function _saveLogoutLog() {
+function _saveLogoutLog(sessionStatus = 'Logged out') {
     const logs = JSON.parse(localStorage.getItem('loginHistory') || '[]');
     if (logs.length > 0 && !logs[0].logoutTime && logs[0].loginTs) {
         const now = new Date();
         logs[0].logoutTime = now.toLocaleString('en-IN');
         logs[0].logoutTs = now.getTime();
         logs[0].duration = _formatDuration(now.getTime() - logs[0].loginTs);
-        logs[0].sessionStatus = 'Logged out';
+        logs[0].sessionStatus = sessionStatus;
         logs[0].logoutOnlineStatus = navigator.onLine ? 'Online' : 'Offline';
         logs[0].logoutLocationStatus = _getLocationHistoryStatus();
+        logs[0].logoutLocationLatLng = (_currentLat !== null && _currentLng !== null) ? `${_currentLat.toFixed(6)}, ${_currentLng.toFixed(6)}` : 'Not available';
         localStorage.setItem('loginHistory', JSON.stringify(logs));
         setTimeout(() => syncToServer(), 1000);
     }
@@ -7029,6 +7286,42 @@ function _historyDetailRow(label, value) {
     </div>`;
 }
 
+function getLoginHistoryPairs(l, index = 0, total = 0) {
+    return [
+        ['Card No.', total ? '#' + (total - index) : ''],
+        ['Role', l.role === 'admin' ? 'Admin' : 'User'],
+        ['Login Method', l.loginMethod || 'Password'],
+        ['Session Status', l.sessionStatus || (l.logoutTime ? 'Logged out' : 'Currently active')],
+        ['New User', l.isNewUser ? 'Yes - first login from this device' : 'No'],
+        ['Login Time', l.loginTime],
+        ['Logout Time', l.logoutTime || 'Active now'],
+        ['Duration', l.duration || (l.loginTs ? _formatDuration(Date.now() - l.loginTs) : 'Running')],
+        ['Device ID', l.deviceId],
+        ['Device Name', l.deviceName || l.deviceModel || l.device],
+        ['Device Model', l.deviceModel || l.device],
+        ['Browser', l.browser],
+        ['OS', l.os],
+        ['Screen', l.screenSize],
+        ['Viewport', l.viewportSize],
+        ['Pixel Ratio', l.pixelRatio],
+        ['Online at Login', l.onlineStatus],
+        ['Online at Logout', l.logoutOnlineStatus],
+        ['Connection', l.connectionType],
+        ['Location Enabled', l.locationEnabled],
+        ['Login Location Status', l.loginLocationStatus || l.locationStatus],
+        ['Login Lat/Lng', l.loginLocationLatLng || l.locationLatLng],
+        ['Logout Location Status', l.logoutLocationStatus],
+        ['Logout Lat/Lng', l.logoutLocationLatLng],
+        ['Timezone', l.timezone],
+        ['Language', l.language],
+        ['API Configured', l.apiConfigured],
+        ['Last Sync Status', l.lastSyncStatus],
+        ['Last Sync Time', l.lastSyncTime],
+        ['App Version', l.appVersion],
+        ['User Agent', l.userAgent]
+    ];
+}
+
 function showLoginHistoryDetail(index) {
     const logs = JSON.parse(localStorage.getItem('loginHistory') || '[]');
     const l = logs[index];
@@ -7038,35 +7331,7 @@ function showLoginHistoryDetail(index) {
     const modal = document.createElement('div');
     modal.id = 'loginDetailModal';
     modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.65);display:flex;align-items:center;justify-content:center;padding:15px;box-sizing:border-box;z-index:10000;';
-    const rows = [
-        ['Role', l.role === 'admin' ? 'Admin' : 'User'],
-        ['Login Method', l.loginMethod || 'Password'],
-        ['Session Status', l.logoutTime ? 'Logged out' : 'Currently active'],
-        ['Login Time', l.loginTime],
-        ['Logout Time', l.logoutTime || 'Active now'],
-        ['Duration', l.duration || 'Running'],
-        ['Device ID', l.deviceId],
-        ['Device', l.deviceModel || l.device],
-        ['Browser', l.browser],
-        ['OS', l.os],
-        ['Screen', l.screenSize],
-        ['Viewport', l.viewportSize],
-        ['Pixel Ratio', l.pixelRatio],
-        ['Online at Login', l.onlineStatus],
-        ['Online at Logout', l.logoutOnlineStatus],
-        ['Connection', l.connectionType],
-        ['Location Status', l.locationStatus],
-        ['Logout Location', l.logoutLocationStatus],
-        ['Lat/Lng', l.locationLatLng],
-        ['Location Enabled', l.locationEnabled],
-        ['Timezone', l.timezone],
-        ['Language', l.language],
-        ['API Configured', l.apiConfigured],
-        ['Last Sync Status', l.lastSyncStatus],
-        ['Last Sync Time', l.lastSyncTime],
-        ['App Version', l.appVersion],
-        ['User Agent', l.userAgent]
-    ].map(r => _historyDetailRow(r[0], r[1])).join('');
+    const rows = getLoginHistoryPairs(l, index, logs.length).map(r => _historyDetailRow(r[0], r[1])).join('');
     modal.innerHTML = `
         <div style="background:white;border-radius:14px;width:100%;max-width:520px;max-height:88vh;overflow:hidden;box-shadow:0 10px 40px rgba(0,0,0,0.35);">
             <div style="background:linear-gradient(135deg,#667eea,#764ba2);padding:15px 18px;display:flex;justify-content:space-between;align-items:center;color:white;">
@@ -7106,7 +7371,8 @@ function openLoginHistory() {
                     <span style="font-weight:700;font-size:13px;color:${roleColor};">${l.role==='admin'?'Admin':'User'} · ${l.loginMethod || 'Password'}</span>
                     <span style="font-size:11px;color:#888;white-space:nowrap;">#${logs.length - i}</span>
                 </div>
-                <div style="font-size:12px;color:#555;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${l.device || l.deviceModel || 'Unknown device'}</div>
+                <div style="font-size:12px;color:#555;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${l.deviceName || l.deviceModel || l.device || 'Unknown device'} ${l.os ? '· ' + l.os : ''}</div>
+                <div style="font-size:11px;color:#777;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">ID: ${l.deviceId || 'Not available'} ${(l.loginLocationLatLng || l.locationLatLng) && (l.loginLocationLatLng || l.locationLatLng) !== 'Not available' ? '· Loc: ' + (l.loginLocationLatLng || l.locationLatLng) : ''}</div>
                 <div style="font-size:12px;color:#555;">Login: ${l.loginTime || 'Unknown'}</div>
                 <div style="display:flex;justify-content:space-between;gap:8px;align-items:center;margin-top:4px;">
                     <span style="font-size:12px;color:${active?'#4CAF50':'#667eea'};font-weight:700;">${active ? 'Active now' : 'Duration: ' + (l.duration || 'Unknown')}</span>
@@ -7123,6 +7389,7 @@ function openLoginHistory() {
                     <div style="color:rgba(255,255,255,0.8);font-size:11px;">${logs.length} records · tap row for details</div>
                 </div>
                 <div style="display:flex;gap:8px;align-items:center;">
+                    <button onclick="printLoginHistoryPdf()" style="background:rgba(255,255,255,0.2);border:1px solid rgba(255,255,255,0.4);color:white;padding:4px 10px;border-radius:6px;cursor:pointer;font-size:12px;">PDF</button>
                     <button onclick="clearLoginHistory()" style="background:rgba(255,255,255,0.2);border:1px solid rgba(255,255,255,0.4);color:white;padding:4px 10px;border-radius:6px;cursor:pointer;font-size:12px;">Clear</button>
                     <span onclick="document.getElementById('loginHistoryModal').remove()" style="color:white;font-size:24px;cursor:pointer;line-height:1;">×</span>
                 </div>
@@ -7131,6 +7398,133 @@ function openLoginHistory() {
         </div>`;
     document.body.appendChild(modal);
     modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
+}
+
+function _escapeHistoryHtml(value) {
+    return String(value ?? '').replace(/[&<>"']/g, ch => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[ch]));
+}
+
+function printLoginHistoryPdf() {
+    const logs = JSON.parse(localStorage.getItem('loginHistory') || '[]');
+    if (!logs.length) { alert('No login history to print.'); return; }
+    const cards = logs.map((l, i) => {
+        const rows = getLoginHistoryPairs(l, i, logs.length).map(([label, value]) => `
+            <div class="row"><b>${_escapeHistoryHtml(label)}</b><span>${_escapeHistoryHtml(value || 'Not available')}</span></div>`).join('');
+        const color = l.role === 'admin' ? '#667eea' : '#2e7d32';
+        return `<section class="card" style="border-left-color:${color}">
+            <h2>Card #${logs.length - i} · ${_escapeHistoryHtml(l.role === 'admin' ? 'Admin' : 'User')}</h2>
+            <div class="sub">${_escapeHistoryHtml(l.deviceName || l.deviceModel || l.device || 'Unknown device')}</div>
+            ${rows}
+        </section>`;
+    }).join('');
+    const w = window.open('', '_blank');
+    if (!w) { alert('Popup blocked. Browser popup allow karo, fir PDF try karo.'); return; }
+    w.document.write(`<!doctype html><html><head><title>Login History PDF</title>
+        <style>
+            body{font-family:Arial,sans-serif;margin:18px;color:#172033;background:#f5f7fb}
+            h1{font-size:22px;margin:0 0 4px}
+            .meta{font-size:12px;color:#667;margin-bottom:14px}
+            .card{background:#fff;border:1px solid #d8dee9;border-left:5px solid #667eea;border-radius:8px;padding:12px 14px;margin:0 0 12px;break-inside:avoid}
+            h2{font-size:16px;margin:0 0 4px;color:#172033}
+            .sub{font-size:12px;color:#556;margin-bottom:8px}
+            .row{display:flex;justify-content:space-between;gap:14px;border-top:1px solid #eef1f6;padding:6px 0;font-size:11px}
+            .row b{color:#52607a;min-width:145px;text-align:left}
+            .row span{text-align:right;word-break:break-word}
+            @media print{body{background:#fff;margin:10mm}.card{page-break-inside:avoid}}
+        </style></head><body>
+        <h1>Login History</h1>
+        <div class="meta">${logs.length} records · Printed ${new Date().toLocaleString('en-IN')}</div>
+        ${cards}
+        <script>window.onload=function(){setTimeout(function(){window.print();},250)}<\/script>
+    </body></html>`);
+    w.document.close();
+}
+
+function _isNewUserLog(logs, logItem) {
+    if (logItem.isNewUser) return true;
+    if (!logItem.deviceId) return false;
+    return !logs.some(l => l !== logItem && l.deviceId === logItem.deviceId && (l.loginTs || 0) < (logItem.loginTs || 0));
+}
+
+function _activeUserCard(l, badgeText, badgeColor) {
+    return `
+        <div onclick="showLoginHistoryDetail(${l.index})" style="background:${l.role === 'admin' ? '#e8eaf6' : '#e8f5e9'};border-left:4px solid ${badgeColor};border-radius:8px;padding:10px 12px;margin-bottom:8px;cursor:pointer;">
+            <div style="display:flex;justify-content:space-between;gap:8px;align-items:center;">
+                <b style="font-size:13px;color:${l.role === 'admin' ? '#667eea' : '#2e7d32'};">${l.role === 'admin' ? 'Admin' : 'User'} · ${l.loginMethod || 'Password'}</b>
+                <span style="font-size:11px;color:${badgeColor};font-weight:800;">${badgeText}</span>
+            </div>
+            <div style="font-size:12px;color:#333;margin-top:4px;">${l.deviceName || l.deviceModel || l.device || 'Unknown device'}</div>
+            <div style="font-size:11px;color:#666;">ID: ${l.deviceId || 'Not available'}</div>
+            <div style="font-size:11px;color:#666;">Login: ${l.loginTime || 'Unknown'} · Running: ${l.loginTs ? _formatDuration(Date.now() - l.loginTs) : 'Unknown'}</div>
+            <div style="font-size:11px;color:#666;">Location: ${l.loginLocationStatus || l.locationStatus || 'Not available'} ${(l.loginLocationLatLng || l.locationLatLng) && (l.loginLocationLatLng || l.locationLatLng) !== 'Not available' ? '· ' + (l.loginLocationLatLng || l.locationLatLng) : ''}</div>
+        </div>`;
+}
+
+function openActiveUsers() {
+    if (!requireAdminAction('Active users')) return;
+    const render = () => {
+        const logs = JSON.parse(localStorage.getItem('loginHistory') || '[]');
+        const active = logs.map((l, index) => ({ ...l, index })).filter(l => !l.logoutTime);
+        const newUsers = active.filter(l => _isNewUserLog(logs, l));
+        const newRows = newUsers.length
+            ? newUsers.map(l => _activeUserCard(l, 'New User', '#f57c00')).join('')
+            : '<p style="text-align:center;color:#999;padding:16px;">No new active user right now</p>';
+        const activeRows = active.length
+            ? active.map(l => _activeUserCard(l, 'Active', '#2e7d32')).join('')
+            : '<p style="text-align:center;color:#999;padding:16px;">No active users right now</p>';
+        const old = document.getElementById('activeUsersModal');
+        if (old) old.remove();
+        const modal = document.createElement('div');
+        modal.id = 'activeUsersModal';
+        modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.6);display:flex;align-items:flex-start;justify-content:center;padding:15px;box-sizing:border-box;overflow-y:auto;z-index:9999;';
+        modal.innerHTML = `
+            <div style="background:white;border-radius:14px;width:100%;max-width:500px;overflow:hidden;margin:auto;">
+                <div style="background:linear-gradient(135deg,#2e7d32,#43a047);padding:14px 18px;display:flex;justify-content:space-between;align-items:center;color:white;">
+                    <div>
+                        <div style="font-size:16px;font-weight:800;">Active Users</div>
+                        <div style="font-size:11px;opacity:.85;">${active.length} active · ${newUsers.length} new user · tap card for full info</div>
+                    </div>
+                    <div style="display:flex;gap:8px;align-items:center;">
+                        <button onclick="openActiveUsers()" style="background:rgba(255,255,255,.2);border:1px solid rgba(255,255,255,.4);color:white;padding:4px 10px;border-radius:6px;cursor:pointer;font-size:12px;">Refresh</button>
+                        <button onclick="document.getElementById('activeUsersModal').remove()" style="background:rgba(255,255,255,.2);border:none;color:white;font-size:22px;width:32px;height:32px;border-radius:50%;cursor:pointer;">×</button>
+                    </div>
+                </div>
+                <div style="display:grid;grid-template-columns:1fr 1fr;border-bottom:1px solid #e5e8ef;">
+                    <button onclick="document.getElementById('activeNewUsersSection').style.display='block';document.getElementById('activeAllUsersSection').style.display='none';" style="padding:11px;border:none;background:#fff8e1;color:#8a5b00;font-weight:800;cursor:pointer;">New User (${newUsers.length})</button>
+                    <button onclick="document.getElementById('activeNewUsersSection').style.display='none';document.getElementById('activeAllUsersSection').style.display='block';" style="padding:11px;border:none;background:#e8f5e9;color:#2e7d32;font-weight:800;cursor:pointer;">Active Users (${active.length})</button>
+                </div>
+                <div style="padding:14px;max-height:75vh;overflow-y:auto;">
+                    <div id="activeNewUsersSection">
+                        <div style="font-size:12px;font-weight:800;color:#8a5b00;margin:0 0 8px;">New User - first login device</div>
+                        ${newRows}
+                    </div>
+                    <div id="activeAllUsersSection" style="display:none;">
+                        <div style="font-size:12px;font-weight:800;color:#2e7d32;margin:0 0 8px;">All Active Users</div>
+                        ${activeRows}
+                    </div>
+                </div>
+            </div>`;
+        document.body.appendChild(modal);
+        modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
+    };
+    if (isJsonBinConfigured()) syncFromServer().then(render).catch(render);
+    else render();
+}
+
+function openAutoLogoutSettings() {
+    if (!requireAdminAction('Auto logout settings')) return;
+    const current = getAutoLockMinutes();
+    const input = prompt('Auto logout time minutes me dalo (1 se 480). Current: ' + current, current);
+    if (input === null) return;
+    const minutes = parseInt(input, 10);
+    if (!Number.isFinite(minutes) || minutes < 1 || minutes > 480) {
+        alert('Valid minutes dalo: 1 se 480.');
+        return;
+    }
+    localStorage.setItem('auto_logout_minutes', String(minutes));
+    resetAutoLock();
+    showSuccessPopup('Auto logout time set: ' + minutes + ' min');
+    syncToServer();
 }
 
 function clearLoginHistory() {
@@ -7273,10 +7667,12 @@ function openApiSettings() {
     toggleMenu();
     const currentKey = getApiKey();
     const currentBin = getBinId();
-    const publicBin  = localStorage.getItem('jb_public_bin_id') || currentBin;
+    const secondKey = localStorage.getItem('jb_api_key_2') || '';
+    const secondBin = localStorage.getItem('jb_bin_id_2') || '';
+    const publicBin = currentBin || localStorage.getItem('jb_public_bin_id') || '';
     const status = isJsonBinConfigured()
-        ? '✅ Online Sync: ACTIVE (Admin)'
-        : (publicBin ? '👁️ Read-Only Sync: ACTIVE' : '❌ Online Sync: NOT SET UP');
+        ? '✅ Online Sync: ACTIVE'
+        : '❌ Online Sync: NOT SET UP';
 
     const modal = document.createElement('div');
     modal.id = 'apiSettingsModal';
@@ -7287,21 +7683,33 @@ function openApiSettings() {
             <p style="color:#666;font-size:13px;margin-bottom:5px;">${status}</p>
 
             <div style="background:#e8f5e9;border-radius:8px;padding:12px;margin-bottom:15px;font-size:12px;color:#2e7d32;">
-                <b>👑 Admin Device (yours):</b> Enter API Key + Bin ID<br>
-                <b>👤 User Device (others):</b> Enter Bin ID only — data will be read
+                <b>Primary JSONBin:</b> App ka working server pehle use hoga.<br>
+                <b>Second API Backup:</b> Sirf JSONBin Bin ID + API Key dalo. RestDB abhi off hai.
             </div>
 
-            <label style="font-weight:600;font-size:14px;display:block;margin-bottom:5px;">Bin ID <span style="color:#4CAF50;">(same on all devices)</span>:</label>
-            <input id="inputBinId" type="text" value="${publicBin}" placeholder="64abc123xxxxxxxx"
+            <label style="font-weight:600;font-size:14px;display:block;margin-bottom:5px;">Primary Bin ID:</label>
+            <input id="inputBinId" type="text" value="${publicBin}" placeholder="JSONBin Bin ID"
                 style="width:100%;padding:10px;border:2px solid #4CAF50;border-radius:5px;font-size:13px;margin-bottom:15px;box-sizing:border-box;">
 
-            <label style="font-weight:600;font-size:14px;display:block;margin-bottom:5px;">API Key <span style="color:#999;">(admin device only)</span>:</label>
-            <input id="inputApiKey" type="password" value="${currentKey}" placeholder="Leave empty if this is a user device"
+            <label style="font-weight:600;font-size:14px;display:block;margin-bottom:5px;">Primary API Key:</label>
+            <input id="inputApiKey" type="password" value="${currentKey}" placeholder="JSONBin API Key"
+                style="width:100%;padding:10px;border:2px solid #ddd;border-radius:5px;font-size:13px;margin-bottom:12px;box-sizing:border-box;">
+
+            <div style="background:#fff8e1;border-radius:8px;padding:12px;margin:8px 0 15px;font-size:12px;color:#8a5b00;border:1px solid #ffe08a;">
+                <b>Second API Backup:</b> Primary server fail hoga to app yaha try karega.
+            </div>
+
+            <label style="font-weight:600;font-size:14px;display:block;margin-bottom:5px;">Second Bin ID:</label>
+            <input id="inputBinId2" type="text" value="${secondBin}" placeholder="Backup JSONBin Bin ID"
+                style="width:100%;padding:10px;border:2px solid #ffca28;border-radius:5px;font-size:13px;margin-bottom:12px;box-sizing:border-box;">
+
+            <label style="font-weight:600;font-size:14px;display:block;margin-bottom:5px;">Second API Key:</label>
+            <input id="inputApiKey2" type="password" value="${secondKey}" placeholder="Backup JSONBin API Key"
                 style="width:100%;padding:10px;border:2px solid #ddd;border-radius:5px;font-size:13px;margin-bottom:20px;box-sizing:border-box;">
 
             <div style="display:flex;gap:10px;">
                 <button onclick="saveApiSettings()" style="flex:1;padding:12px;background:#667eea;color:white;border:none;border-radius:8px;font-size:15px;cursor:pointer;font-weight:600;">💾 Save</button>
-                <button onclick="clearApiSettings()" style="flex:1;padding:12px;background:#f44336;color:white;border:none;border-radius:8px;font-size:15px;cursor:pointer;font-weight:600;">🗑️ Clear</button>
+                <button onclick="clearApiSettings()" style="flex:1;padding:12px;background:#f44336;color:white;border:none;border-radius:8px;font-size:15px;cursor:pointer;font-weight:600;">🗑️ Clear Saved</button>
                 <button onclick="document.getElementById('apiSettingsModal').remove()" style="flex:1;padding:12px;background:#999;color:white;border:none;border-radius:8px;font-size:15px;cursor:pointer;font-weight:600;">✖</button>
             </div>
         </div>`;
@@ -7310,26 +7718,46 @@ function openApiSettings() {
 
 function saveApiSettings() {
     const key = document.getElementById('inputApiKey').value.trim();
-    const bin = document.getElementById('inputBinId').value.trim();
-    if (!bin) { alert('Bin ID is required!'); return; }
-    // Save Bin ID for all devices
-    localStorage.setItem('jb_public_bin_id', bin);
-    // Save API key only if provided (admin device)
-    if (key) {
-        localStorage.setItem('jb_api_key', key);
+    const binRaw = document.getElementById('inputBinId').value.trim();
+    const key2 = document.getElementById('inputApiKey2')?.value.trim() || '';
+    const bin2Raw = document.getElementById('inputBinId2')?.value.trim() || '';
+    const bin = normalizeJsonBinId(binRaw);
+    const bin2 = normalizeJsonBinId(bin2Raw);
+    if (binRaw && !bin) { alert('JSONBin Bin ID galat hai. RestDB URL/key yaha mat dalo.'); return; }
+    if (bin2Raw && !bin2) { alert('Second API ka Bin ID galat hai. Sirf JSONBin Bin ID dalo.'); return; }
+
+    if (bin) {
+        localStorage.setItem('jb_public_bin_id', bin);
         localStorage.setItem('jb_bin_id', bin);
     }
+    if (key) localStorage.setItem('jb_api_key', key);
+
+    if (bin2) localStorage.setItem('jb_bin_id_2', bin2);
+    else localStorage.removeItem('jb_bin_id_2');
+    if (key2) localStorage.setItem('jb_api_key_2', key2);
+    else localStorage.removeItem('jb_api_key_2');
+
+    localStorage.removeItem('restdb_url');
+    localStorage.removeItem('restdb_key');
+    localStorage.removeItem('restdb_collection');
+
     document.getElementById('apiSettingsModal').remove();
-    showSuccessPopup(key ? 'Admin sync active!' : 'Read-only sync active!');
+    showSuccessPopup('JSONBin sync saved!');
     syncFromServer();
 }
 
 function clearApiSettings() {
-    if (!confirm('Clear API settings? Sync will be disabled.')) return;
+    if (!confirm('Clear saved API settings? Default working server will still be used.')) return;
     localStorage.removeItem('jb_api_key');
     localStorage.removeItem('jb_bin_id');
+    localStorage.removeItem('jb_public_bin_id');
+    localStorage.removeItem('jb_api_key_2');
+    localStorage.removeItem('jb_bin_id_2');
+    localStorage.removeItem('restdb_url');
+    localStorage.removeItem('restdb_key');
+    localStorage.removeItem('restdb_collection');
     document.getElementById('apiSettingsModal').remove();
-    showSuccessPopup('API settings cleared. Offline mode.');
+    showSuccessPopup('Saved API settings cleared.');
 }
 
 // ============================================================
@@ -7622,22 +8050,52 @@ function isLocationAllowed(callback) {
 
 // API keys are not in HTML — stored in localStorage
 // Enter from admin settings — will not leak on GitHub
+function normalizeJsonBinId(value) {
+    const raw = String(value || '').trim();
+    if (!raw || /^https?:\/\//i.test(raw)) return '';
+    const cleaned = raw.replace(/[?#].*$/, '').replace(/^\/+|\/+$/g, '');
+    return /^[a-f0-9]{24}$/i.test(cleaned) ? cleaned : '';
+}
+function normalizeJsonBinKey(value) {
+    const raw = String(value || '').trim();
+    if (!raw || /^https?:\/\//i.test(raw)) return '';
+    return raw;
+}
 function getApiKey() {
-    // Check config.js first (local file, not pushed to GitHub)
     if (typeof JSONBIN_CONFIG !== 'undefined' && JSONBIN_CONFIG.apiKey)
         return JSONBIN_CONFIG.apiKey;
-    // Then check localStorage (saved from settings)
-    return localStorage.getItem('jb_api_key') || '';
+    return normalizeJsonBinKey(localStorage.getItem('jb_api_key') || '');
 }
 function getBinId() {
-    // Check config.js first
     if (typeof JSONBIN_CONFIG !== 'undefined' && JSONBIN_CONFIG.binId)
-        return JSONBIN_CONFIG.binId;
-    // Then check localStorage
-    return localStorage.getItem('jb_bin_id') || '';}
-
+        return normalizeJsonBinId(JSONBIN_CONFIG.binId);
+    return normalizeJsonBinId(localStorage.getItem('jb_bin_id') || localStorage.getItem('jb_public_bin_id') || '');
+}
+function getJsonBinTargets(requireWrite = false) {
+    const targets = [];
+    const seen = new Set();
+    const add = (label, binId, apiKey) => {
+        const cleanBin = normalizeJsonBinId(binId);
+        const cleanKey = normalizeJsonBinKey(apiKey);
+        if (!cleanBin || seen.has(cleanBin)) return;
+        if (requireWrite && !cleanKey) return;
+        seen.add(cleanBin);
+        targets.push({ label, binId: cleanBin, apiKey: cleanKey });
+    };
+    add('Primary API', getBinId(), getApiKey());
+    add('Second API', localStorage.getItem('jb_bin_id_2') || '', localStorage.getItem('jb_api_key_2') || '');
+    return targets;
+}
 function isJsonBinConfigured() {
-    return getApiKey() !== '' && getBinId() !== '';
+    return getJsonBinTargets(false).length > 0;
+}
+
+let _serverDownAlertAt = 0;
+function showServerDownAlert(detail) {
+    const now = Date.now();
+    if (now - _serverDownAlertAt < 15000) return;
+    _serverDownAlertAt = now;
+    alert('Server Down\n\nJSON server is not working right now. Your data is still saved on this device.\n\nError: ' + (detail || 'Unknown'));
 }
 
 function showSyncToast(msg, color) {
@@ -7657,157 +8115,172 @@ function showSyncToast(msg, color) {
 }
 
 // Fetch data from server — public bin, key optional
-async function syncFromServer() {
-    const binId = getBinId();
-    if (!binId) return;
-    try {
-        const headers = { 'X-Bin-Meta': 'false' };
-        const key = getApiKey();
-        if (key) headers['X-Access-Key'] = key;
-        const res = await fetch(`https://api.jsonbin.io/v3/b/${binId}/latest`, { headers });
-        if (!res.ok) {
-            if (res.status === 401) throw new Error('401 - API Key wrong!');
-            if (res.status === 404) throw new Error('404 - Bin ID not found!');
-            throw new Error('HTTP ' + res.status);
-        }
-        const json = await res.json();
-        const rec = json.record || json || {};
-        // Product records sync — server is source of truth
-        const serverData = rec.records || {};
-        // Use server data directly (not merge) so deletions are respected
-        localStorage.setItem('mc_data_v1', JSON.stringify(serverData));
-        // Location settings sync — only overwrite if server has them
-        if (rec.locationSettings) {
-            const ls = rec.locationSettings;
-            if (ls.loc_1) localStorage.setItem('loc_1', JSON.stringify(ls.loc_1));
-            else localStorage.removeItem('loc_1');
-            if (ls.loc_2) localStorage.setItem('loc_2', JSON.stringify(ls.loc_2));
-            else localStorage.removeItem('loc_2');
-            if (ls.loc_radius) localStorage.setItem('loc_radius', ls.loc_radius);
-            if (ls.loc_enabled !== undefined) localStorage.setItem('loc_enabled', ls.loc_enabled);
-        }
-        // View password sync — when admin updates, user devices get it too
-        if (rec.viewPassword) {
-            localStorage.setItem('view_password', rec.viewPassword);
-        }
-        // Admin password sync — all devices get updated password
-        if (rec.adminPassword) {
-            localStorage.setItem('admin_password', rec.adminPassword);
-        }
-        // Custom formulas sync — all devices will receive
-        if (rec.customFormulas) {
-            localStorage.setItem('customFormulas', JSON.stringify(rec.customFormulas));
-        }
-        // Highlight note sync
-        if (rec.highlightNote) {
-            localStorage.setItem('highlightNote', JSON.stringify(rec.highlightNote));
-        }
-        // Centerline data sync
-        if (rec.centerlineData) {
-            localStorage.setItem('centerlineData', JSON.stringify(rec.centerlineData));
-        }
-        if (rec.centerlinePrimary) {
-            localStorage.setItem('centerlinePrimary', JSON.stringify(rec.centerlinePrimary));
-        }
-        if (rec.centerlineSecondary) {
-            localStorage.setItem('centerlineSecondary', JSON.stringify(rec.centerlineSecondary));
-        }
-        // CL Lists sync
-        if (rec.cl_lines) localStorage.setItem('cl_lines', JSON.stringify(rec.cl_lines));
-        if (rec.cl_skus) localStorage.setItem('cl_skus', JSON.stringify(rec.cl_skus));
-        if (rec.cl_variants) localStorage.setItem('cl_variants', JSON.stringify(rec.cl_variants));
-        // Login history — merge with server (combine logs from all devices)
-        if (rec.loginHistory && rec.loginHistory.length > 0) {
-            const localLogs = JSON.parse(localStorage.getItem('loginHistory') || '[]');
-            const serverLogs = rec.loginHistory;
-            // Merge both — identify uniquely by loginTs
-            const merged = [...localLogs];
-            serverLogs.forEach(sl => {
-                if (!merged.find(ll => ll.loginTs === sl.loginTs)) {
-                    merged.push(sl);
-                }
-            });
-            // Sort by time — latest first
-            merged.sort((a, b) => (b.loginTs || 0) - (a.loginTs || 0));
-            // Keep max 50 entries
-            if (merged.length > 50) merged.splice(50);
-            localStorage.setItem('loginHistory', JSON.stringify(merged));
-        }
-        // Recycle bin sync
-        if (rec.recycleBin) {
-            localStorage.setItem('mc_deleted_records_v1', JSON.stringify(rec.recycleBin));
-        }
-        // Access control sync
-        if (rec.accessControl) {
-            localStorage.setItem('accessControl', JSON.stringify(rec.accessControl));
-        }
-        // Pallet patterns sync
-        if (rec.palletPatterns) {
-            localStorage.setItem('palletPatterns', JSON.stringify(rec.palletPatterns));
-        }
-        // Secondary IFT sync
-        if (rec.secondaryIftRecords) {
-            localStorage.setItem('secondaryIftRecords', JSON.stringify(rec.secondaryIftRecords));
-        }
-                if (rec.secondaryIftRecycleBin) {
-            localStorage.setItem('secondaryIftRecycleBin', JSON.stringify(rec.secondaryIftRecycleBin));
-        }
-        if (rec.userFeedbackRecords) {
-            localStorage.setItem('userFeedbackRecords', JSON.stringify(rec.userFeedbackRecords));
-        }
-        // Custom guides sync
-        if (rec.customGuides) {
-            localStorage.setItem('customGuides', JSON.stringify(rec.customGuides));
-        }
-        const count = Object.keys(serverData).length;
-        const msg = window._userRole === 'admin'
-            ? '🔄 Updated  •  ' + count + ' records'
-            : '🔄 Updated';
-        localStorage.setItem('last_sync_status', 'Success from server');
-        localStorage.setItem('last_sync_time', new Date().toLocaleString('en-IN'));
-        showSyncToast(msg, '#4CAF50');
-        return serverData;
-    } catch (err) {
-        localStorage.setItem('last_sync_status', 'Failed from server: ' + err.message);
-        localStorage.setItem('last_sync_time', new Date().toLocaleString('en-IN'));
-        showSyncToast('❌ ' + err.message, '#f44336');
+function applyJsonBinRecord(rec, sourceLabel) {
+    const serverData = rec.records || {};
+    localStorage.setItem('mc_data_v1', JSON.stringify(serverData));
+    if (rec.locationSettings) {
+        const ls = rec.locationSettings;
+        if (ls.loc_1) localStorage.setItem('loc_1', JSON.stringify(ls.loc_1)); else localStorage.removeItem('loc_1');
+        if (ls.loc_2) localStorage.setItem('loc_2', JSON.stringify(ls.loc_2)); else localStorage.removeItem('loc_2');
+        if (ls.loc_radius) localStorage.setItem('loc_radius', ls.loc_radius);
+        if (ls.loc_enabled !== undefined) localStorage.setItem('loc_enabled', ls.loc_enabled);
     }
+    if (rec.viewPassword) localStorage.setItem('view_password', rec.viewPassword);
+    if (rec.adminPassword) localStorage.setItem('admin_password', rec.adminPassword);
+    if (rec.customFormulas) localStorage.setItem('customFormulas', JSON.stringify(rec.customFormulas));
+    if (rec.highlightNote) localStorage.setItem('highlightNote', JSON.stringify(rec.highlightNote));
+    if (rec.centerlineData) localStorage.setItem('centerlineData', JSON.stringify(rec.centerlineData));
+    if (rec.centerlinePrimary) localStorage.setItem('centerlinePrimary', JSON.stringify(rec.centerlinePrimary));
+    if (rec.centerlineSecondary) localStorage.setItem('centerlineSecondary', JSON.stringify(rec.centerlineSecondary));
+    if (rec.cl_lines) localStorage.setItem('cl_lines', JSON.stringify(rec.cl_lines));
+    if (rec.cl_skus) localStorage.setItem('cl_skus', JSON.stringify(rec.cl_skus));
+    if (rec.cl_variants) localStorage.setItem('cl_variants', JSON.stringify(rec.cl_variants));
+    if (rec.loginHistory && rec.loginHistory.length > 0) {
+        const localLogs = JSON.parse(localStorage.getItem('loginHistory') || '[]');
+        const merged = [...localLogs];
+        rec.loginHistory.forEach(sl => { if (!merged.find(ll => ll.loginTs === sl.loginTs)) merged.push(sl); });
+        merged.sort((a, b) => (b.loginTs || 0) - (a.loginTs || 0));
+        if (merged.length > 50) merged.splice(50);
+        localStorage.setItem('loginHistory', JSON.stringify(merged));
+    }
+    if (rec.recycleBin) localStorage.setItem('mc_deleted_records_v1', JSON.stringify(rec.recycleBin));
+    if (rec.accessControl) localStorage.setItem('accessControl', JSON.stringify(rec.accessControl));
+    if (rec.palletPatterns) localStorage.setItem('palletPatterns', JSON.stringify(rec.palletPatterns));
+    if (rec.secondaryIftRecords) localStorage.setItem('secondaryIftRecords', JSON.stringify(rec.secondaryIftRecords));
+    if (rec.secondaryIftRecycleBin) localStorage.setItem('secondaryIftRecycleBin', JSON.stringify(rec.secondaryIftRecycleBin));
+    if (rec.userFeedbackRecords) localStorage.setItem('userFeedbackRecords', JSON.stringify(rec.userFeedbackRecords));
+    if (rec.customGuides) localStorage.setItem('customGuides', JSON.stringify(rec.customGuides));
+    if (rec.autoLogoutMinutes) localStorage.setItem('auto_logout_minutes', String(rec.autoLogoutMinutes));
+    if (rec.usageAnalytics && rec.usageAnalytics.length) {
+        const localUsage = getUsageAnalytics();
+        const mergedUsage = [...localUsage];
+        rec.usageAnalytics.forEach(u => { if (!mergedUsage.find(x => x.id === u.id)) mergedUsage.push(u); });
+        mergedUsage.sort((a, b) => (a.ts || 0) - (b.ts || 0));
+        saveUsageAnalytics(mergedUsage);
+    }
+    const count = Object.keys(serverData).length;
+    const msg = window._userRole === 'admin' ? '🔄 Updated • ' + count + ' records • ' + sourceLabel : '🔄 Updated';
+    localStorage.setItem('last_sync_status', 'Success from ' + sourceLabel);
+    localStorage.setItem('last_sync_time', new Date().toLocaleString('en-IN'));
+    showSyncToast(msg, '#4CAF50');
+    return serverData;
+}
+
+// Fetch data from server — tries Primary API, then Second API
+async function syncFromServer() {
+    const targets = getJsonBinTargets(false);
+    if (!targets.length) return;
+    let lastErr = null;
+    for (const target of targets) {
+        try {
+            const headers = { 'X-Bin-Meta': 'false' };
+            if (target.apiKey) headers['X-Access-Key'] = target.apiKey;
+            const res = await fetch('https://api.jsonbin.io/v3/b/' + target.binId + '/latest', { headers });
+            if (!res.ok) {
+                if (res.status === 401) throw new Error(target.label + ': 401 - API Key wrong!');
+                if (res.status === 404) throw new Error(target.label + ': 404 - Bin ID not found!');
+                throw new Error(target.label + ': HTTP ' + res.status);
+            }
+            const json = await res.json();
+            return applyJsonBinRecord(json.record || json || {}, target.label);
+        } catch (err) {
+            lastErr = err;
+        }
+    }
+    localStorage.setItem('last_sync_status', 'Failed from JSONBin: ' + (lastErr?.message || 'Unknown'));
+    localStorage.setItem('last_sync_time', new Date().toLocaleString('en-IN'));
+    showSyncToast('❌ Server Down: ' + (lastErr?.message || 'Unknown'), '#f44336');
+    showServerDownAlert(lastErr?.message || 'Unknown');
 }
 
 // Save data to server
-async function syncToServer() {
-    if (!isJsonBinConfigured()) return;
-    try {
-        const data = JSON.parse(localStorage.getItem('mc_data_v1') || '{}');
-        // Save location settings too
-        const locationSettings = {
-            loc_1: JSON.parse(localStorage.getItem('loc_1') || 'null'),
-            loc_2: JSON.parse(localStorage.getItem('loc_2') || 'null'),
-            loc_radius: localStorage.getItem('loc_radius') || '100',
-            loc_enabled: localStorage.getItem('loc_enabled') || 'false'
-        };
-        const viewPassword = localStorage.getItem('view_password') || '2468';
-        const res = await fetch(`https://api.jsonbin.io/v3/b/${getBinId()}`, {
-            method: 'PUT',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-Access-Key': getApiKey()
-            },
-            body: JSON.stringify({ records: data, locationSettings, viewPassword, adminPassword: localStorage.getItem('admin_password') || '1234', customFormulas: JSON.parse(localStorage.getItem('customFormulas') || '{}'), highlightNote: JSON.parse(localStorage.getItem('highlightNote') || '{}'), centerlineData: JSON.parse(localStorage.getItem('centerlineData') || '[]'), centerlinePrimary: JSON.parse(localStorage.getItem('centerlinePrimary') || '[]'), centerlineSecondary: JSON.parse(localStorage.getItem('centerlineSecondary') || '[]'), cl_lines: JSON.parse(localStorage.getItem('cl_lines') || '[2,3,4,5]'), cl_skus: JSON.parse(localStorage.getItem('cl_skus') || '[]'), cl_variants: JSON.parse(localStorage.getItem('cl_variants') || '[]'), loginHistory: JSON.parse(localStorage.getItem('loginHistory') || '[]'), accessControl: JSON.parse(localStorage.getItem('accessControl') || '{}'), customGuides: JSON.parse(localStorage.getItem('customGuides') || '{}'), recycleBin: JSON.parse(localStorage.getItem('mc_deleted_records_v1') || '{}'), palletPatterns: JSON.parse(localStorage.getItem('palletPatterns') || '{}'), secondaryIftRecords: JSON.parse(localStorage.getItem('secondaryIftRecords') || '[]'), secondaryIftRecycleBin: JSON.parse(localStorage.getItem('secondaryIftRecycleBin') || '[]'), userFeedbackRecords: JSON.parse(localStorage.getItem('userFeedbackRecords') || '[]') })
-        });
-        if (!res.ok) {
-            if (res.status === 401) throw new Error('401 - API Key wrong!');
-            if (res.status === 404) throw new Error('404 - Bin ID not found!');
-            throw new Error('HTTP ' + res.status);
-        }
-        localStorage.setItem('last_sync_status', 'Saved to server');
-        localStorage.setItem('last_sync_time', new Date().toLocaleString('en-IN'));
-        showSyncToast('☁️ Saved to server', '#2196F3');
-    } catch (err) {
-        localStorage.setItem('last_sync_status', 'Save failed: ' + err.message);
-        localStorage.setItem('last_sync_time', new Date().toLocaleString('en-IN'));
-        showSyncToast('❌ ' + err.message, '#f44336');
+function normalizeRestDbUrl(url) {
+    return String(url || '').trim().replace(/\/+$/, '');
+}
+function getRestDbEndpoint() {
+    const base = normalizeRestDbUrl(localStorage.getItem('restdb_url') || '');
+    const collection = (localStorage.getItem('restdb_collection') || 'pcode').trim().replace(/^\/+|\/+$/g, '');
+    if (!base || !collection) return '';
+    return base + '/rest/' + collection;
+}
+async function fetchRestDbState() {
+    const endpoint = getRestDbEndpoint();
+    const key = localStorage.getItem('restdb_key') || '';
+    if (!endpoint || !key) throw new Error('RestDB URL/Key missing');
+    const headers = { 'x-apikey': key, 'Content-Type': 'application/json' };
+    const queryUrl = endpoint + '?q=' + encodeURIComponent(JSON.stringify({ key: 'app_state' }));
+    let res = await fetch(queryUrl, { headers });
+    if (res.status === 400) {
+        res = await fetch(endpoint, { headers });
     }
+    if (!res.ok) throw new Error('RestDB: HTTP ' + res.status);
+    const arr = await res.json();
+    const doc = Array.isArray(arr) ? (arr.find(item => item && item.key === 'app_state') || arr[0]) : arr;
+    return doc ? (doc.data || doc) : null;
+}
+async function saveRestDbState(payload) {
+    const endpoint = getRestDbEndpoint();
+    const key = localStorage.getItem('restdb_key') || '';
+    if (!endpoint || !key) throw new Error('RestDB URL/Key missing');
+    const headers = { 'x-apikey': key, 'Content-Type': 'application/json' };
+    const queryUrl = endpoint + '?q=' + encodeURIComponent(JSON.stringify({ key: 'app_state' }));
+    let foundRes = await fetch(queryUrl, { headers });
+    if (foundRes.status === 400) {
+        foundRes = await fetch(endpoint, { headers });
+    }
+    if (!foundRes.ok) throw new Error('RestDB check: HTTP ' + foundRes.status);
+    const found = await foundRes.json();
+    const existing = Array.isArray(found) ? found[0] : found;
+    const body = JSON.stringify({ key: 'app_state', data: payload, updatedAt: new Date().toISOString() });
+    const saveUrl = existing && existing._id ? endpoint + '/' + existing._id : endpoint;
+    const method = existing && existing._id ? 'PUT' : 'POST';
+    const res = await fetch(saveUrl, { method, headers, body });
+    if (!res.ok) throw new Error('RestDB save: HTTP ' + res.status);
+    return true;
+}
+
+function buildSyncPayload() {
+    const data = JSON.parse(localStorage.getItem('mc_data_v1') || '{}');
+    const locationSettings = {
+        loc_1: JSON.parse(localStorage.getItem('loc_1') || 'null'),
+        loc_2: JSON.parse(localStorage.getItem('loc_2') || 'null'),
+        loc_radius: localStorage.getItem('loc_radius') || '100',
+        loc_enabled: localStorage.getItem('loc_enabled') || 'false'
+    };
+    return { records: data, locationSettings, viewPassword: localStorage.getItem('view_password') || '2468', adminPassword: localStorage.getItem('admin_password') || '1234', customFormulas: JSON.parse(localStorage.getItem('customFormulas') || '{}'), highlightNote: JSON.parse(localStorage.getItem('highlightNote') || '{}'), centerlineData: JSON.parse(localStorage.getItem('centerlineData') || '[]'), centerlinePrimary: JSON.parse(localStorage.getItem('centerlinePrimary') || '[]'), centerlineSecondary: JSON.parse(localStorage.getItem('centerlineSecondary') || '[]'), cl_lines: JSON.parse(localStorage.getItem('cl_lines') || '[2,3,4,5]'), cl_skus: JSON.parse(localStorage.getItem('cl_skus') || '[]'), cl_variants: JSON.parse(localStorage.getItem('cl_variants') || '[]'), loginHistory: JSON.parse(localStorage.getItem('loginHistory') || '[]'), accessControl: JSON.parse(localStorage.getItem('accessControl') || '{}'), customGuides: JSON.parse(localStorage.getItem('customGuides') || '{}'), recycleBin: JSON.parse(localStorage.getItem('mc_deleted_records_v1') || '{}'), palletPatterns: JSON.parse(localStorage.getItem('palletPatterns') || '{}'), secondaryIftRecords: JSON.parse(localStorage.getItem('secondaryIftRecords') || '[]'), secondaryIftRecycleBin: JSON.parse(localStorage.getItem('secondaryIftRecycleBin') || '[]'), userFeedbackRecords: JSON.parse(localStorage.getItem('userFeedbackRecords') || '[]'), autoLogoutMinutes: getAutoLockMinutes(), usageAnalytics: getUsageAnalytics() };
+}
+
+// Save data to server — tries Primary API, then Second API
+async function syncToServer() {
+    const targets = getJsonBinTargets(true);
+    if (!targets.length) return;
+    const payload = buildSyncPayload();
+    let lastErr = null;
+    for (const target of targets) {
+        try {
+            const res = await fetch('https://api.jsonbin.io/v3/b/' + target.binId, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json', 'X-Access-Key': target.apiKey },
+                body: JSON.stringify(payload)
+            });
+            if (!res.ok) {
+                if (res.status === 401) throw new Error(target.label + ': 401 - API Key wrong!');
+                if (res.status === 404) throw new Error(target.label + ': 404 - Bin ID not found!');
+                throw new Error(target.label + ': HTTP ' + res.status);
+            }
+            localStorage.setItem('last_sync_status', 'Saved to ' + target.label);
+            localStorage.setItem('last_sync_time', new Date().toLocaleString('en-IN'));
+            showSyncToast('☁️ Saved to ' + target.label, '#2196F3');
+            return true;
+        } catch (err) {
+            lastErr = err;
+        }
+    }
+    localStorage.setItem('last_sync_status', 'Save failed: ' + (lastErr?.message || 'Unknown'));
+    localStorage.setItem('last_sync_time', new Date().toLocaleString('en-IN'));
+    showSyncToast('❌ Server Down: ' + (lastErr?.message || 'Unknown'), '#f44336');
+    showServerDownAlert(lastErr?.message || 'Unknown');
+    return false;
 }
 
 // App unlock
@@ -7824,19 +8297,44 @@ function stopAutoSync() {
     }
 }
 
-// AUTO LOCK — DISABLED
+// AUTO LOCK — logs out after 10 minutes without activity
 let _autoLockTimer = null;
-const AUTO_LOCK_MS = 60000;
-function resetAutoLock() {}
-function autoLockApp() {}
+const DEFAULT_AUTO_LOCK_MINUTES = 10;
+const AUTO_LOCK_EVENTS = ['touchstart','touchmove','click','keydown','scroll','mousemove','pointerdown'];
 
-// Track user activity — disabled
-// ['touchstart','touchmove','click','keydown','scroll','mousemove'].forEach(evt => {
-//     document.addEventListener(evt, resetAutoLock, { passive: true });
+function getAutoLockMinutes() {
+    const saved = parseInt(localStorage.getItem('auto_logout_minutes') || '', 10);
+    return Number.isFinite(saved) && saved >= 1 && saved <= 480 ? saved : DEFAULT_AUTO_LOCK_MINUTES;
+}
+
+function resetAutoLock() {
+    if (!window._userRole) return;
+    if (_autoLockTimer) clearTimeout(_autoLockTimer);
+    _autoLockTimer = setTimeout(autoLockApp, getAutoLockMinutes() * 60 * 1000);
+}
+
+function stopAutoLock() {
+    if (_autoLockTimer) {
+        clearTimeout(_autoLockTimer);
+        _autoLockTimer = null;
+    }
+}
+
+function autoLockApp() {
+    if (!window._userRole) return;
+    const mins = getAutoLockMinutes();
+    showSyncToast('Auto logout: ' + mins + ' min inactive', '#f44336');
+    logoutApp(true, 'Auto logout - inactive ' + mins + ' min');
+}
+
+AUTO_LOCK_EVENTS.forEach(evt => {
+    document.addEventListener(evt, resetAutoLock, { passive: true });
+});
 // });
 
 function unlockApp(role) {
     window._userRole = role || 'admin';
+    resetAutoLock();
     // Save login history
     _saveLoginLog(role || 'admin');
     // Close side menu if open

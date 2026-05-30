@@ -1491,6 +1491,9 @@ body { -webkit-user-select: none; -moz-user-select: none; user-select: none; }
             <div class="menu-item" onclick="downloadTemplate()">
                 <span>📥 Download CSV Template</span>
             </div>
+            <div class="menu-item user-visible" onclick="openMasterSearch();toggleMenu()">
+                <span>🔎 Master Search</span>
+            </div>
             <div class="menu-item user-visible" onclick="openSecondaryIft();toggleMenu()">
                 <span>✅ Secondary IFT</span>
             </div>
@@ -1542,6 +1545,12 @@ body { -webkit-user-select: none; -moz-user-select: none; user-select: none; }
             </div>
             <div class="menu-item user-visible" onclick="openFeedbackModal();toggleMenu()">
                 <span>💬 Feedback</span>
+            </div>
+            <div class="menu-item user-visible" onclick="openBugReportModal();toggleMenu()">
+                <span>🐞 Bug Report</span>
+            </div>
+            <div class="menu-item admin-only" onclick="openBugReportList();toggleMenu()">
+                <span>🧾 Bug Reports</span>
             </div>
             <div class="menu-item" onclick="logoutApp()" style="border-top: 2px solid #f44336;">
                 <span style="color:#f44336;">🚪 Logout</span>
@@ -2089,6 +2098,7 @@ function createProductCard(item, isCompact = false, searchTerm = '') {
     const shareBtn = isView && !isAccessAllowed('share') ? '' : `<button class="share-card-btn" onclick="shareProduct('${item.pcode}')">📤 Share Product</button>`;
     const clBtn = isView && !isAccessAllowed('centerline') ? '' : `<button onclick="openCenterlineUser()" style="width:100%;padding:8px;background:linear-gradient(135deg,#667eea,#764ba2);color:white;border:none;border-radius:5px;cursor:pointer;font-size:14px;margin-top:6px;">📋 Centerline</button>`;
     const printBtn = isView && !isAccessAllowed('print_card') ? '' : `<button onclick="printProductCard('${item.pcode}')" style="width:100%;padding:8px;background:#FF9800;color:white;border:none;border-radius:5px;cursor:pointer;font-size:14px;margin-top:6px;">🖨️ Print PDF</button>`;
+    const qrLabelBtn = isView && !isAccessAllowed('product_qr_label') ? '' : `<button onclick="openProductQrPopup('${String(item.pcode || '').replace(/'/g, "\\'")}')" style="position:absolute;right:8px;top:8px;z-index:5;padding:4px 7px;background:#17202f;color:white;border:1px solid rgba(255,255,255,.25);border-radius:5px;cursor:pointer;font-size:9px;letter-spacing:.3px;font-weight:900;line-height:1;">QR CODE</button>`;
     
     // Helper function to highlight matching text
     const highlightText = (text, search) => {
@@ -2148,7 +2158,8 @@ function createProductCard(item, isCompact = false, searchTerm = '') {
         </div>`;
     
     return `
-        <div class="product-card${compactClass}" id="${cardId}">
+        <div class="product-card${compactClass}" id="${cardId}" style="position:relative;">
+            ${qrLabelBtn}
             <div class="section-toggle">
                 <div class="toggle-btn primary" onclick="switchSection('${cardId}', 'primary')">
                     PRIMARY
@@ -2656,7 +2667,8 @@ function downloadBackup(type) {
             palletPatterns: JSON.parse(localStorage.getItem('palletPatterns') || '{}'),
                         secondaryIftRecords: JSON.parse(localStorage.getItem('secondaryIftRecords') || '[]'),
             secondaryIftRecycleBin: JSON.parse(localStorage.getItem('secondaryIftRecycleBin') || '[]'),
-            userFeedbackRecords: JSON.parse(localStorage.getItem('userFeedbackRecords') || '[]')
+            userFeedbackRecords: JSON.parse(localStorage.getItem('userFeedbackRecords') || '[]'),
+            bugReportRecords: JSON.parse(localStorage.getItem('bugReportRecords') || '[]')
         };
         downloadTextFile('mc_data_backup_' + stamp + '.json', JSON.stringify(backup, null, 2), 'application/json');
     }
@@ -2711,6 +2723,13 @@ function updateOnlineStatus() {
     if (ind) ind.style.display = navigator.onLine ? 'none' : 'flex';
 }
 window.addEventListener('online', updateOnlineStatus);
+window.addEventListener('online', function() {
+    setTimeout(function() {
+        if (typeof getOfflinePendingSync === 'function' && getOfflinePendingSync().length && typeof syncToServer === 'function') {
+            syncToServer().then(ok => { if (ok) showSyncToast('Pending data synced', '#4CAF50'); });
+        }
+    }, 800);
+});
 window.addEventListener('offline', updateOnlineStatus);
 updateOnlineStatus();
 
@@ -3041,6 +3060,10 @@ function applyRoleAccess(role) {
             const txt = el.textContent.trim();
             if (txt.includes('Share App'))        el.style.display = ac.qrshare !== false ? 'block' : 'none';
             if (txt.includes('Guide'))            el.style.display = ac.guide !== false ? 'block' : 'none';
+            if (txt.includes('Master Search'))    el.style.display = ac.master_search !== false ? 'block' : 'none';
+            if (txt.includes('Secondary IFT'))    el.style.display = ac.secondary_ift !== false ? 'block' : 'none';
+            if (txt.includes('Bug Report'))       el.style.display = ac.bug_report !== false ? 'block' : 'none';
+            if (txt.includes('Feedback'))         el.style.display = ac.feedback !== false ? 'block' : 'none';
             if (txt.includes('Centerline Search'))el.style.display = ac.centerline !== false ? 'block' : 'none';
             if (txt.includes('Add Manual Data'))  el.style.display = ac.manual_add !== false ? 'block' : 'none';
             if (txt.includes('Upload File'))      el.style.display = ac.upload_csv !== false ? 'block' : 'none';
@@ -3054,7 +3077,7 @@ function applyRoleAccess(role) {
         const privacyItem = document.querySelector('.menu-item[onclick*="openPrivacySettings"], .menu-item[onclick*="openPersonalAccess"]');
         if (privacyItem) {
             if (ac.personal_access !== false) {
-                // User ko sirf Personal Access dikhao
+                // Show only Personal Access to users
                 privacyItem.setAttribute('onclick', 'openPersonalAccess();toggleMenu()');
                 privacyItem.querySelector('span').innerHTML = '👤 Personal Settings';
                 privacyItem.style.display = 'block';
@@ -3067,7 +3090,7 @@ function applyRoleAccess(role) {
         // Admin — show everything + restore Privacy Settings to original
         document.querySelectorAll('.menu-item').forEach(el => el.style.display = '');
         document.querySelectorAll('.admin-only').forEach(el => el.style.display = '');
-        // Privacy Settings restore karo admin ke liye
+        // Restore Privacy Settings for admin
         const privacyItemAdmin = document.querySelector('.menu-item[onclick*="openPersonalAccess"]');
         if (privacyItemAdmin) {
             privacyItemAdmin.setAttribute('onclick', 'openPrivacySettings()');
@@ -3373,7 +3396,7 @@ function updateJulianCode(uid) {
         if (parts.length === 3) yearDigit = parseInt(parts[2]) % 10;
     }
     jcodeEl.textContent = julian ? yearDigit + julian + fixedCode : '—';
-    // Normal date display update karo
+    // Update normal date display
     if (jdateDisplay) {
         jdateDisplay.textContent = jdateEl && jdateEl.value ? jdateEl.value : '—';
     }
@@ -4264,7 +4287,7 @@ function _buildGuideHTML(mode) {
     const lang = _guideLang;
     const d = _guideContent(mode, lang);
     const otherLang = lang === 'en' ? 'hi' : 'en';
-    const btnLabel = lang === 'en' ? '🇮🇳 हिंदी' : '🇬🇧 English';
+    const btnLabel = lang === 'en' ? 'Hindi' : 'English';
     const colors = ['#e8f0fe','#e8f5e9','#fff3e0','#fce4ec','#e8f0fe','#e8f5e9','#fff3e0','#fce4ec','#e8f0fe'];
     const hcolors = ['#667eea','#4CAF50','#FF9800','#e91e63','#667eea','#4CAF50','#FF9800','#e91e63','#667eea'];
 
@@ -4318,6 +4341,235 @@ function downloadAPK() {
     toggleMenu();
 }
 
+
+
+// ============================================================
+// MASTER SEARCH, BUG REPORTS, AND QR LABELS
+// ============================================================
+const BUG_REPORT_KEY = 'bugReportRecords';
+
+function _appEscape(value) {
+    return String(value ?? '').replace(/[&<>"']/g, ch => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[ch]));
+}
+function _readJson(key, fallback) {
+    try { return JSON.parse(localStorage.getItem(key) || JSON.stringify(fallback)); }
+    catch (_) { return fallback; }
+}
+function getBugReportRecords() { return _readJson(BUG_REPORT_KEY, []); }
+function saveBugReportRecords(records) { localStorage.setItem(BUG_REPORT_KEY, JSON.stringify(records || [])); }
+
+function _buildProductQrText(item) {
+    return [
+        'Digital Control Copy - P Code Card',
+        'PCode: ' + (item.pcode || '-'),
+        'SKU: ' + (item.sku || '-'),
+        'Bulk GCase: ' + (item.bulkGCase || '-'),
+        'Pouch GCase: ' + (item.pouchGCase || '-'),
+        'Case GCase: ' + (item.caseGCase || '-'),
+        'Primary LSL/Target/USL: ' + (item.lsl || '-') + ' / ' + (item.target || '-') + ' / ' + (item.usl || '-'),
+        'Secondary LSL/Target/USL: ' + (item.secLsl || item.lsl || '-') + ' / ' + (item.secTarget || item.target || '-') + ' / ' + (item.secUsl || item.usl || '-')
+    ].join('\n');
+}
+function _buildIftQrText(r) {
+    return [
+        'HDL: ' + (r.hdl || '-'),
+        'PCode: ' + (r.pcode || '-'),
+        'Digital Control Copy - IFT Card',
+        'Status: ' + (r.pass ? 'PASS' : ('FAIL ' + _secondaryIftApprovalStatus(r))),
+        'Date Time: ' + (r.date || '-') + ' ' + (r.time || '-'),
+        'Shift: ' + (r.shift || '-'),
+        'Julian: ' + (r.julianCode || r.julian || '-'),
+        'Variant: ' + (r.variant || '-'),
+        'SKU: ' + (r.sku || '-'),
+        'GCase: ' + (r.gcase || '-'),
+        'Test Done By: ' + (r.testName || '-'),
+        'LSL Auto: ' + (r.lclAuto || '-'),
+        'LSL Current WT: ' + (r.lclCurrent || '-'),
+        'USL Auto: ' + (r.uslAuto || '-'),
+        'USL Current WT: ' + (r.uslCurrent || '-'),
+        'Checks: LSL ' + (r.checks?.lcl ? 'PASS' : 'NO') + ', USL ' + (r.checks?.usl ? 'PASS' : 'NO') + ', OCR ' + (r.checks?.ocr ? 'PASS' : 'NO') + ', 2D ' + (r.checks?.twoD ? 'PASS' : 'NO'),
+        'Approval: ' + _secondaryIftApprovalStatus(r),
+        'Comment: ' + (r.comment || '-')
+    ].join('\n');
+}
+function _openQrLabel(title, subtitle, qrText, footer) {
+    const encoded = encodeURIComponent(qrText);
+    const qrUrl = 'https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=' + encoded + '&bgcolor=ffffff&color=17202f&margin=6';
+    const w = window.open('', '_blank');
+    if (!w) { alert('Popup blocked. Please allow browser popups.'); return; }
+    w.document.write('<!doctype html><html><head><title>QR CODE</title><style>body{font-family:Arial,sans-serif;margin:10mm;color:#17202f}.label{width:58mm;min-height:78mm;border:1px solid #17202f;border-radius:4px;padding:5mm;box-sizing:border-box;text-align:center}.title{font-size:12px;font-weight:900;margin-bottom:2mm}.sub{font-size:10px;font-weight:700;line-height:1.25;margin-bottom:3mm;word-break:break-word}.qr{width:38mm;height:38mm}.foot{font-size:8px;line-height:1.25;margin-top:3mm;white-space:pre-wrap;text-align:left;border-top:1px solid #ddd;padding-top:2mm}@media print{body{margin:4mm}.label{break-inside:avoid}}</style></head><body><div class="label"><div class="title">QR CODE</div><div class="sub">' + _appEscape(title) + '<br>' + _appEscape(subtitle) + '</div><img class="qr" src="' + qrUrl + '"><div class="foot">' + _appEscape(footer || qrText) + '</div></div><script>window.onload=function(){setTimeout(function(){window.print();},300)}<\/script></body></html>');
+    w.document.close();
+}
+function _appBaseUrlForQr() {
+    const saved = (localStorage.getItem('app_share_url') || '').trim();
+    const current = (location.origin && location.origin !== 'null') ? (location.origin + location.pathname) : location.href;
+    return (saved || current).split(/[?#]/)[0];
+}
+function getProductOpenUrl(pcode) {
+    return _appBaseUrlForQr() + '?pcode=' + encodeURIComponent(pcode || '');
+}
+function openProductQrPopup(pcode) {
+    const item = JSON.parse(localStorage.getItem('mc_data_v1') || '{}')[pcode];
+    if (!item) { alert('Record not found!'); return; }
+    const existing = document.getElementById('productQrModal');
+    if (existing) existing.remove();
+    const qrText = _buildProductQrText(item);
+    const qrUrl = 'https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=' + encodeURIComponent(qrText) + '&bgcolor=ffffff&color=17202f&margin=8';
+    const modal = document.createElement('div');
+    modal.id = 'productQrModal';
+    modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.72);z-index:10020;display:flex;align-items:center;justify-content:center;padding:16px;box-sizing:border-box;';
+    modal.innerHTML = '<div style="width:100%;max-width:310px;background:white;border-radius:12px;overflow:hidden;box-shadow:0 18px 50px rgba(0,0,0,.38);text-align:center;"><div style="background:#17202f;color:white;padding:12px 14px;display:flex;justify-content:space-between;align-items:center;gap:10px;"><div style="font-size:13px;font-weight:900;word-break:break-word;text-align:left;">PCode: ' + _appEscape(item.pcode || pcode) + '<br>SKU: ' + _appEscape(item.sku || '-') + '</div><button onclick="document.getElementById(\'productQrModal\').remove()" style="background:rgba(255,255,255,.18);border:none;color:white;font-size:22px;width:32px;height:32px;border-radius:50%;cursor:pointer;">×</button></div><div style="padding:18px;"><img alt="QR CODE" src="' + qrUrl + '" style="width:220px;height:220px;max-width:100%;image-rendering:pixelated;"></div></div>';
+    document.body.appendChild(modal);
+    modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
+}
+function printProductQrLabel(pcode) {
+    openProductQrPopup(pcode);
+}
+function _getRequestedPcodeFromUrl() {
+    try {
+        const params = new URLSearchParams(location.search || '');
+        const fromQuery = params.get('pcode') || params.get('openPCode') || params.get('openPcode');
+        if (fromQuery) return fromQuery.trim();
+        const hash = decodeURIComponent((location.hash || '').replace(/^#/, ''));
+        const m = hash.match(/(?:^|[?&])pcode=([^&]+)/i);
+        return m ? decodeURIComponent(m[1]).trim() : '';
+    } catch (_) {
+        return '';
+    }
+}
+function openRequestedPcodeCard() {
+    const requested = _getRequestedPcodeFromUrl();
+    if (!requested) return false;
+    const stored = JSON.parse(localStorage.getItem('mc_data_v1') || '{}');
+    const key = Object.keys(stored).find(k => String(k).toLowerCase() === requested.toLowerCase() || String(stored[k]?.pcode || '').toLowerCase() === requested.toLowerCase());
+    const input = document.getElementById('searchInput');
+    if (input) input.value = requested;
+    if (key && stored[key]) {
+        displayResults({ [key]: stored[key] }, requested);
+        showSyncToast('PCode opened: ' + (stored[key].pcode || key), '#4CAF50');
+        return true;
+    }
+    searchData();
+    showSyncToast('PCode link searched: ' + requested, '#ff9800');
+    return false;
+}
+function openIftQrPopup(id) {
+    const r = getSecondaryIftRecords().find(x => String(x.id) === String(id));
+    if (!r) { alert('IFT card not found!'); return; }
+    const existing = document.getElementById('iftQrModal');
+    if (existing) existing.remove();
+    const qrText = _buildIftQrText(r);
+    const qrUrl = 'https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=' + encodeURIComponent(qrText) + '&bgcolor=ffffff&color=17202f&margin=8';
+    const modal = document.createElement('div');
+    modal.id = 'iftQrModal';
+    modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.72);z-index:10020;display:flex;align-items:center;justify-content:center;padding:16px;box-sizing:border-box;';
+    modal.innerHTML = '<div style="width:100%;max-width:310px;background:white;border-radius:12px;overflow:hidden;box-shadow:0 18px 50px rgba(0,0,0,.38);text-align:center;"><div style="background:#17202f;color:white;padding:12px 14px;display:flex;justify-content:space-between;align-items:center;gap:10px;"><div style="font-size:13px;font-weight:900;word-break:break-word;text-align:left;">HDL: ' + _appEscape(r.hdl || '-') + '<br>PCode: ' + _appEscape(r.pcode || '-') + '</div><button onclick="document.getElementById(\'iftQrModal\').remove()" style="background:rgba(255,255,255,.18);border:none;color:white;font-size:22px;width:32px;height:32px;border-radius:50%;cursor:pointer;">×</button></div><div style="padding:18px;"><img alt="QR CODE" src="' + qrUrl + '" style="width:220px;height:220px;max-width:100%;image-rendering:pixelated;"></div></div>';
+    document.body.appendChild(modal);
+    modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
+}
+function printIftQrLabel(id) {
+    openIftQrPopup(id);
+}
+
+function _masterSearchItems() {
+    const items = [];
+    const products = JSON.parse(localStorage.getItem('mc_data_v1') || '{}');
+    Object.values(products).forEach(p => items.push({
+        type: 'P Code',
+        title: (p.pcode || '-') + ' | ' + (p.sku || '-'),
+        text: [p.pcode,p.sku,p.bulkGCase,p.pouchGCase,p.caseGCase,p.note].join(' '),
+        action: "displayResults({'" + String(p.pcode || '').replace(/'/g,"\\'") + "': JSON.parse(localStorage.getItem('mc_data_v1')||'{}')['" + String(p.pcode || '').replace(/'/g,"\\'") + "']});document.getElementById('masterSearchModal')?.remove();"
+    }));
+    getSecondaryIftRecords().forEach(r => items.push({
+        type: 'IFT',
+        title: (r.gcase || '-') + ' | ' + (r.sku || '-') + ' | ' + (r.hdl || '-'),
+        text: [r.gcase,r.pcode,r.sku,r.variant,r.hdl,r.julianCode,r.date,r.time,r.shift,r.testName,r.comment].join(' '),
+        action: "openSecondaryIft();setTimeout(function(){var i=document.getElementById('secondaryIftFindInput');if(i){i.value='" + String(r.gcase || '').replace(/'/g,"\\'") + "';renderSecondaryIftCards();document.getElementById('secondaryIftFindBox').open=true;}},80);document.getElementById('masterSearchModal')?.remove();"
+    }));
+    ['centerlinePrimary','centerlineSecondary','centerlineData'].forEach(key => {
+        _readJson(key, []).forEach(c => items.push({ type: 'Centerline', title: [c.line,c.sku,c.variant,c.pcode].filter(Boolean).join(' | ') || key, text: JSON.stringify(c), action: "openCenterlineSearch();document.getElementById('masterSearchModal')?.remove();" }));
+    });
+    if (window._userRole === 'admin') {
+        JSON.parse(localStorage.getItem('loginHistory') || '[]').forEach(l => items.push({ type: 'Login', title: (l.role || '-') + ' | ' + (l.loginTime || l.dateTime || '-'), text: JSON.stringify(l), action: "openLoginHistory();document.getElementById('masterSearchModal')?.remove();" }));
+        getUserFeedbackRecords().forEach(f => items.push({ type: 'Feedback', title: (f.name || '-') + ' | Rating ' + (f.rating || '-'), text: JSON.stringify(f), action: "openUserFeedbackList();document.getElementById('masterSearchModal')?.remove();" }));
+        getBugReportRecords().forEach(b => items.push({ type: 'Bug', title: (b.name || '-') + ' | ' + (b.page || '-'), text: JSON.stringify(b), action: "openBugReportList();document.getElementById('masterSearchModal')?.remove();" }));
+    }
+    return items;
+}
+function renderMasterSearchResults() {
+    const q = (document.getElementById('masterSearchInput')?.value || '').trim().toLowerCase();
+    const body = document.getElementById('masterSearchResults');
+    if (!body) return;
+    if (!q) { body.innerHTML = '<div style="padding:12px;color:#777;background:white;border-radius:8px;">Search PCode, GCase, IFT, Centerline, login, feedback...</div>'; return; }
+    const rows = _masterSearchItems().filter(item => (item.title + ' ' + item.text).toLowerCase().includes(q)).slice(0, 80);
+    body.innerHTML = rows.length ? rows.map(item => '<div style="background:white;border:1px solid #d7dce5;border-radius:8px;padding:10px;margin-bottom:8px;"><div style="display:flex;justify-content:space-between;gap:8px;"><b style="color:#17202f;font-size:13px;">' + _appEscape(item.title) + '</b><span style="font-size:10px;font-weight:900;color:white;background:#667eea;border-radius:12px;padding:3px 7px;">' + _appEscape(item.type) + '</span></div><div style="font-size:11px;color:#657386;margin-top:5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + _appEscape(item.text) + '</div><button onclick="' + item.action + '" style="margin-top:8px;padding:7px 10px;background:#17202f;color:white;border:none;border-radius:7px;font-size:12px;font-weight:900;">Open</button></div>').join('') : '<div style="padding:12px;color:#777;background:white;border-radius:8px;">No result found.</div>';
+}
+function openMasterSearch() {
+    if (window._userRole === 'view' && !isAccessAllowed('master_search')) { showErrorPopup('Master Search is not allowed'); return; }
+    const existing = document.getElementById('masterSearchModal');
+    if (existing) existing.remove();
+    const modal = document.createElement('div');
+    modal.id = 'masterSearchModal';
+    modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:9999;display:flex;align-items:flex-start;justify-content:center;padding:14px;box-sizing:border-box;overflow:auto;';
+    modal.innerHTML = '<div style="width:100%;max-width:560px;background:#f3f5f8;border-radius:12px;overflow:hidden;box-shadow:0 18px 50px rgba(0,0,0,.35);"><div style="background:#17202f;color:white;padding:13px 15px;display:flex;justify-content:space-between;align-items:center;"><div><div style="font-size:18px;font-weight:900;">Master Search</div><div style="font-size:11px;color:#c9d2df;">Search all saved app data</div></div><button onclick="document.getElementById(\'masterSearchModal\').remove()" style="background:rgba(255,255,255,.18);border:none;color:white;font-size:22px;width:34px;height:34px;border-radius:50%;cursor:pointer;">×</button></div><div style="padding:12px;"><input id="masterSearchInput" oninput="renderMasterSearchResults()" placeholder="Search anything..." style="width:100%;box-sizing:border-box;padding:11px;border:2px solid #d7dce5;border-radius:8px;font-size:14px;"><div id="masterSearchResults" style="margin-top:10px;max-height:72vh;overflow:auto;"></div></div></div>';
+    document.body.appendChild(modal);
+    modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
+    setTimeout(() => { document.getElementById('masterSearchInput')?.focus(); renderMasterSearchResults(); }, 50);
+}
+
+function openBugReportModal() {
+    if (window._userRole === 'view' && !isAccessAllowed('bug_report')) { showErrorPopup('Bug Report is not allowed'); return; }
+    const existing = document.getElementById('bugReportModal');
+    if (existing) existing.remove();
+    const modal = document.createElement('div');
+    modal.id = 'bugReportModal';
+    modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:9999;display:flex;align-items:flex-start;justify-content:center;padding:16px;box-sizing:border-box;overflow:auto;';
+    modal.innerHTML = '<div style="width:100%;max-width:430px;background:white;border-radius:12px;overflow:hidden;box-shadow:0 12px 40px rgba(0,0,0,.35);margin:auto;"><div style="background:#17202f;color:white;padding:13px 15px;display:flex;justify-content:space-between;align-items:center;"><div><div style="font-size:18px;font-weight:900;">Bug Report</div><div style="font-size:11px;color:#c9d2df;">Send problem details to admin</div></div><button onclick="document.getElementById(\'bugReportModal\').remove()" style="background:rgba(255,255,255,.18);border:none;color:white;font-size:22px;width:34px;height:34px;border-radius:50%;cursor:pointer;">×</button></div><div style="padding:14px;"><label style="font-size:11px;font-weight:900;color:#38506b;">NAME</label><input id="bugName" placeholder="Name" style="width:100%;box-sizing:border-box;padding:10px;border:1px solid #d7dce5;border-radius:8px;margin:4px 0 10px;"><label style="font-size:11px;font-weight:900;color:#38506b;">PAGE / OPTION</label><input id="bugPage" placeholder="e.g. Secondary IFT, P Code search" style="width:100%;box-sizing:border-box;padding:10px;border:1px solid #d7dce5;border-radius:8px;margin:4px 0 10px;"><label style="font-size:11px;font-weight:900;color:#38506b;">PROBLEM</label><textarea id="bugComment" rows="4" placeholder="Describe the issue..." style="width:100%;box-sizing:border-box;padding:10px;border:1px solid #d7dce5;border-radius:8px;resize:vertical;"></textarea><button onclick="saveBugReportRecord()" style="width:100%;margin-top:12px;padding:11px;background:#bd3d3d;color:white;border:none;border-radius:8px;font-weight:900;">Submit Bug Report</button></div></div>';
+    document.body.appendChild(modal);
+    modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
+}
+function saveBugReportRecord() {
+    const name = (document.getElementById('bugName')?.value || '').trim();
+    const page = (document.getElementById('bugPage')?.value || '').trim();
+    const comment = (document.getElementById('bugComment')?.value || '').trim();
+    if (!name) { showSyncToast('Name required', '#f44336'); return; }
+    if (!comment) { showSyncToast('Problem detail required', '#f44336'); return; }
+    const records = getBugReportRecords();
+    records.unshift({ id: 'bug-' + Date.now(), name, page, comment, role: window._userRole || 'user', device: localStorage.getItem('device_name_v1') || (navigator.userAgent || '').slice(0, 80), online: navigator.onLine ? 'Online' : 'Offline', dateTime: new Date().toLocaleString('en-IN'), savedAt: new Date().toISOString(), status: 'Open' });
+    saveBugReportRecords(records);
+    syncToServer();
+    document.getElementById('bugReportModal')?.remove();
+    showSyncToast('Bug report saved', '#4CAF50');
+}
+function openBugReportList() {
+    if (!requireAdminAction('Bug Reports')) return;
+    const existing = document.getElementById('bugReportListModal');
+    if (existing) existing.remove();
+    const records = getBugReportRecords();
+    const rows = records.length ? records.map(r => '<div style="border:1px solid #d7dce5;border-radius:9px;padding:10px;background:white;margin-bottom:8px;"><div style="display:flex;justify-content:space-between;gap:8px;font-weight:900;color:#17202f;"><span>' + _appEscape(r.name) + '</span><span style="font-size:11px;color:' + (r.status === 'Closed' ? '#2e8b57' : '#bd3d3d') + ';">' + _appEscape(r.status || 'Open') + '</span></div><div style="font-size:11px;color:#657386;margin-top:3px;">' + _appEscape(r.dateTime || '') + ' | ' + _appEscape(r.page || '-') + ' | ' + _appEscape(r.role || '-') + '</div><div style="font-size:13px;color:#17202f;line-height:1.45;margin-top:8px;white-space:pre-wrap;">' + _appEscape(r.comment) + '</div><div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;"><button onclick="closeBugReportRecord(\'' + _appEscape(r.id) + '\')" style="padding:7px 10px;background:#2e8b57;color:white;border:none;border-radius:7px;font-weight:900;cursor:pointer;">Close</button><button onclick="deleteBugReportRecord(\'' + _appEscape(r.id) + '\')" style="padding:7px 10px;background:#bd3d3d;color:white;border:none;border-radius:7px;font-weight:900;cursor:pointer;">Delete</button></div></div>').join('') : '<div style="padding:12px;background:white;border-radius:9px;color:#777;font-size:13px;">No bug reports found.</div>';
+    const modal = document.createElement('div');
+    modal.id = 'bugReportListModal';
+    modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:9999;display:flex;align-items:flex-start;justify-content:center;padding:16px;box-sizing:border-box;overflow:auto;';
+    modal.innerHTML = '<div style="width:100%;max-width:540px;background:#f3f5f8;border-radius:12px;overflow:hidden;box-shadow:0 12px 40px rgba(0,0,0,.35);"><div style="background:#17202f;color:white;padding:13px 15px;display:flex;justify-content:space-between;align-items:center;"><div><div style="font-size:18px;font-weight:900;">Bug Reports</div><div style="font-size:11px;color:#c9d2df;">User submitted problems</div></div><button onclick="document.getElementById(\'bugReportListModal\').remove()" style="background:rgba(255,255,255,.18);border:none;color:white;font-size:22px;width:34px;height:34px;border-radius:50%;cursor:pointer;">×</button></div><div style="padding:12px;max-height:78vh;overflow:auto;">' + rows + '</div></div>';
+    document.body.appendChild(modal);
+    modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
+}
+function closeBugReportRecord(id) {
+    const records = getBugReportRecords();
+    const idx = records.findIndex(r => String(r.id) === String(id));
+    if (idx >= 0) records[idx].status = 'Closed';
+    saveBugReportRecords(records);
+    syncToServer();
+    document.getElementById('bugReportListModal')?.remove();
+    openBugReportList();
+}
+function deleteBugReportRecord(id) {
+    if (!confirm('Delete this bug report?')) return;
+    saveBugReportRecords(getBugReportRecords().filter(r => String(r.id) !== String(id)));
+    syncToServer();
+    document.getElementById('bugReportListModal')?.remove();
+    openBugReportList();
+}
 
 // ============================================================
 // USER FEEDBACK
@@ -4514,7 +4766,51 @@ function _usageRows(items, emptyText) {
     }).join('');
 }
 
+function _lineWiseSummary(period) {
+    const start = _usagePeriodStart(period);
+    const records = getSecondaryIftRecords().filter(r => {
+        const ts = r.savedAt ? new Date(r.savedAt).getTime() : 0;
+        return !ts || ts >= start;
+    });
+    const map = {};
+    records.forEach(r => {
+        const line = r.hdl || r.line || 'No HDL';
+        if (!map[line]) map[line] = { line, count: 0, fail: 0, skuMap: {} };
+        map[line].count += 1;
+        if (!r.pass) map[line].fail += 1;
+        const sku = r.sku || 'Unknown SKU';
+        map[line].skuMap[sku] = (map[line].skuMap[sku] || 0) + 1;
+    });
+    return Object.values(map).sort((a, b) => b.count - a.count).map(item => {
+        const top = Object.entries(item.skuMap).sort((a, b) => b[1] - a[1])[0];
+        return { ...item, topSku: top ? top[0] + ' (' + top[1] + ')' : '-' };
+    });
+}
+
+function renderLineWiseDashboard(period = window._usageDashboardPeriod || 'week') {
+    window._usageDashboardPeriod = period;
+    const body = document.getElementById('usageDashboardBody');
+    if (!body) return;
+    const label = period === 'year' ? 'Yearly' : period === 'month' ? 'Monthly' : 'Weekly';
+    const rows = _lineWiseSummary(period);
+    body.innerHTML = `
+        <div style="font-size:13px;font-weight:900;color:#172033;margin:0 0 10px;">Line Wise Performance - ${label}</div>
+        ${rows.length ? rows.map(r => {
+            const pass = Math.max(0, r.count - r.fail);
+            const failPct = r.count ? Math.round((r.fail / r.count) * 100) : 0;
+            return `<div style="background:white;border:1px solid #e1e6ef;border-radius:8px;padding:10px;margin-bottom:8px;">
+                <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;">
+                    <div><div style="font-size:14px;font-weight:900;color:#172033;">${r.line}</div><div style="font-size:11px;color:#667;">Top SKU: ${r.topSku}</div></div>
+                    <div style="text-align:right;font-size:11px;color:#667;"><div><b style="color:#172033;font-size:16px;">${r.count}</b> IFT</div><div><b style="color:#bd3d3d;">${r.fail}</b> Fail · <b style="color:#2e8b57;">${pass}</b> Pass</div></div>
+                </div>
+                <div style="height:6px;background:#e8f5e9;border-radius:999px;overflow:hidden;margin-top:8px;"><div style="width:${failPct}%;height:100%;background:#bd3d3d;"></div></div>
+            </div>`;
+        }).join('') : '<p style="text-align:center;color:#999;padding:16px;">No IFT line data in this period</p>'}
+    `;
+}
+
 function renderUsageDashboard(period = 'week') {
+    window._usageDashboardPeriod = period;
     const modal = document.getElementById('usageDashboardModal');
     if (!modal) return;
     const s = _usageSummary(period);
@@ -4549,10 +4845,11 @@ function openUsageDashboard() {
                 </div>
                 <button onclick="document.getElementById('usageDashboardModal').remove()" style="background:rgba(255,255,255,.2);border:none;color:white;font-size:22px;width:34px;height:34px;border-radius:50%;cursor:pointer;">×</button>
             </div>
-            <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:0;border-bottom:1px solid #dfe5ef;">
+            <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:0;border-bottom:1px solid #dfe5ef;">
                 <button onclick="renderUsageDashboard('week')" style="padding:11px;border:none;background:white;font-weight:900;color:#667eea;cursor:pointer;">Weekly</button>
                 <button onclick="renderUsageDashboard('month')" style="padding:11px;border:none;background:white;font-weight:900;color:#2e7d32;cursor:pointer;">Monthly</button>
                 <button onclick="renderUsageDashboard('year')" style="padding:11px;border:none;background:white;font-weight:900;color:#8a5b00;cursor:pointer;">Yearly</button>
+                <button onclick="renderLineWiseDashboard()" style="padding:11px;border:none;background:white;font-weight:900;color:#bd3d3d;cursor:pointer;">Line Wise</button>
             </div>
             <div id="usageDashboardBody" style="padding:12px;max-height:75vh;overflow-y:auto;"></div>
         </div>`;
@@ -4566,6 +4863,7 @@ function openUsageDashboard() {
 // ============================================================
 const SECONDARY_IFT_KEY = 'secondaryIftRecords';
 const SECONDARY_IFT_RECYCLE_KEY = 'secondaryIftRecycleBin';
+const OFFLINE_PENDING_SYNC_KEY = 'offlinePendingSync';
 const SECONDARY_IFT_HDL_SUFFIX = { HDL1: '1', HDL2: '1', HDL3: '1', HDL4: '2', HDL5: '3', HDL6: '2', HDL7: '5', HDL8: '6' };
 const SECONDARY_IFT_FALLBACK = {
     '1KG|ARIEL TL': { pcode: 'P-AR-TL-1KG', gcase: 'GC-1001', lcl: '980', usl: '1020' },
@@ -4606,6 +4904,64 @@ function getSecondaryIftRecycleBin() {
 }
 function saveSecondaryIftRecycleBin(records) {
     localStorage.setItem(SECONDARY_IFT_RECYCLE_KEY, JSON.stringify(records || []));
+}
+function getOfflinePendingSync() {
+    try { return JSON.parse(localStorage.getItem(OFFLINE_PENDING_SYNC_KEY) || '[]'); }
+    catch (_) { return []; }
+}
+function saveOfflinePendingSync(items) {
+    localStorage.setItem(OFFLINE_PENDING_SYNC_KEY, JSON.stringify((items || []).slice(0, 50)));
+    renderOfflinePendingSyncBadge();
+}
+function markOfflinePendingSync(reason) {
+    const items = getOfflinePendingSync();
+    const text = reason || 'Server sync pending';
+    const last = items[0];
+    if (last && last.reason === text && Date.now() - new Date(last.at).getTime() < 10000) {
+        renderOfflinePendingSyncBadge();
+        return;
+    }
+    items.unshift({ id: Date.now() + '-' + Math.random().toString(16).slice(2), reason: text, at: new Date().toISOString() });
+    saveOfflinePendingSync(items);
+}
+function clearOfflinePendingSync() {
+    localStorage.removeItem(OFFLINE_PENDING_SYNC_KEY);
+    renderOfflinePendingSyncBadge();
+}
+function renderOfflinePendingSyncBadge() {
+    const el = document.getElementById('offlinePendingSyncBadge');
+    if (!el) return;
+    const count = getOfflinePendingSync().length;
+    el.style.display = count ? 'block' : 'none';
+    el.textContent = count ? ('Offline pending sync: ' + count) : '';
+}
+function _iftParseDateTime(record) {
+    const d = String(record?.date || '').split('/');
+    if (d.length !== 3) return record?.savedAt ? new Date(record.savedAt) : new Date();
+    const time = String(record?.time || '00:00').split(':');
+    return new Date(2000 + parseInt(d[2], 10), parseInt(d[1], 10) - 1, parseInt(d[0], 10), parseInt(time[0] || '0', 10), parseInt(time[1] || '0', 10));
+}
+function _iftIsToday(record) {
+    const dt = _iftParseDateTime(record);
+    const now = new Date();
+    return dt.getFullYear() === now.getFullYear() && dt.getMonth() === now.getMonth() && dt.getDate() === now.getDate();
+}
+function _secondaryIftApprovalStatus(r) {
+    if (r.pass) return 'Approved';
+    return r.approvalStatus || 'Pending';
+}
+function approveSecondaryIftRecord(id, decision) {
+    if (!requireAdminAction('IFT fail approval')) return;
+    const records = getSecondaryIftRecords();
+    const idx = records.findIndex(r => String(r.id) === String(id));
+    if (idx < 0) { showSyncToast('IFT card not found', '#f44336'); return; }
+    records[idx].approvalStatus = decision === 'reject' ? 'Rejected' : 'Approved';
+    records[idx].approvalBy = 'admin';
+    records[idx].approvalAt = new Date().toISOString();
+    saveSecondaryIftRecords(records);
+    syncToServer();
+    renderSecondaryIftCards();
+    showSyncToast('IFT approval updated: ' + records[idx].approvalStatus, decision === 'reject' ? '#bd3d3d' : '#2e8b57');
 }
 function _secondaryIftSafeId(id) {
     return String(id || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'");
@@ -4657,8 +5013,40 @@ function _secondaryIftSku() {
     return value === 'CUSTOM' ? (_secondaryIftValue('secondaryIftCustomSku').trim() || 'CUSTOM') : value;
 }
 function _secondaryIftHdl() {
-    const value = _secondaryIftValue('secondaryIftHdl') || 'HDL2';
+    const value = _secondaryIftValue('secondaryIftHdl');
     return value === 'CUSTOM' ? (_secondaryIftValue('secondaryIftCustomHdl').trim().toUpperCase() || 'CUSTOM') : value;
+}
+function showIftRightAlert(message) {
+    let box = document.getElementById('iftRightAlert');
+    if (!box) {
+        box = document.createElement('div');
+        box.id = 'iftRightAlert';
+        box.style.cssText = 'position:fixed;right:12px;top:84px;background:#bd3d3d;color:white;padding:10px 12px;border-radius:8px;font-size:12px;font-weight:900;z-index:12000;box-shadow:0 8px 24px rgba(0,0,0,.25);max-width:190px;';
+        document.body.appendChild(box);
+    }
+    box.textContent = message;
+    clearTimeout(box._timer);
+    box._timer = setTimeout(() => box.remove(), 2200);
+}
+function requireSecondaryIftHdlFirst(silent = false) {
+    if (_secondaryIftHdl()) return true;
+    if (!silent) showIftRightAlert('Select HDL first');
+    return false;
+}
+function clearSecondaryIftBoxes() {
+    ['secondaryIftLclCurrent','secondaryIftUslCurrent','secondaryIftTestName','secondaryIftComment','secondaryIftCustomSku','secondaryIftCustomVariant','secondaryIftCustomHdl'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.value = '';
+    });
+    ['secondaryIftLclCheck','secondaryIftUslCheck','secondaryIftOcrCheck','secondaryIft2dCheck'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.checked = false;
+    });
+    const hdl = document.getElementById('secondaryIftHdl');
+    if (hdl) hdl.value = '';
+    updateSecondaryIftHdlCustom();
+    updateSecondaryIftAuto(true);
+    showIftRightAlert('IFT boxes cleared');
 }
 function updateSecondaryIftHdlCustom() {
     const row = document.getElementById('secondaryIftCustomHdlRow');
@@ -4690,7 +5078,13 @@ function _secondaryIftFindCard(sku, variant) {
     }
     return SECONDARY_IFT_FALLBACK[sku + '|' + variant] || { pcode: 'CUSTOM-PCODE', gcase: 'CUSTOM-GCASE', lcl: '', usl: '' };
 }
-function updateSecondaryIftAuto() {
+function updateSecondaryIftAuto(silent = false) {
+    if (!requireSecondaryIftHdlFirst(silent)) {
+        ['secondaryIftPcode','secondaryIftGcase','secondaryIftLclAuto','secondaryIftUslAuto'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+        ['secondaryIftPcodeText','secondaryIftGcaseText','secondaryIftLclAutoText','secondaryIftUslAutoText'].forEach(id => { const el = document.getElementById(id); if (el) el.textContent = '-'; });
+        updateSecondaryIftClock();
+        return;
+    }
     const custom = _secondaryIftValue('secondaryIftSku') === 'CUSTOM' || _secondaryIftValue('secondaryIftVariant') === 'CUSTOM';
     const customRow = document.getElementById('secondaryIftCustomRow');
     if (customRow) customRow.style.display = custom ? 'grid' : 'none';
@@ -4722,6 +5116,12 @@ function updateSecondaryIftAuto() {
     document.getElementById('secondaryIftUslAutoText').textContent = card.usl || '-';
     updateSecondaryIftClock();
 }
+function getIftShiftByDate(date = new Date()) {
+    const hour = date.getHours();
+    if (hour >= 8 && hour < 16) return '1st Shift';
+    if (hour >= 16 && hour < 24) return '2nd Shift';
+    return '3rd Shift';
+}
 function updateSecondaryIftClock() {
     const parts = _iftDateParts();
     const date = document.getElementById('secondaryIftDate');
@@ -4732,47 +5132,14 @@ function updateSecondaryIftClock() {
     if (time) time.value = parts.time;
     if (dateTime) dateTime.value = parts.date + ' ' + parts.time;
     if (julian) julian.value = parts.julian;
+    const shift = getIftShiftByDate(new Date());
+    const shiftInput = document.getElementById('secondaryIftShift');
+    const shiftText = document.getElementById('secondaryIftShiftText');
+    if (shiftInput) shiftInput.value = shift;
+    if (shiftText) shiftText.textContent = shift;
     const code = document.getElementById('secondaryIftJulianCode');
-    if (code) code.textContent = _secondaryIftCode();
+    if (code) code.textContent = _secondaryIftCode() || 'Select HDL';
 }
-function getSecondaryIftCustomLines() {
-    const raw = document.getElementById('secondaryIftCustomLinesStore')?.value || '[]';
-    try {
-        const parsed = JSON.parse(raw);
-        return Array.isArray(parsed) ? parsed.map(x => String(x || '').trim()).filter(Boolean) : [];
-    } catch (_) {
-        return [];
-    }
-}
-function setSecondaryIftCustomLines(lines) {
-    const clean = (lines || []).map(x => String(x || '').trim()).filter(Boolean);
-    const store = document.getElementById('secondaryIftCustomLinesStore');
-    if (store) store.value = JSON.stringify(clean);
-    renderSecondaryIftCustomLines();
-}
-function addSecondaryIftCustomLine() {
-    const input = document.getElementById('secondaryIftCustomLineInput');
-    const value = (input?.value || '').trim();
-    if (!value) { showSyncToast('Custom line likho', '#f44336'); return; }
-    const lines = getSecondaryIftCustomLines();
-    lines.push(value);
-    if (input) input.value = '';
-    setSecondaryIftCustomLines(lines);
-}
-function removeSecondaryIftCustomLine(index) {
-    const lines = getSecondaryIftCustomLines();
-    lines.splice(index, 1);
-    setSecondaryIftCustomLines(lines);
-}
-function renderSecondaryIftCustomLines() {
-    const list = document.getElementById('secondaryIftCustomLinesList');
-    if (!list) return;
-    const lines = getSecondaryIftCustomLines();
-    list.innerHTML = lines.length ? lines.map((line, i) =>
-        '<div style="display:flex;align-items:center;gap:6px;background:#eef3f9;border:1px solid #d7dce5;border-radius:6px;padding:6px 7px;margin-top:5px;font-size:11px;color:#17202f;"><span style="flex:1;word-break:break-word;">' + line.replace(/[&<>]/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[ch])) + '</span><button onclick="removeSecondaryIftCustomLine(' + i + ')" style="background:#bd3d3d;color:white;border:none;border-radius:5px;padding:3px 7px;font-weight:900;cursor:pointer;">×</button></div>'
-    ).join('') : '<div style="font-size:11px;color:#999;margin-top:5px;">No custom line added</div>';
-}
-
 function _secondaryIftCurrentRecord() {
     updateSecondaryIftClock();
     const customMode = _secondaryIftValue('secondaryIftSku') === 'CUSTOM' || _secondaryIftValue('secondaryIftVariant') === 'CUSTOM';
@@ -4786,6 +5153,7 @@ function _secondaryIftCurrentRecord() {
         id: (_secondaryIftValue('secondaryIftGcase') || '') + '-' + _secondaryIftCode(),
         date: _secondaryIftValue('secondaryIftDate'),
         time: _secondaryIftValue('secondaryIftTime'),
+        shift: _secondaryIftValue('secondaryIftShift') || getIftShiftByDate(),
         julian: _secondaryIftValue('secondaryIftJulian'),
         julianCode: _secondaryIftCode(),
         testName: _secondaryIftValue('secondaryIftTestName').trim(),
@@ -4799,48 +5167,68 @@ function _secondaryIftCurrentRecord() {
         lclCurrent: _secondaryIftValue('secondaryIftLclCurrent'),
         uslAuto: _secondaryIftValue('secondaryIftUslAuto'),
         uslCurrent: _secondaryIftValue('secondaryIftUslCurrent'),
-        customLines: getSecondaryIftCustomLines(),
+        comment: _secondaryIftValue('secondaryIftComment').trim(),
         checks,
         pass: checks.lcl && checks.usl && checks.ocr && checks.twoD,
+        approvalStatus: (checks.lcl && checks.usl && checks.ocr && checks.twoD) ? 'Approved' : 'Pending',
         savedAt: new Date().toISOString()
     };
 }
 function saveSecondaryIftRecord() {
     const rec = _secondaryIftCurrentRecord();
+    if (!rec.hdl) { showIftRightAlert('Select HDL first'); return; }
     if (!rec.testName) { showSyncToast('Test Done By required', '#f44336'); return; }
     if (!rec.gcase) { showSyncToast('GCase missing', '#f44336'); return; }
     if (rec.customMode && (!rec.pcode || !rec.lclAuto || !rec.uslAuto || !rec.lclCurrent || !rec.uslCurrent)) {
-        showSyncToast('CUSTOM me PCode, GCase, LSL, USL aur current WT required', '#f44336');
+        showSyncToast('For CUSTOM, PCode, GCase, LSL, USL, and current WT are required', '#f44336');
         return;
     }
     const records = getSecondaryIftRecords();
     const idx = records.findIndex(r => r.gcase === rec.gcase && (r.julianCode || r.julian) === rec.julianCode);
-    if (idx >= 0) records[idx] = rec; else records.unshift(rec);
+    if (idx >= 0 && window._userRole !== 'admin' && !_iftIsToday(records[idx])) {
+        showSyncToast('Old date IFT edit admin only', '#f44336');
+        return;
+    }
+    if (idx >= 0) {
+        rec.createdAt = records[idx].createdAt || records[idx].savedAt || rec.savedAt;
+        rec.approvalStatus = rec.pass ? 'Approved' : 'Pending';
+        records[idx] = rec;
+    } else {
+        rec.createdAt = rec.savedAt;
+        records.unshift(rec);
+    }
     saveSecondaryIftRecords(records);
     syncToServer();
     renderSecondaryIftCards();
-    showSyncToast((rec.pass ? 'PASS saved: ' : 'Pending saved: ') + rec.gcase, rec.pass ? '#4CAF50' : '#ff9800');
+    renderOfflinePendingSyncBadge();
+    showSyncToast((rec.pass ? 'PASS saved: ' : 'Fail pending admin approval: ') + rec.gcase, rec.pass ? '#4CAF50' : '#ff9800');
 }
 function _secondaryIftCardHtml(r, options = {}) {
-    const customLineHtml = Array.isArray(r.customLines) && r.customLines.length
-        ? '<div style="margin-top:6px;padding:6px 8px;background:#fff8e1;border-left:3px solid #f0a429;border-radius:0 6px 6px 0;color:#17202f;">' + r.customLines.map((line, i) => '<div><b>Line ' + (i + 1) + ':</b> ' + String(line || '-').replace(/[&<>]/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[ch])) + '</div>').join('') + '</div>'
-        : '';
-    const status = r.pass ? '<span style="color:#2e8b57;font-weight:900;">PASS</span>' : '<span style="color:#bd3d3d;font-weight:900;">PENDING</span>';
+    const approval = _secondaryIftApprovalStatus(r);
+    const status = r.pass ? '<span style="color:#2e8b57;font-weight:900;">PASS</span>' : '<span style="color:' + (approval === 'Rejected' ? '#bd3d3d' : approval === 'Approved' ? '#2e8b57' : '#ff9800') + ';font-weight:900;">FAIL ' + approval.toUpperCase() + '</span>';
     const deleteBtn = (!options.recycle && window._userRole === 'admin') ? '<button onclick="deleteSecondaryIftRecord(\'' + _secondaryIftSafeId(r.id) + '\')" style="margin-top:8px;padding:7px 10px;background:#bd3d3d;color:white;border:none;border-radius:7px;font-weight:900;cursor:pointer;">Delete</button>' : '';
+    const approvalActions = (!options.recycle && window._userRole === 'admin' && !r.pass) ? '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;"><button onclick="approveSecondaryIftRecord(\'' + _secondaryIftSafeId(r.id) + '\',\'approve\')" style="flex:1;min-width:100px;padding:7px 10px;background:#2e8b57;color:white;border:none;border-radius:7px;font-weight:900;cursor:pointer;">Approve Fail</button><button onclick="approveSecondaryIftRecord(\'' + _secondaryIftSafeId(r.id) + '\',\'reject\')" style="flex:1;min-width:100px;padding:7px 10px;background:#bd3d3d;color:white;border:none;border-radius:7px;font-weight:900;cursor:pointer;">Reject</button></div>' : '';
+    const qrLabelBtn = (!options.recycle && (window._userRole === 'admin' || isAccessAllowed('product_qr_label'))) ? '<button onclick="openIftQrPopup(\'' + _secondaryIftSafeId(r.id) + '\')" style="position:absolute;right:8px;top:8px;z-index:4;padding:4px 7px;background:#17202f;color:white;border:1px solid rgba(255,255,255,.25);border-radius:5px;font-size:9px;font-weight:900;letter-spacing:.3px;cursor:pointer;line-height:1;">QR CODE</button>' : '';
+    const lockInfo = (!options.recycle && window._userRole !== 'admin' && !_iftIsToday(r)) ? '<br><b style="color:#bd3d3d;">Locked:</b> old date edit admin only' : '';
     const recycleActions = options.recycle ? '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;"><button onclick="restoreSecondaryIftRecord(\'' + _secondaryIftSafeId(r.id) + '\')" style="flex:1;min-width:90px;padding:7px 10px;background:#2e8b57;color:white;border:none;border-radius:7px;font-weight:900;cursor:pointer;">Restore</button><button onclick="permanentDeleteSecondaryIftRecord(\'' + _secondaryIftSafeId(r.id) + '\')" style="flex:1;min-width:120px;padding:7px 10px;background:#bd3d3d;color:white;border:none;border-radius:7px;font-weight:900;cursor:pointer;">Delete Forever</button></div>' : '';
     const deletedInfo = options.recycle ? '<br>Deleted: ' + (r.deletedAt ? new Date(r.deletedAt).toLocaleString() : '-') : '';
-    return '<div style="border:1px solid #d7dce5;border-radius:8px;padding:10px;background:white;margin-top:8px;">' +
+    return '<div style="position:relative;border:1px solid #d7dce5;border-radius:8px;padding:34px 10px 10px;background:white;margin-top:8px;">' +
+        qrLabelBtn +
         '<div style="display:flex;justify-content:space-between;gap:8px;font-size:13px;font-weight:900;color:#17202f;"><span>' + (r.variant || '-') + ' | ' + (r.sku || '-') + ' | ' + (r.hdl || '-') + '</span>' + status + '</div>' +
         '<div style="margin-top:6px;font-size:11px;line-height:1.5;color:#526173;">' +
         '<span style="color:#17202f;font-weight:900;">Date Time: ' + (r.date || '') + ' ' + (r.time || '') + '</span><br>' +
+        'Shift: <b>' + (r.shift || '-') + '</b><br>' +
         '<b style="color:#17202f;">' + (r.julianCode || r.julian || '') + '</b><br>' +
         'GCase: <b>' + (r.gcase || '-') + '</b> | PCode: ' + (r.pcode || '-') + '<br>' +
         'Test Done By: ' + (r.testName || '-') + '<br>' +
         'LSL: ' + (r.lclAuto || '-') + ' &nbsp; current pass WT: ' + (r.lclCurrent || '-') + '<br>' +
         'USL: ' + (r.uslAuto || '-') + ' &nbsp; current pass WT: ' + (r.uslCurrent || '-') + '<br>' +
-        customLineHtml +
-        'LSL: ' + (r.checks?.lcl ? 'PASS' : 'NO') + ' | USL: ' + (r.checks?.usl ? 'PASS' : 'NO') + ' | OCR: ' + (r.checks?.ocr ? 'PASS' : 'NO') + ' | 2D: ' + (r.checks?.twoD ? 'PASS' : 'NO') + deletedInfo +
-        '</div>' + deleteBtn + recycleActions + '</div>';
+        'LSL: ' + (r.checks?.lcl ? 'PASS' : 'NO') + ' | USL: ' + (r.checks?.usl ? 'PASS' : 'NO') + ' | OCR: ' + (r.checks?.ocr ? 'PASS' : 'NO') + ' | 2D: ' + (r.checks?.twoD ? 'PASS' : 'NO') + '<br>' +
+        'Approval: <b>' + approval + '</b>' + (r.approvalAt ? ' (' + new Date(r.approvalAt).toLocaleString('en-IN') + ')' : '') +
+        (r.comment ? '<br><b>Comment:</b> ' + String(r.comment).replace(/[&<>]/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[ch])) : '') +
+        lockInfo +
+        deletedInfo +
+        '</div>' + deleteBtn + approvalActions + recycleActions + '</div>';
 }
 function deleteSecondaryIftRecord(id) {
     if (!requireAdminAction('Delete Secondary IFT')) return;
@@ -4913,7 +5301,7 @@ function renderSecondaryIftCards() {
     const findInput = document.getElementById('secondaryIftFindInput');
     const q = (findInput?.value || '').trim().toLowerCase();
     const records = getSecondaryIftRecords().filter(r => {
-        const hay = [r.gcase, r.date, r.julian, r.julianCode, r.time, r.sku, r.variant, r.pcode, r.hdl, r.testName, ...(r.customLines || [])].join(' ').toLowerCase();
+        const hay = [r.gcase, r.date, r.julian, r.julianCode, r.time, r.shift, r.sku, r.variant, r.pcode, r.hdl, r.testName, r.comment].join(' ').toLowerCase();
         return !q || hay.includes(q);
     });
     const list = document.getElementById('secondaryIftCards');
@@ -4921,6 +5309,161 @@ function renderSecondaryIftCards() {
     const last = document.getElementById('secondaryIftLastCard');
     if (last) last.innerHTML = getSecondaryIftRecords().length ? '<div style="font-size:13px;font-weight:900;color:#17202f;margin-top:12px;">Last Saved Card</div>' + _secondaryIftCardHtml(getSecondaryIftRecords()[0]) : '';
 }
+function _iftDashboardPeriodStart(period) {
+    const now = new Date();
+    if (period === 'year') return new Date(now.getFullYear(), 0, 1).getTime();
+    if (period === 'month') return new Date(now.getFullYear(), now.getMonth(), 1).getTime();
+    const d = new Date(now);
+    d.setHours(0, 0, 0, 0);
+    d.setDate(d.getDate() - 6);
+    return d.getTime();
+}
+function _iftDashboardSummary(period) {
+    const start = _iftDashboardPeriodStart(period);
+    const records = getSecondaryIftRecords().filter(r => {
+        const ts = r.savedAt ? new Date(r.savedAt).getTime() : 0;
+        return !ts || ts >= start;
+    });
+    const shiftMap = {};
+    const hdlMap = {};
+    records.forEach(r => {
+        const shift = r.shift || 'No Shift';
+        const hdl = r.hdl || 'No HDL';
+        if (!shiftMap[shift]) shiftMap[shift] = { name: shift, total: 0, fail: 0 };
+        if (!hdlMap[hdl]) hdlMap[hdl] = { name: hdl, total: 0, fail: 0 };
+        shiftMap[shift].total += 1;
+        hdlMap[hdl].total += 1;
+        if (!r.pass) { shiftMap[shift].fail += 1; hdlMap[hdl].fail += 1; }
+    });
+    return {
+        total: records.length,
+        pass: records.filter(r => r.pass).length,
+        fail: records.filter(r => !r.pass).length,
+        shifts: Object.values(shiftMap).sort((a, b) => a.name.localeCompare(b.name)),
+        hdls: Object.values(hdlMap).sort((a, b) => b.total - a.total)
+    };
+}
+function _iftDashboardRows(items, emptyText) {
+    if (!items.length) return '<p style="text-align:center;color:#999;padding:12px;">' + emptyText + '</p>';
+    return items.map(item => {
+        const pass = Math.max(0, item.total - item.fail);
+        return '<div style="background:white;border:1px solid #d7dce5;border-radius:8px;padding:9px 10px;margin-bottom:7px;display:flex;justify-content:space-between;gap:10px;align-items:center;"><div><div style="font-size:13px;font-weight:900;color:#17202f;">' + item.name + '</div><div style="font-size:11px;color:#667;">Pass ' + pass + ' · Fail ' + item.fail + '</div></div><div style="font-size:20px;font-weight:900;color:#667eea;">' + item.total + '</div></div>';
+    }).join('');
+}
+function renderIftDashboard(period = 'week') {
+    const body = document.getElementById('iftDashboardBody');
+    if (!body) return;
+    const label = period === 'year' ? 'Yearly' : period === 'month' ? 'Monthly' : 'Weekly';
+    const s = _iftDashboardSummary(period);
+    body.innerHTML = '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:10px;">' +
+        '<div style="background:#17202f;color:white;border-radius:8px;padding:10px;text-align:center;"><div style="font-size:11px;">Total IFT</div><div style="font-size:22px;font-weight:900;">' + s.total + '</div></div>' +
+        '<div style="background:#e8f5e9;color:#2e8b57;border-radius:8px;padding:10px;text-align:center;"><div style="font-size:11px;">Pass</div><div style="font-size:22px;font-weight:900;">' + s.pass + '</div></div>' +
+        '<div style="background:#ffebee;color:#bd3d3d;border-radius:8px;padding:10px;text-align:center;"><div style="font-size:11px;">Fail</div><div style="font-size:22px;font-weight:900;">' + s.fail + '</div></div>' +
+        '</div><div style="font-size:13px;font-weight:900;color:#17202f;margin:8px 0;">Shift Wise - ' + label + '</div>' +
+        _iftDashboardRows(s.shifts, 'No shift data') +
+        '<div style="font-size:13px;font-weight:900;color:#17202f;margin:12px 0 8px;">HDL Wise</div>' +
+        _iftDashboardRows(s.hdls, 'No HDL data');
+}
+function openIftDashboard() {
+    if (!requireAdminAction('IFT Dashboard')) return;
+    const existing = document.getElementById('iftDashboardModal');
+    if (existing) existing.remove();
+    const modal = document.createElement('div');
+    modal.id = 'iftDashboardModal';
+    modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.65);display:flex;align-items:flex-start;justify-content:center;padding:14px;box-sizing:border-box;overflow-y:auto;z-index:10001;';
+    modal.innerHTML = '<div style="width:100%;max-width:520px;background:#f3f5f8;border-radius:12px;overflow:hidden;margin:auto;box-shadow:0 18px 50px rgba(0,0,0,.35);"><div style="background:#17202f;color:white;padding:13px 15px;display:flex;justify-content:space-between;align-items:center;"><div><div style="font-size:17px;font-weight:900;">IFT Dashboard</div><div style="font-size:11px;color:#c9d2df;">Weekly, monthly, yearly and shift wise</div></div><button onclick="document.getElementById(\'iftDashboardModal\').remove()" style="background:rgba(255,255,255,.18);border:none;color:white;font-size:22px;width:34px;height:34px;border-radius:50%;cursor:pointer;">×</button></div><div style="display:grid;grid-template-columns:repeat(3,1fr);border-bottom:1px solid #d7dce5;"><button onclick="renderIftDashboard(\'week\')" style="padding:10px;border:none;background:white;color:#667eea;font-weight:900;">Weekly</button><button onclick="renderIftDashboard(\'month\')" style="padding:10px;border:none;background:white;color:#2e8b57;font-weight:900;">Monthly</button><button onclick="renderIftDashboard(\'year\')" style="padding:10px;border:none;background:white;color:#8a5b00;font-weight:900;">Yearly</button></div><div id="iftDashboardBody" style="padding:12px;max-height:75vh;overflow-y:auto;"></div></div>';
+    document.body.appendChild(modal);
+    modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
+    renderIftDashboard('week');
+}
+function _iftEscapeHtml(value) {
+    return String(value ?? '').replace(/[&<>"']/g, ch => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[ch]));
+}
+function focusIftComment() {
+    const el = document.getElementById('secondaryIftComment');
+    if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        setTimeout(() => el.focus(), 250);
+    }
+}
+function _iftUniqueOptions(records, key) {
+    return Array.from(new Set(records.map(r => r[key]).filter(Boolean))).sort();
+}
+function downloadIftReportPdf() {
+    const records = getSecondaryIftRecords();
+    if (!records.length) { alert('No IFT cards are available for the report.'); return; }
+    const existing = document.getElementById('iftReportFilterModal');
+    if (existing) existing.remove();
+    const modal = document.createElement('div');
+    modal.id = 'iftReportFilterModal';
+    modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:10005;display:flex;align-items:flex-start;justify-content:center;padding:14px;overflow:auto;box-sizing:border-box;';
+    const optionHtml = (items) => items.map(v => '<option>' + _iftEscapeHtml(v) + '</option>').join('');
+    modal.innerHTML = '<div style="width:100%;max-width:420px;background:white;border-radius:10px;overflow:hidden;box-shadow:0 18px 50px rgba(0,0,0,.35);"><div style="background:#17202f;color:white;padding:13px 15px;display:flex;justify-content:space-between;align-items:center;"><div><div style="font-size:17px;font-weight:900;">IFT PDF Filter</div><div style="font-size:11px;color:#c9d2df;">Date, shift, HDL, SKU, status</div></div><button onclick="document.getElementById(\'iftReportFilterModal\').remove()" style="background:rgba(255,255,255,.18);border:none;color:white;font-size:22px;width:34px;height:34px;border-radius:50%;cursor:pointer;">×</button></div><div style="padding:12px;display:grid;gap:8px;"><label style="font-size:11px;font-weight:900;color:#38506b;">FROM DATE</label><input id="iftPdfFrom" type="date" style="padding:9px;border:1px solid #d7dce5;border-radius:7px;"><label style="font-size:11px;font-weight:900;color:#38506b;">TO DATE</label><input id="iftPdfTo" type="date" style="padding:9px;border:1px solid #d7dce5;border-radius:7px;"><label style="font-size:11px;font-weight:900;color:#38506b;">SHIFT</label><select id="iftPdfShift" style="padding:9px;border:1px solid #d7dce5;border-radius:7px;"><option value="">All Shift</option>' + optionHtml(_iftUniqueOptions(records, 'shift')) + '</select><label style="font-size:11px;font-weight:900;color:#38506b;">HDL</label><select id="iftPdfHdl" style="padding:9px;border:1px solid #d7dce5;border-radius:7px;"><option value="">All HDL</option>' + optionHtml(_iftUniqueOptions(records, 'hdl')) + '</select><label style="font-size:11px;font-weight:900;color:#38506b;">SKU</label><select id="iftPdfSku" style="padding:9px;border:1px solid #d7dce5;border-radius:7px;"><option value="">All SKU</option>' + optionHtml(_iftUniqueOptions(records, 'sku')) + '</select><label style="font-size:11px;font-weight:900;color:#38506b;">STATUS</label><select id="iftPdfStatus" style="padding:9px;border:1px solid #d7dce5;border-radius:7px;"><option value="">All Status</option><option value="pass">PASS</option><option value="fail">FAIL</option><option value="pending">Fail Pending</option><option value="approved">Fail Approved</option><option value="rejected">Fail Rejected</option></select><button onclick="generateIftReportPdf()" style="margin-top:6px;padding:11px;background:#667eea;color:white;border:none;border-radius:8px;font-weight:900;">Download PDF</button></div></div>';
+    document.body.appendChild(modal);
+    modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
+}
+function _iftRecordMatchesPdfFilter(r) {
+    const from = document.getElementById('iftPdfFrom')?.value || '';
+    const to = document.getElementById('iftPdfTo')?.value || '';
+    const shift = document.getElementById('iftPdfShift')?.value || '';
+    const hdl = document.getElementById('iftPdfHdl')?.value || '';
+    const sku = document.getElementById('iftPdfSku')?.value || '';
+    const status = document.getElementById('iftPdfStatus')?.value || '';
+    const dt = _iftParseDateTime(r);
+    if (from && dt < new Date(from + 'T00:00:00')) return false;
+    if (to && dt > new Date(to + 'T23:59:59')) return false;
+    if (shift && r.shift !== shift) return false;
+    if (hdl && r.hdl !== hdl) return false;
+    if (sku && r.sku !== sku) return false;
+    const approval = _secondaryIftApprovalStatus(r).toLowerCase();
+    if (status === 'pass' && !r.pass) return false;
+    if (status === 'fail' && r.pass) return false;
+    if (status === 'pending' && (r.pass || approval !== 'pending')) return false;
+    if (status === 'approved' && (r.pass || approval !== 'approved')) return false;
+    if (status === 'rejected' && (r.pass || approval !== 'rejected')) return false;
+    return true;
+}
+function generateIftReportPdf() {
+    const records = getSecondaryIftRecords().filter(_iftRecordMatchesPdfFilter);
+    if (!records.length) { alert('No IFT cards match the selected filter.'); return; }
+    const cards = records.map((r, i) => {
+        const rows = [
+            ['Status', r.pass ? 'PASS' : 'FAIL - ' + _secondaryIftApprovalStatus(r)],
+            ['Date Time', (r.date || '') + ' ' + (r.time || '')],
+            ['Shift', r.shift || '-'],
+            ['Julian', r.julianCode || r.julian || '-'],
+            ['Variant / SKU / HDL', (r.variant || '-') + ' / ' + (r.sku || '-') + ' / ' + (r.hdl || '-')],
+            ['GCase', r.gcase || '-'],
+            ['PCode', r.pcode || '-'],
+            ['Test Done By', r.testName || '-'],
+            ['LSL', (r.lclAuto || '-') + ' / current pass WT ' + (r.lclCurrent || '-')],
+            ['USL', (r.uslAuto || '-') + ' / current pass WT ' + (r.uslCurrent || '-')],
+            ['Checks', 'LSL ' + (r.checks?.lcl ? 'PASS' : 'NO') + ' | USL ' + (r.checks?.usl ? 'PASS' : 'NO') + ' | OCR ' + (r.checks?.ocr ? 'PASS' : 'NO') + ' | 2D ' + (r.checks?.twoD ? 'PASS' : 'NO')],
+            ['Approval', _secondaryIftApprovalStatus(r) + (r.approvalAt ? ' - ' + new Date(r.approvalAt).toLocaleString('en-IN') : '')],
+            ['Comment', r.comment || '-']
+        ].map(([k, v]) => '<div class="row"><b>' + _iftEscapeHtml(k) + '</b><span>' + _iftEscapeHtml(v) + '</span></div>').join('');
+        return '<section class="card"><h2>IFT Card #' + (i + 1) + '</h2>' + rows + '</section>';
+    }).join('');
+    const w = window.open('', '_blank');
+    if (!w) { alert('Popup blocked. Please allow browser popups.'); return; }
+    w.document.write('<!doctype html><html><head><title>IFT Report PDF</title><style>body{font-family:Arial,sans-serif;margin:18px;color:#172033;background:#f5f7fb}h1{font-size:22px;margin:0 0 4px}.meta{font-size:12px;color:#667;margin-bottom:14px}.card{background:#fff;border:1px solid #d8dee9;border-left:5px solid #667eea;border-radius:8px;padding:12px 14px;margin:0 0 12px;break-inside:avoid}h2{font-size:16px;margin:0 0 8px;color:#172033}.row{display:flex;justify-content:space-between;gap:14px;border-top:1px solid #eef1f6;padding:6px 0;font-size:11px}.row b{color:#52607a;min-width:130px;text-align:left}.row span{text-align:right;word-break:break-word}@media print{body{background:#fff;margin:10mm}.card{page-break-inside:avoid}}</style></head><body><h1>Secondary IFT Report</h1><div class="meta">' + records.length + ' cards · Printed ' + new Date().toLocaleString('en-IN') + '</div>' + cards + '<script>window.onload=function(){setTimeout(function(){window.print();},250)}<\/script></body></html>');
+    w.document.close();
+    document.getElementById('iftReportFilterModal')?.remove();
+}
+
+function toggleSecondaryIftMenu(event) {
+    event.stopPropagation();
+    const old = document.getElementById('secondaryIftMoreMenu');
+    if (old) { old.remove(); return; }
+    const menu = document.createElement('div');
+    menu.id = 'secondaryIftMoreMenu';
+    menu.style.cssText = 'position:absolute;right:52px;top:48px;background:white;color:#17202f;border:1px solid #d7dce5;border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,.25);z-index:10002;min-width:150px;overflow:hidden;';
+    const adminItem = window._userRole === 'admin' ? '<div onclick="document.getElementById(\'secondaryIftMoreMenu\')?.remove();openIftDashboard();" style="padding:11px 13px;cursor:pointer;font-weight:900;font-size:13px;border-bottom:1px solid #eef1f6;">📊 IFT Dashboard</div>' : '';
+    menu.innerHTML = adminItem + '<div onclick="document.getElementById(\'secondaryIftMoreMenu\')?.remove();downloadIftReportPdf();" style="padding:11px 13px;cursor:pointer;font-weight:900;font-size:13px;border-bottom:1px solid #eef1f6;">📄 Download Report PDF</div><div onclick="document.getElementById(\'secondaryIftMoreMenu\')?.remove();focusIftComment();" style="padding:11px 13px;cursor:pointer;font-weight:900;font-size:13px;">💬 Comment</div>';
+    document.getElementById('secondaryIftModal')?.querySelector('div')?.appendChild(menu);
+    setTimeout(() => document.addEventListener('click', function closeMenu(){ menu.remove(); document.removeEventListener('click', closeMenu); }), 0);
+}
+
 function openSecondaryIftFind() {
     const box = document.getElementById('secondaryIftFindBox');
     if (box) box.open = true;
@@ -4941,20 +5484,20 @@ function openSecondaryIft() {
     modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.72);z-index:9999;display:flex;align-items:flex-start;justify-content:center;padding:14px;overflow:auto;';
     modal.innerHTML = `
     <div style="width:100%;max-width:540px;background:#f3f5f8;border-radius:10px;overflow:hidden;box-shadow:0 18px 50px rgba(0,0,0,0.35);">
-        <div style="background:#17202f;color:white;padding:12px 14px;display:flex;align-items:center;justify-content:space-between;gap:10px;border-bottom:4px solid #f0a429;">
+        <div style="background:#17202f;color:white;padding:12px 14px;display:flex;align-items:center;justify-content:space-between;gap:10px;border-bottom:4px solid #f0a429;position:relative;">
             <div>
                 <div style="font-size:18px;font-weight:900;">Secondary IFT</div>
                 <div style="font-size:11px;color:#c9d2df;">Auto date/time, Julian, card data, and IFT FIND</div>
             </div>
-            <button onclick="document.getElementById('secondaryIftModal').remove()" style="background:rgba(255,255,255,0.18);border:none;color:white;font-size:22px;width:34px;height:34px;border-radius:50%;cursor:pointer;">&times;</button>
+            <div style="display:flex;gap:7px;align-items:center;"><button onclick="clearSecondaryIftBoxes()" style="background:#f0a429;border:none;color:#17202f;font-size:12px;padding:8px 10px;border-radius:7px;cursor:pointer;font-weight:900;line-height:1;">Clear</button><button onclick="toggleSecondaryIftMenu(event)" style="background:rgba(255,255,255,0.18);border:none;color:white;font-size:20px;width:34px;height:34px;border-radius:50%;cursor:pointer;font-weight:900;">⋮</button><button onclick="document.getElementById('secondaryIftModal').remove()" style="background:rgba(255,255,255,0.18);border:none;color:white;font-size:22px;width:34px;height:34px;border-radius:50%;cursor:pointer;">&times;</button></div>
         </div>
         <div style="padding:10px;">
             <div style="border:2px solid #d7dce5;border-radius:8px;padding:10px;background:white;">
                 <div style="font-size:18px;font-weight:900;color:#17202f;margin-bottom:8px;">IFT</div>
                 <div style="display:grid;grid-template-columns:1.15fr .75fr .75fr;gap:6px;">
-                    <div><label style="font-size:10px;font-weight:900;color:#38506b;">VARIANT</label><select id="secondaryIftVariant" onchange="updateSecondaryIftAuto()" style="width:100%;padding:7px;border:1px solid #d7dce5;border-radius:6px;"><option>ARIEL TL</option><option>ARIEL FL</option><option>TIDE ALL</option><option>CUSTOM</option></select></div>
-                    <div><label style="font-size:10px;font-weight:900;color:#38506b;">SKU</label><select id="secondaryIftSku" onchange="updateSecondaryIftAuto()" style="width:100%;padding:7px;border:1px solid #d7dce5;border-radius:6px;">${getSecondaryIftSkuOptionsHtml()}</select></div>
-                    <div><label style="font-size:10px;font-weight:900;color:#38506b;">HDL</label><select id="secondaryIftHdl" onchange="updateSecondaryIftHdlCustom()" style="width:100%;padding:7px;border:1px solid #d7dce5;border-radius:6px;"><option>HDL1</option><option>HDL2</option><option>HDL3</option><option>HDL4</option><option>HDL5</option><option>HDL6</option><option>HDL7</option><option>HDL8</option><option>CUSTOM</option></select><div id="secondaryIftCustomHdlRow" style="display:none;margin-top:5px;"><input id="secondaryIftCustomHdl" oninput="updateSecondaryIftClock()" placeholder="CUSTOM HDL" style="width:100%;padding:7px;border:1px solid #d7dce5;border-radius:6px;"></div></div>
+                    <div><label style="font-size:10px;font-weight:900;color:#38506b;">VARIANT</label><select id="secondaryIftVariant" onfocus="requireSecondaryIftHdlFirst()" onchange="updateSecondaryIftAuto()" style="width:100%;padding:7px;border:1px solid #d7dce5;border-radius:6px;"><option>ARIEL TL</option><option>ARIEL FL</option><option>TIDE ALL</option><option>CUSTOM</option></select></div>
+                    <div><label style="font-size:10px;font-weight:900;color:#38506b;">SKU</label><select id="secondaryIftSku" onfocus="requireSecondaryIftHdlFirst()" onchange="updateSecondaryIftAuto()" style="width:100%;padding:7px;border:1px solid #d7dce5;border-radius:6px;">${getSecondaryIftSkuOptionsHtml()}</select></div>
+                    <div><label style="font-size:10px;font-weight:900;color:#38506b;">HDL</label><select id="secondaryIftHdl" onchange="updateSecondaryIftHdlCustom()" style="width:100%;padding:7px;border:1px solid #d7dce5;border-radius:6px;"><option value="">Select HDL</option><option>HDL1</option><option>HDL2</option><option>HDL3</option><option>HDL4</option><option>HDL5</option><option>HDL6</option><option>HDL7</option><option>HDL8</option><option>CUSTOM</option></select><div id="secondaryIftCustomHdlRow" style="display:none;margin-top:5px;"><input id="secondaryIftCustomHdl" oninput="updateSecondaryIftClock()" placeholder="CUSTOM HDL" style="width:100%;padding:7px;border:1px solid #d7dce5;border-radius:6px;"></div></div>
                 </div>
                 <div id="secondaryIftCustomRow" style="display:none;grid-template-columns:1fr 1fr;gap:6px;margin-top:6px;">
                     <div><label style="font-size:10px;font-weight:900;color:#38506b;">CUSTOM SKU</label><input id="secondaryIftCustomSku" oninput="updateSecondaryIftAuto()" placeholder="SKU" style="width:100%;padding:7px;border:1px solid #d7dce5;border-radius:6px;"></div>
@@ -4977,24 +5520,18 @@ function openSecondaryIft() {
                     </div>
                     <div>
                         <label style="font-size:10px;font-weight:900;color:#38506b;">DATE TIME</label><input id="secondaryIftDateTime" readonly style="width:100%;padding:7px;border:1px solid #d7dce5;border-radius:6px;"><input id="secondaryIftDate" type="hidden"><input id="secondaryIftTime" type="hidden">
+                        <label style="font-size:10px;font-weight:900;color:#38506b;margin-top:4px;display:block;">SHIFT AUTO</label><div id="secondaryIftShiftText" style="padding:6px 7px;border:1px solid #d7dce5;border-radius:6px;background:#f8fafc;color:#17202f;font-size:12px;font-weight:900;">-</div><input id="secondaryIftShift" type="hidden">
                         <input id="secondaryIftJulian" type="hidden"><div id="secondaryIftJulianCode" style="margin-top:6px;padding:8px;border-radius:7px;background:#17202f;color:white;font-size:16px;font-weight:900;text-align:center;">----</div>
                         <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:6px;">
                             <div><label style="font-size:10px;font-weight:900;color:#38506b;">GCASE AUTO</label><div id="secondaryIftGcaseText" style="padding:6px 7px;border:1px solid #d7dce5;border-radius:6px;background:#f8fafc;color:#526173;font-size:11px;font-weight:900;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">-</div><input id="secondaryIftGcase" placeholder="GCase" style="display:none;width:100%;padding:7px;border:1px solid #d7dce5;border-radius:6px;"></div>
                             <div><label style="font-size:10px;font-weight:900;color:#38506b;">PCODE AUTO</label><div id="secondaryIftPcodeText" style="padding:6px 7px;border:1px solid #d7dce5;border-radius:6px;background:#f8fafc;color:#526173;font-size:11px;font-weight:900;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">-</div><input id="secondaryIftPcode" placeholder="PCode" style="display:none;width:100%;padding:7px;border:1px solid #d7dce5;border-radius:6px;"></div>
                         </div>
                         <label style="font-size:10px;font-weight:900;color:#38506b;margin-top:4px;display:block;">TEST DONE BY</label><input id="secondaryIftTestName" placeholder="Name" style="width:100%;padding:7px;border:1px solid #d7dce5;border-radius:6px;">
-                        <div style="margin-top:6px;padding:7px;border:1px solid #d7dce5;border-radius:7px;background:#fafbfc;">
-                            <label style="font-size:10px;font-weight:900;color:#38506b;display:block;margin-bottom:4px;">CUSTOM LINE</label>
-                            <div style="display:flex;gap:5px;">
-                                <input id="secondaryIftCustomLineInput" placeholder="Custom line text" onkeypress="if(event.key==='Enter'){event.preventDefault();addSecondaryIftCustomLine();}" style="flex:1;min-width:0;padding:7px;border:1px solid #d7dce5;border-radius:6px;">
-                                <button onclick="addSecondaryIftCustomLine()" style="padding:7px 9px;background:#667eea;color:white;border:none;border-radius:6px;font-weight:900;cursor:pointer;">Add</button>
-                            </div>
-                            <input id="secondaryIftCustomLinesStore" type="hidden" value="[]">
-                            <div id="secondaryIftCustomLinesList"></div>
-                        </div>
+                        <label style="font-size:10px;font-weight:900;color:#38506b;margin-top:4px;display:block;">COMMENT</label><textarea id="secondaryIftComment" placeholder="Comment" rows="2" style="width:100%;padding:7px;border:1px solid #d7dce5;border-radius:6px;resize:vertical;box-sizing:border-box;"></textarea>
                     </div>
                 </div>
             </div>
+            <div id="offlinePendingSyncBadge" style="display:none;margin-top:10px;padding:8px 10px;background:#fff8e1;color:#8a5b00;border:1px solid #ffe08a;border-radius:7px;font-size:12px;font-weight:900;"></div>
             <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;">
                 <button onclick="saveSecondaryIftRecord()" style="flex:1;min-width:145px;padding:10px;background:#2e8b57;color:white;border:none;border-radius:7px;font-weight:900;">Save / Update IFT</button>
                 <button onclick="openSecondaryIftFind()" style="flex:1;min-width:110px;padding:10px;background:#657386;color:white;border:none;border-radius:7px;font-weight:900;">IFT FIND</button>
@@ -5012,10 +5549,10 @@ function openSecondaryIft() {
         </div>
     </div>`;
     document.body.appendChild(modal);
-    updateSecondaryIftAuto();
+    updateSecondaryIftAuto(true);
     updateSecondaryIftHdlCustom();
-    renderSecondaryIftCustomLines();
     renderSecondaryIftCards();
+    renderOfflinePendingSyncBadge();
     window._secondaryIftTimer = setInterval(() => {
         if (!document.getElementById('secondaryIftModal')) { clearInterval(window._secondaryIftTimer); return; }
         updateSecondaryIftClock();
@@ -6352,7 +6889,7 @@ function openCalculatorSettings() {
     <div style="background:white;border-radius:12px;padding:20px;max-width:560px;width:100%;margin:auto;">
         <h2 style="margin-top:0;color:#333;font-size:18px;">⚙️ Calculator Settings</h2>
         <div style="background:#e3f2fd;padding:10px;border-radius:8px;margin-bottom:15px;font-size:13px;color:#1565c0;border-left:4px solid #1565c0;">
-            ✅ Admin save karega to server pe jayega — sabhi users ko milega.
+            ✅ When Admin saves, it will sync to the server and all users will receive it.
         </div>
 
         <!-- EDIT EXISTING -->
@@ -6550,16 +7087,16 @@ function openGuideEditor() {
                 <textarea id="guide_mainEn" rows="12" placeholder="Write main guide in English here..." style="width:100%;padding:10px;border:2px solid #667eea;border-radius:8px;font-size:13px;box-sizing:border-box;resize:vertical;line-height:1.6;">${mainEn}</textarea>
             </div>
             <div id="gtab_mainHi_area" style="display:none;">
-                <label style="font-size:12px;font-weight:700;color:#764ba2;display:block;margin-bottom:6px;">📖 Main Guide — Hindi (Hinglish)</label>
-                <textarea id="guide_mainHi" rows="12" placeholder="Yahan main guide Hindi mein likho..." style="width:100%;padding:10px;border:2px solid #764ba2;border-radius:8px;font-size:13px;box-sizing:border-box;resize:vertical;line-height:1.6;">${mainHi}</textarea>
+                <label style="font-size:12px;font-weight:700;color:#764ba2;display:block;margin-bottom:6px;">📖 Main Guide - Alternate Language</label>
+                <textarea id="guide_mainHi" rows="12" placeholder="Write the main guide here..." style="width:100%;padding:10px;border:2px solid #764ba2;border-radius:8px;font-size:13px;box-sizing:border-box;resize:vertical;line-height:1.6;">${mainHi}</textarea>
             </div>
             <div id="gtab_lockEn_area" style="display:none;">
                 <label style="font-size:12px;font-weight:700;color:#2196F3;display:block;margin-bottom:6px;">🔒 Lock Screen Guide — English</label>
                 <textarea id="guide_lockEn" rows="12" placeholder="Write lock screen guide in English here..." style="width:100%;padding:10px;border:2px solid #2196F3;border-radius:8px;font-size:13px;box-sizing:border-box;resize:vertical;line-height:1.6;">${lockEn}</textarea>
             </div>
             <div id="gtab_lockHi_area" style="display:none;">
-                <label style="font-size:12px;font-weight:700;color:#4CAF50;display:block;margin-bottom:6px;">🔒 Lock Screen Guide — Hindi (Hinglish)</label>
-                <textarea id="guide_lockHi" rows="12" placeholder="Yahan lock screen guide Hindi mein likho..." style="width:100%;padding:10px;border:2px solid #4CAF50;border-radius:8px;font-size:13px;box-sizing:border-box;resize:vertical;line-height:1.6;">${lockHi}</textarea>
+                <label style="font-size:12px;font-weight:700;color:#4CAF50;display:block;margin-bottom:6px;">🔒 Lock Screen Guide - Alternate Language</label>
+                <textarea id="guide_lockHi" rows="12" placeholder="Write the lock screen guide here..." style="width:100%;padding:10px;border:2px solid #4CAF50;border-radius:8px;font-size:13px;box-sizing:border-box;resize:vertical;line-height:1.6;">${lockHi}</textarea>
             </div>
 
             <div style="display:flex;gap:10px;margin-top:14px;">
@@ -6725,6 +7262,10 @@ const ACCESS_ITEMS = [
     { key: 'search',        label: '🔍 Search Products',        desc: 'Search products' },
     { key: 'scanner',       label: '📷 QR/Barcode Scanner',     desc: 'Scan with camera' },
     { key: 'centerline',    label: '📋 Centerline Search',      desc: 'View centerline data' },
+    { key: 'master_search', label: '🔎 Master Search',          desc: 'Search all sections' },
+    { key: 'secondary_ift', label: '✅ Secondary IFT',           desc: 'Open IFT form and cards' },
+    { key: 'bug_report',    label: '🐞 Bug Report',             desc: 'Send bug/error report' },
+    { key: 'feedback',      label: '💬 Feedback',               desc: 'Send feedback' },
     { key: 'share',         label: '📤 Share Product',          desc: 'Share product' },
     { key: 'filters',       label: '🔽 Advanced Filters',       desc: 'Filter and sort' },
     { key: 'qrshare',       label: '📲 Share App QR',           desc: 'View app QR code' },
@@ -6740,6 +7281,7 @@ const ACCESS_ITEMS = [
     { key: 'export',        label: '📥 Export Data',            desc: 'Export data' },
     { key: 'highlight_note',label: '📢 Highlight Note',         desc: 'View admin note' },
     { key: 'print_card',    label: '🖨️ Print PDF',              desc: 'Print product PDF' },
+    { key: 'product_qr_label', label: 'QR CODE Label',           desc: 'Small scan label on product/IFT cards' },
     { key: 'personal_access',label: '👤 Personal Access Control', desc: 'Allow users to set personal settings' },
 ];
 
@@ -7091,10 +7633,10 @@ function logoutApp(skipConfirm = false, sessionStatus = 'Logged out') {
     document.getElementById('searchInput').value = '';
     document.getElementById('resultsContainer').innerHTML = '';
     hideResultCount();
-    // Password screen restore karo — spinner hata do
+    // Restore password screen and remove spinner
     const pwdScreen = document.getElementById('passwordScreen');
     pwdScreen.style.display = 'flex';
-    // Password box original content restore karo
+    // Restore original password box content
     const pwdBox = document.querySelector('.password-box');
     if (pwdBox) {
         pwdBox.innerHTML = `
@@ -7418,7 +7960,7 @@ function printLoginHistoryPdf() {
         </section>`;
     }).join('');
     const w = window.open('', '_blank');
-    if (!w) { alert('Popup blocked. Browser popup allow karo, fir PDF try karo.'); return; }
+    if (!w) { alert('Popup blocked. Please allow browser popups, then try PDF again.'); return; }
     w.document.write(`<!doctype html><html><head><title>Login History PDF</title>
         <style>
             body{font-family:Arial,sans-serif;margin:18px;color:#172033;background:#f5f7fb}
@@ -7514,11 +8056,11 @@ function openActiveUsers() {
 function openAutoLogoutSettings() {
     if (!requireAdminAction('Auto logout settings')) return;
     const current = getAutoLockMinutes();
-    const input = prompt('Auto logout time minutes me dalo (1 se 480). Current: ' + current, current);
+    const input = prompt('Enter auto logout time in minutes (1 to 480). Current: ' + current, current);
     if (input === null) return;
     const minutes = parseInt(input, 10);
     if (!Number.isFinite(minutes) || minutes < 1 || minutes > 480) {
-        alert('Valid minutes dalo: 1 se 480.');
+        alert('Enter valid minutes: 1 to 480.');
         return;
     }
     localStorage.setItem('auto_logout_minutes', String(minutes));
@@ -7683,8 +8225,8 @@ function openApiSettings() {
             <p style="color:#666;font-size:13px;margin-bottom:5px;">${status}</p>
 
             <div style="background:#e8f5e9;border-radius:8px;padding:12px;margin-bottom:15px;font-size:12px;color:#2e7d32;">
-                <b>Primary JSONBin:</b> App ka working server pehle use hoga.<br>
-                <b>Second API Backup:</b> Sirf JSONBin Bin ID + API Key dalo. RestDB abhi off hai.
+                <b>Primary JSONBin:</b> The app will use the working primary server first.<br>
+                <b>Second API Backup:</b> Enter only JSONBin Bin ID + API Key. RestDB is currently off.
             </div>
 
             <label style="font-weight:600;font-size:14px;display:block;margin-bottom:5px;">Primary Bin ID:</label>
@@ -7696,7 +8238,7 @@ function openApiSettings() {
                 style="width:100%;padding:10px;border:2px solid #ddd;border-radius:5px;font-size:13px;margin-bottom:12px;box-sizing:border-box;">
 
             <div style="background:#fff8e1;border-radius:8px;padding:12px;margin:8px 0 15px;font-size:12px;color:#8a5b00;border:1px solid #ffe08a;">
-                <b>Second API Backup:</b> Primary server fail hoga to app yaha try karega.
+                <b>Second API Backup:</b> If the primary server fails, the app will try this backup server.
             </div>
 
             <label style="font-weight:600;font-size:14px;display:block;margin-bottom:5px;">Second Bin ID:</label>
@@ -7723,8 +8265,8 @@ function saveApiSettings() {
     const bin2Raw = document.getElementById('inputBinId2')?.value.trim() || '';
     const bin = normalizeJsonBinId(binRaw);
     const bin2 = normalizeJsonBinId(bin2Raw);
-    if (binRaw && !bin) { alert('JSONBin Bin ID galat hai. RestDB URL/key yaha mat dalo.'); return; }
-    if (bin2Raw && !bin2) { alert('Second API ka Bin ID galat hai. Sirf JSONBin Bin ID dalo.'); return; }
+    if (binRaw && !bin) { alert('JSONBin Bin ID is invalid. Do not enter RestDB URL/key here.'); return; }
+    if (bin2Raw && !bin2) { alert('Second API Bin ID is invalid. Enter only a JSONBin Bin ID.'); return; }
 
     if (bin) {
         localStorage.setItem('jb_public_bin_id', bin);
@@ -7827,7 +8369,7 @@ function autoFillLocation(num) {
     latEl.placeholder = '⏳ GPS...';
     lngEl.placeholder = '⏳ GPS...';
 
-    // Pehle low accuracy se try karo — fast hota hai
+    // Try low accuracy first because it is faster
     navigator.geolocation.getCurrentPosition(
         pos => {
             latEl.value = pos.coords.latitude.toFixed(6);
@@ -8146,9 +8688,21 @@ function applyJsonBinRecord(rec, sourceLabel) {
     if (rec.recycleBin) localStorage.setItem('mc_deleted_records_v1', JSON.stringify(rec.recycleBin));
     if (rec.accessControl) localStorage.setItem('accessControl', JSON.stringify(rec.accessControl));
     if (rec.palletPatterns) localStorage.setItem('palletPatterns', JSON.stringify(rec.palletPatterns));
-    if (rec.secondaryIftRecords) localStorage.setItem('secondaryIftRecords', JSON.stringify(rec.secondaryIftRecords));
+    if (rec.secondaryIftRecords) {
+        const pending = getOfflinePendingSync().length > 0;
+        if (pending) {
+            const mergedIft = [...getSecondaryIftRecords()];
+            rec.secondaryIftRecords.forEach(sr => {
+                if (!mergedIft.find(lr => String(lr.id) === String(sr.id))) mergedIft.push(sr);
+            });
+            localStorage.setItem('secondaryIftRecords', JSON.stringify(mergedIft));
+        } else {
+            localStorage.setItem('secondaryIftRecords', JSON.stringify(rec.secondaryIftRecords));
+        }
+    }
     if (rec.secondaryIftRecycleBin) localStorage.setItem('secondaryIftRecycleBin', JSON.stringify(rec.secondaryIftRecycleBin));
     if (rec.userFeedbackRecords) localStorage.setItem('userFeedbackRecords', JSON.stringify(rec.userFeedbackRecords));
+    if (rec.bugReportRecords) localStorage.setItem('bugReportRecords', JSON.stringify(rec.bugReportRecords));
     if (rec.customGuides) localStorage.setItem('customGuides', JSON.stringify(rec.customGuides));
     if (rec.autoLogoutMinutes) localStorage.setItem('auto_logout_minutes', String(rec.autoLogoutMinutes));
     if (rec.usageAnalytics && rec.usageAnalytics.length) {
@@ -8247,13 +8801,13 @@ function buildSyncPayload() {
         loc_radius: localStorage.getItem('loc_radius') || '100',
         loc_enabled: localStorage.getItem('loc_enabled') || 'false'
     };
-    return { records: data, locationSettings, viewPassword: localStorage.getItem('view_password') || '2468', adminPassword: localStorage.getItem('admin_password') || '1234', customFormulas: JSON.parse(localStorage.getItem('customFormulas') || '{}'), highlightNote: JSON.parse(localStorage.getItem('highlightNote') || '{}'), centerlineData: JSON.parse(localStorage.getItem('centerlineData') || '[]'), centerlinePrimary: JSON.parse(localStorage.getItem('centerlinePrimary') || '[]'), centerlineSecondary: JSON.parse(localStorage.getItem('centerlineSecondary') || '[]'), cl_lines: JSON.parse(localStorage.getItem('cl_lines') || '[2,3,4,5]'), cl_skus: JSON.parse(localStorage.getItem('cl_skus') || '[]'), cl_variants: JSON.parse(localStorage.getItem('cl_variants') || '[]'), loginHistory: JSON.parse(localStorage.getItem('loginHistory') || '[]'), accessControl: JSON.parse(localStorage.getItem('accessControl') || '{}'), customGuides: JSON.parse(localStorage.getItem('customGuides') || '{}'), recycleBin: JSON.parse(localStorage.getItem('mc_deleted_records_v1') || '{}'), palletPatterns: JSON.parse(localStorage.getItem('palletPatterns') || '{}'), secondaryIftRecords: JSON.parse(localStorage.getItem('secondaryIftRecords') || '[]'), secondaryIftRecycleBin: JSON.parse(localStorage.getItem('secondaryIftRecycleBin') || '[]'), userFeedbackRecords: JSON.parse(localStorage.getItem('userFeedbackRecords') || '[]'), autoLogoutMinutes: getAutoLockMinutes(), usageAnalytics: getUsageAnalytics() };
+    return { records: data, locationSettings, viewPassword: localStorage.getItem('view_password') || '2468', adminPassword: localStorage.getItem('admin_password') || '1234', customFormulas: JSON.parse(localStorage.getItem('customFormulas') || '{}'), highlightNote: JSON.parse(localStorage.getItem('highlightNote') || '{}'), centerlineData: JSON.parse(localStorage.getItem('centerlineData') || '[]'), centerlinePrimary: JSON.parse(localStorage.getItem('centerlinePrimary') || '[]'), centerlineSecondary: JSON.parse(localStorage.getItem('centerlineSecondary') || '[]'), cl_lines: JSON.parse(localStorage.getItem('cl_lines') || '[2,3,4,5]'), cl_skus: JSON.parse(localStorage.getItem('cl_skus') || '[]'), cl_variants: JSON.parse(localStorage.getItem('cl_variants') || '[]'), loginHistory: JSON.parse(localStorage.getItem('loginHistory') || '[]'), accessControl: JSON.parse(localStorage.getItem('accessControl') || '{}'), customGuides: JSON.parse(localStorage.getItem('customGuides') || '{}'), recycleBin: JSON.parse(localStorage.getItem('mc_deleted_records_v1') || '{}'), palletPatterns: JSON.parse(localStorage.getItem('palletPatterns') || '{}'), secondaryIftRecords: JSON.parse(localStorage.getItem('secondaryIftRecords') || '[]'), secondaryIftRecycleBin: JSON.parse(localStorage.getItem('secondaryIftRecycleBin') || '[]'), userFeedbackRecords: JSON.parse(localStorage.getItem('userFeedbackRecords') || '[]'), bugReportRecords: JSON.parse(localStorage.getItem('bugReportRecords') || '[]'), autoLogoutMinutes: getAutoLockMinutes(), usageAnalytics: getUsageAnalytics() };
 }
 
 // Save data to server — tries Primary API, then Second API
 async function syncToServer() {
     const targets = getJsonBinTargets(true);
-    if (!targets.length) return;
+    if (!targets.length) { markOfflinePendingSync('No write API configured'); return false; }
     const payload = buildSyncPayload();
     let lastErr = null;
     for (const target of targets) {
@@ -8270,6 +8824,7 @@ async function syncToServer() {
             }
             localStorage.setItem('last_sync_status', 'Saved to ' + target.label);
             localStorage.setItem('last_sync_time', new Date().toLocaleString('en-IN'));
+            clearOfflinePendingSync();
             showSyncToast('☁️ Saved to ' + target.label, '#2196F3');
             return true;
         } catch (err) {
@@ -8278,6 +8833,7 @@ async function syncToServer() {
     }
     localStorage.setItem('last_sync_status', 'Save failed: ' + (lastErr?.message || 'Unknown'));
     localStorage.setItem('last_sync_time', new Date().toLocaleString('en-IN'));
+    markOfflinePendingSync(lastErr?.message || 'Server save failed');
     showSyncToast('❌ Server Down: ' + (lastErr?.message || 'Unknown'), '#f44336');
     showServerDownAlert(lastErr?.message || 'Unknown');
     return false;
@@ -8355,7 +8911,7 @@ function unlockApp(role) {
             </div>`;
     }
 
-    // Sync on login — access control server se aane ke BAAD apply karo
+    // Sync on login, then apply access control after server data arrives
     if (getBinId()) {
         syncFromServer().then(() => {
             // Hide password screen now
@@ -8365,6 +8921,7 @@ function unlockApp(role) {
             setTimeout(() => applyPersonalAccess(), 100);
             const term = document.getElementById('searchInput')?.value?.trim();
             if (term) searchData();
+            setTimeout(openRequestedPcodeCard, 250);
             setTimeout(showHighlightNotePopup, 800);
         }).catch(() => {
             // Sync fail — still open app
@@ -8372,6 +8929,7 @@ function unlockApp(role) {
             showEmptyState();
             applyRoleAccess(window._userRole);
             setTimeout(() => applyPersonalAccess(), 100);
+            setTimeout(openRequestedPcodeCard, 250);
         });
     } else {
         // No server — open immediately
@@ -8379,7 +8937,8 @@ function unlockApp(role) {
         showEmptyState();
         applyRoleAccess(window._userRole);
         setTimeout(() => applyPersonalAccess(), 100);
-        setTimeout(showHighlightNotePopup, 800);
+        setTimeout(openRequestedPcodeCard, 250);
+            setTimeout(showHighlightNotePopup, 800);
     }
 }
 </script>

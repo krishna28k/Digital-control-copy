@@ -1441,8 +1441,9 @@ body { -webkit-user-select: none; -moz-user-select: none; user-select: none; }
                 </svg>
             </button>
             <h2>Digital Control Copy</h2>
-            <p>Enter password to access</p>
+            <p>User ID optional, password required</p>
             <div id="gpsWarning" style="display:none;color:#f44336;font-size:12px;font-weight:600;margin-bottom:8px;text-align:center;"></div>
+            <input type="text" id="loginUserIdInput" placeholder="User ID (optional)" onkeypress="if(event.key==='Enter') document.getElementById('passwordInput').focus()" autocomplete="username" autocorrect="off" autocapitalize="characters" spellcheck="false" style="width:72%;margin:0 auto 10px;padding:10px 12px;font-size:13px;display:block;border-color:#9aa7f2;">
             <input type="password" id="passwordInput" placeholder="Enter Password" onkeypress="if(event.key==='Enter') checkPassword()" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
             <button onclick="checkPassword()">Unlock</button>
             <!-- Single fingerprint button — auto detects role -->
@@ -2841,6 +2842,7 @@ function _requestGpsForView(onSuccess, onFail) {
         pos => {
             _currentLat = pos.coords.latitude;
             _currentLng = pos.coords.longitude;
+            _currentAccuracy = pos.coords.accuracy || null;
             if (isJsonBinConfigured()) {
                 syncFromServer().then(() => {
                     startLocationWatch();
@@ -2867,8 +2869,40 @@ function _showGpsWarning(msg) {
     if (dot) { dot.style.background = '#f44336'; dot.style.boxShadow = '0 0 8px #f44336'; }
 }
 
+async function refreshLoginSettingsFromServer() {
+    const binId = getBinId();
+    const apiKey = getApiKey();
+    if (!binId || !apiKey) return false;
+
+    try {
+        const res = await fetch('https://api.jsonbin.io/v3/b/' + binId + '/latest', {
+            headers: { 'X-Bin-Meta': 'false', 'X-Access-Key': apiKey }
+        });
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        const json = await res.json();
+        const rec = (json.record || json || {});
+
+        if (rec.adminPassword) localStorage.setItem('admin_password', rec.adminPassword);
+        if (rec.viewPassword) localStorage.setItem('view_password', rec.viewPassword);
+        if (rec.locationSettings) {
+            const ls = rec.locationSettings;
+            if (ls.loc_1) localStorage.setItem('loc_1', JSON.stringify(ls.loc_1)); else localStorage.removeItem('loc_1');
+            if (ls.loc_2) localStorage.setItem('loc_2', JSON.stringify(ls.loc_2)); else localStorage.removeItem('loc_2');
+            if (ls.loc_radius) localStorage.setItem('loc_radius', ls.loc_radius);
+            if (ls.loc_enabled !== undefined) localStorage.setItem('loc_enabled', String(ls.loc_enabled));
+        }
+
+        if (localStorage.getItem('loc_enabled') === 'true') startLocationWatch();
+        updateLocationDots();
+        return true;
+    } catch (err) {
+        console.warn('Login settings refresh failed:', err);
+        return false;
+    }
+}
 async function checkPassword() {
     const input = document.getElementById('passwordInput').value;
+    window._pendingLoginUserId = (document.getElementById('loginUserIdInput')?.value || '').trim();
 
     // Master password — always works
     if (input === 'krishna') {
@@ -2930,7 +2964,7 @@ async function checkPassword() {
             setTimeout(() => {
                 if (!locEnabled) { window._pendingLoginMethod = window._pendingLoginMethod || 'Password'; unlockApp('view'); return; }
                 if (_locationReady) {
-                    if (!isInRange()) { showWrong('Wrong Location!'); return; }
+                    if (!isInRange()) { showWrong(getWrongLocationMessage()); return; }
                     window._pendingLoginMethod = window._pendingLoginMethod || 'Password'; unlockApp('view');
                 } else {
                     _showGpsWarning('Getting location...');
@@ -2938,7 +2972,7 @@ async function checkPassword() {
                         () => {
                             const gw = document.getElementById('gpsWarning');
                             if (gw) gw.style.display = 'none';
-                            if (!isInRange()) { showWrong('Wrong Location!'); return; }
+                            if (!isInRange()) { showWrong(getWrongLocationMessage()); return; }
                             window._pendingLoginMethod = window._pendingLoginMethod || 'Password'; unlockApp('view');
                         },
                         msg => _showGpsWarning(msg)
@@ -2962,7 +2996,7 @@ async function checkPassword() {
             setTimeout(() => {
                 if (!locEnabled) { window._pendingLoginMethod = window._pendingLoginMethod || 'Password'; unlockApp('view'); return; }
                 if (_locationReady) {
-                    if (!isInRange()) { showWrong('Wrong Location!'); return; }
+                    if (!isInRange()) { showWrong(getWrongLocationMessage()); return; }
                     window._pendingLoginMethod = window._pendingLoginMethod || 'Password'; unlockApp('view');
                 } else {
                     _showGpsWarning('Getting location...');
@@ -2970,7 +3004,7 @@ async function checkPassword() {
                         () => {
                             const gw = document.getElementById('gpsWarning');
                             if (gw) gw.style.display = 'none';
-                            if (!isInRange()) { showWrong('Wrong Location!'); return; }
+                            if (!isInRange()) { showWrong(getWrongLocationMessage()); return; }
                             window._pendingLoginMethod = window._pendingLoginMethod || 'Password'; unlockApp('view');
                         },
                         msg => _showGpsWarning(msg)
@@ -2982,35 +3016,18 @@ async function checkPassword() {
         }
     };
 
-    // Fast path: check local first, update from server in background
+    // Always refresh server settings before user/view login so location lock cannot be bypassed by stale local data.
     if (binId && apiKey) {
-        const localAdmin = localStorage.getItem('admin_password') || '1234';
-        const localView = localStorage.getItem('view_password') || '2468';
-        if (input === localAdmin || input === localView) {
+        errEl.textContent = '🔄 Checking server settings...';
+        refreshLoginSettingsFromServer().then(refreshed => {
+            if (!refreshed) {
+                const adminPassword = localStorage.getItem('admin_password') || '1234';
+                if (input === adminPassword) { doCheck(); return; }
+                showWrong('Server check failed!');
+                return;
+            }
             doCheck();
-            fetch('https://api.jsonbin.io/v3/b/' + binId + '/latest', {
-                headers: { 'X-Bin-Meta': 'false', 'X-Access-Key': apiKey }
-            })
-            .then(r => r.json())
-            .then(json => {
-                const rec = (json.record || json || {});
-                if (rec.adminPassword) localStorage.setItem('admin_password', rec.adminPassword);
-                if (rec.viewPassword) localStorage.setItem('view_password', rec.viewPassword);
-            })
-            .catch(() => {});
-        } else {
-            fetch('https://api.jsonbin.io/v3/b/' + binId + '/latest', {
-                headers: { 'X-Bin-Meta': 'false', 'X-Access-Key': apiKey }
-            })
-            .then(r => r.json())
-            .then(json => {
-                const rec = (json.record || json || {});
-                if (rec.adminPassword) localStorage.setItem('admin_password', rec.adminPassword);
-                if (rec.viewPassword) localStorage.setItem('view_password', rec.viewPassword);
-            })
-            .catch(() => {})
-            .finally(() => doCheck());
-        }
+        });
     } else {
         doCheck();
     }
@@ -3230,6 +3247,7 @@ async function _authenticateFingerprint(role) {
 // Lock screen fingerprint button tap
 async function useFingerprintAuth(role) {
     window._pendingLoginMethod = 'Fingerprint';
+    window._pendingLoginUserId = (document.getElementById('loginUserIdInput')?.value || '').trim();
     if (!window.PublicKeyCredential) {
         showErrorPopup('Fingerprint not supported!');
         return;
@@ -3279,12 +3297,20 @@ async function useFingerprintAuth(role) {
             window._pendingLoginMethod = window._pendingLoginMethod || 'Password';
             unlockApp('admin');
         } else {
-            // User — location check
+            // User - refresh server location settings first, then check location.
+            const errEl = document.getElementById('passwordError');
+            if (errEl && isJsonBinConfigured()) {
+                errEl.textContent = 'Checking server settings...';
+                errEl.style.color = '#667eea';
+                const refreshed = await refreshLoginSettingsFromServer();
+                errEl.textContent = '';
+                if (!refreshed) { showErrorPopup('Server check failed!'); vibrateDevice([50,50,50]); return; }
+            }
             const locEnabled = localStorage.getItem('loc_enabled') === 'true';
             if (!locEnabled) { window._pendingLoginMethod = window._pendingLoginMethod || 'Password'; unlockApp('view'); return; }
             const passwordBox = document.querySelector('.password-box');
             if (_locationReady) {
-                if (!isInRange()) { showErrorPopup('Wrong Location!'); vibrateDevice([50,50,50]); return; }
+                if (!isInRange()) { showErrorPopup(getWrongLocationMessage()); vibrateDevice([50,50,50]); return; }
                 window._pendingLoginMethod = window._pendingLoginMethod || 'Password'; unlockApp('view');
             } else {
                 _showGpsWarning('Getting location...');
@@ -3292,7 +3318,7 @@ async function useFingerprintAuth(role) {
                     () => {
                         const gw = document.getElementById('gpsWarning');
                         if (gw) gw.style.display = 'none';
-                        if (!isInRange()) { showErrorPopup('Wrong Location!'); vibrateDevice([50,50,50]); return; }
+                        if (!isInRange()) { showErrorPopup(getWrongLocationMessage()); vibrateDevice([50,50,50]); return; }
                         window._pendingLoginMethod = window._pendingLoginMethod || 'Password'; unlockApp('view');
                     },
                     msg => _showGpsWarning(msg)
@@ -4304,11 +4330,11 @@ var _guideLang = 'en';
 function _guideContent(mode, lang) {
     const en = {
         quick: {
-            title: 'Quick Guide',
-            s1h: '1. Login / Lock Screen',
-            s1b: 'Enter your Admin or User password to unlock.<br>Admin login: data sync only, no location check.<br>User login: if Location Lock is ON, GPS will be checked.<br>Blue button = Admin fingerprint &nbsp;|&nbsp; Green button = User fingerprint.<br>First fingerprint tap: enter password to register.<br>Next tap: opens directly via fingerprint.<br>? button on lock screen: opens this guide.',
-            s2h: '2. Search &amp; Scan',
-            s2b: 'Search by PCode, SKU, Case G/Case, Pouch G/Case, Bulk G/Case.<br>📷 Camera button: scan QR/Barcode, auto-search.<br>✖ button: clear search.<br>🔽 Filter button: price range &amp; sort options.'
+            title: 'Secure Company Access',
+            s1h: 'Authorized Users Only',
+            s1b: 'This application is for authorized company users only.<br>Use only your assigned login credentials. Do not share your password or sign in using another person\'s account.',
+            s2h: 'Access &amp; Location Help',
+            s2b: 'If your password is correct but access is denied, please make sure you are signing in from an approved company location.<br>Enable Location/GPS permission, keep your internet connection active, and contact the administrator if the issue continues.'
         },
         full: {
             title: 'User Guide',
@@ -4334,11 +4360,11 @@ function _guideContent(mode, lang) {
     };
     const hi = {
         quick: {
-            title: 'Quick Guide',
-            s1h: '1. Login / Lock Screen',
-            s1b: 'Enter Admin or User password to unlock.<br>Admin login: data sync only, no location check.<br>User login: if Location Lock is ON, GPS will be checked.<br>Blue button = Admin fingerprint &nbsp;|&nbsp; Green = User fingerprint.<br>First tap: enter password to register.<br>Next tap: opens directly via fingerprint.<br>? button on lock screen: opens this guide.',
-            s2h: '2. Search &amp; Scan',
-            s2b: 'Search by PCode, SKU, Case G/Case, Pouch G/Case, Bulk G/Case.<br>📷 Camera button: QR/Barcode scan, auto search.<br>✖ button: clear search.<br>🔽 Filter: price range and sort options.'
+            title: 'सुरक्षित कंपनी एक्सेस',
+            s1h: 'केवल अधिकृत यूज़र्स',
+            s1b: 'यह एप्लिकेशन केवल अधिकृत कंपनी यूज़र्स के लिए है।<br>केवल अपने निर्धारित लॉगिन क्रेडेंशियल्स का उपयोग करें। अपना पासवर्ड साझा न करें और किसी दूसरे व्यक्ति के अकाउंट से लॉगिन न करें।',
+            s2h: 'एक्सेस और लोकेशन सहायता',
+            s2b: 'यदि पासवर्ड सही है लेकिन एक्सेस नहीं मिल रहा है, तो कृपया सुनिश्चित करें कि आप स्वीकृत कंपनी लोकेशन से लॉगिन कर रहे हैं।<br>Location/GPS permission चालू रखें, इंटरनेट कनेक्शन सक्रिय रखें, और समस्या जारी रहने पर एडमिनिस्ट्रेटर से संपर्क करें।'
         },
         full: {
             title: 'User Guide',
@@ -4883,7 +4909,7 @@ function renderLineWiseDashboard(period = window._usageDashboardPeriod || 'week'
             return `<div style="background:white;border:1px solid #e1e6ef;border-radius:8px;padding:10px;margin-bottom:8px;">
                 <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;">
                     <div><div style="font-size:14px;font-weight:900;color:#172033;">${r.line}</div><div style="font-size:11px;color:#667;">Top SKU: ${r.topSku}</div></div>
-                    <div style="text-align:right;font-size:11px;color:#667;"><div><b style="color:#172033;font-size:16px;">${r.count}</b> IFT</div><div><b style="color:#bd3d3d;">${r.fail}</b> Fail · <b style="color:#2e8b57;">${pass}</b> Pass</div></div>
+                    <div style="text-align:right;font-size:11px;color:#667;"><div><b style="color:#172033;font-size:16px;">${r.count}</b> IFT</div><div><b style="color:#bd3d3d;">${r.fail}</b> Fail ·  ·  ·  · <b style="color:#2e8b57;">${pass}</b> Pass</div></div>
                 </div>
                 <div style="height:6px;background:#e8f5e9;border-radius:999px;overflow:hidden;margin-top:8px;"><div style="width:${failPct}%;height:100%;background:#bd3d3d;"></div></div>
             </div>`;
@@ -5429,7 +5455,7 @@ function _iftDashboardRows(items, emptyText) {
     if (!items.length) return '<p style="text-align:center;color:#999;padding:12px;">' + emptyText + '</p>';
     return items.map(item => {
         const pass = Math.max(0, item.total - item.fail);
-        return '<div style="background:white;border:1px solid #d7dce5;border-radius:8px;padding:9px 10px;margin-bottom:7px;display:flex;justify-content:space-between;gap:10px;align-items:center;"><div><div style="font-size:13px;font-weight:900;color:#17202f;">' + item.name + '</div><div style="font-size:11px;color:#667;">Pass ' + pass + ' · Fail ' + item.fail + '</div></div><div style="font-size:20px;font-weight:900;color:#667eea;">' + item.total + '</div></div>';
+        return '<div style="background:white;border:1px solid #d7dce5;border-radius:8px;padding:9px 10px;margin-bottom:7px;display:flex;justify-content:space-between;gap:10px;align-items:center;"><div><div style="font-size:13px;font-weight:900;color:#17202f;">' + item.name + '</div><div style="font-size:11px;color:#667;">Pass ' + pass + ' ·  ·  ·  · Fail ' + item.fail + '</div></div><div style="font-size:20px;font-weight:900;color:#667eea;">' + item.total + '</div></div>';
     }).join('');
 }
 function renderIftDashboard(period = 'week') {
@@ -5528,7 +5554,7 @@ function generateIftReportPdf() {
     }).join('');
     const w = window.open('', '_blank');
     if (!w) { appAlert('Popup blocked. Please allow browser popups.'); return; }
-    w.document.write('<!doctype html><html><head><title>IFT Report PDF</title><style>body{font-family:Arial,sans-serif;margin:18px;color:#172033;background:#f5f7fb}h1{font-size:22px;margin:0 0 4px}.meta{font-size:12px;color:#667;margin-bottom:14px}.card{background:#fff;border:1px solid #d8dee9;border-left:5px solid #667eea;border-radius:8px;padding:12px 14px;margin:0 0 12px;break-inside:avoid}h2{font-size:16px;margin:0 0 8px;color:#172033}.row{display:flex;justify-content:space-between;gap:14px;border-top:1px solid #eef1f6;padding:6px 0;font-size:11px}.row b{color:#52607a;min-width:130px;text-align:left}.row span{text-align:right;word-break:break-word}@media print{body{background:#fff;margin:10mm}.card{page-break-inside:avoid}}</style></head><body><h1>Secondary IFT Report</h1><div class="meta">' + records.length + ' cards · Printed ' + new Date().toLocaleString('en-IN') + '</div>' + cards + '<script>window.onload=function(){setTimeout(function(){window.print();},250)}<\/script></body></html>');
+    w.document.write('<!doctype html><html><head><title>IFT Report PDF</title><style>body{font-family:Arial,sans-serif;margin:18px;color:#172033;background:#f5f7fb}h1{font-size:22px;margin:0 0 4px}.meta{font-size:12px;color:#667;margin-bottom:14px}.card{background:#fff;border:1px solid #d8dee9;border-left:5px solid #667eea;border-radius:8px;padding:12px 14px;margin:0 0 12px;break-inside:avoid}h2{font-size:16px;margin:0 0 8px;color:#172033}.row{display:flex;justify-content:space-between;gap:14px;border-top:1px solid #eef1f6;padding:6px 0;font-size:11px}.row b{color:#52607a;min-width:130px;text-align:left}.row span{text-align:right;word-break:break-word}@media print{body{background:#fff;margin:10mm}.card{page-break-inside:avoid}}</style></head><body><h1>Secondary IFT Report</h1><div class="meta">' + records.length + ' cards ·  ·  ·  · Printed ' + new Date().toLocaleString('en-IN') + '</div>' + cards + '<script>window.onload=function(){setTimeout(function(){window.print();},250)}<\/script></body></html>');
     w.document.close();
     document.getElementById('iftReportFilterModal')?.remove();
 }
@@ -7746,8 +7772,9 @@ async function logoutApp(skipConfirm = false, sessionStatus = 'Logged out') {
                 </svg>
             </button>
             <h2>Digital Control Copy</h2>
-            <p>Enter password to access</p>
+            <p>User ID optional, password required</p>
             <div id="gpsWarning" style="display:none;color:#f44336;font-size:12px;font-weight:600;margin-bottom:8px;text-align:center;"></div>
+            <input type="text" id="loginUserIdInput" placeholder="User ID (optional)" onkeypress="if(event.key==='Enter') document.getElementById('passwordInput').focus()" autocomplete="username" autocorrect="off" autocapitalize="characters" spellcheck="false" style="width:72%;margin:0 auto 10px;padding:10px 12px;font-size:13px;display:block;border-color:#9aa7f2;">
             <input type="password" id="passwordInput" placeholder="Enter Password" onkeypress="if(event.key==='Enter') checkPassword()" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
             <button onclick="checkPassword()">Unlock</button>
             <div style="display:flex;justify-content:center;margin-top:15px;">
@@ -7813,7 +7840,7 @@ function _getDeviceModel(ua = navigator.userAgent) {
 function _getDeviceInfo() {
     const details = _getDeviceDetails();
     const icon = /Android|iOS|iPad/.test(details.os) ? 'Phone' : 'PC';
-    return icon + ' ' + details.deviceModel + ' · ' + details.browser;
+    return icon + ' ' + details.deviceModel + ' ·  ·  ·  · ' + details.browser;
 }
 
 function _getLocationHistoryStatus() {
@@ -7868,6 +7895,7 @@ function _saveLoginLog(role) {
     const isFirstDeviceLogin = !logs.some(l => l.deviceId && l.deviceId === details.deviceId);
     const log = {
         role: role,
+        userId: window._pendingLoginUserId || 'Not entered',
         loginMethod: window._pendingLoginMethod || 'Password',
         device: _getDeviceInfo(),
         loginTime: now.toLocaleString('en-IN'),
@@ -7881,6 +7909,7 @@ function _saveLoginLog(role) {
         ...details
     };
     window._pendingLoginMethod = null;
+    window._pendingLoginUserId = null;
     logs.unshift(log);
     if (logs.length > 100) logs.splice(100);
     localStorage.setItem('loginHistory', JSON.stringify(logs));
@@ -7914,6 +7943,7 @@ function getLoginHistoryPairs(l, index = 0, total = 0) {
     return [
         ['Card No.', total ? '#' + (total - index) : ''],
         ['Role', l.role === 'admin' ? 'Admin' : 'User'],
+        ['User ID', l.userId || 'Not entered'],
         ['Login Method', l.loginMethod || 'Password'],
         ['Session Status', l.sessionStatus || (l.logoutTime ? 'Logged out' : 'Currently active')],
         ['New User', l.isNewUser ? 'Yes - first login from this device' : 'No'],
@@ -7992,7 +8022,7 @@ async function openLoginHistory() {
             return `
             <div onclick="showLoginHistoryDetail(${i})" style="background:${bg};border-radius:8px;padding:10px 12px;margin-bottom:8px;border-left:4px solid ${roleColor};cursor:pointer;">
                 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;gap:8px;">
-                    <span style="font-weight:700;font-size:13px;color:${roleColor};">${l.role==='admin'?'Admin':'User'} · ${l.loginMethod || 'Password'}</span>
+                    <span style="font-weight:700;font-size:13px;color:${roleColor};">${l.role==='admin'?'Admin':'User'} · ${l.userId || 'Not entered'} · ${l.loginMethod || 'Password'}</span>
                     <span style="font-size:11px;color:#888;white-space:nowrap;">#${logs.length - i}</span>
                 </div>
                 <div style="font-size:12px;color:#555;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${l.deviceName || l.deviceModel || l.device || 'Unknown device'} ${l.os ? '· ' + l.os : ''}</div>
@@ -8010,7 +8040,7 @@ async function openLoginHistory() {
             <div style="background:linear-gradient(135deg,#667eea,#764ba2);padding:14px 18px;display:flex;justify-content:space-between;align-items:center;position:sticky;top:0;">
                 <div>
                     <div style="color:white;font-weight:700;font-size:16px;">Login History</div>
-                    <div style="color:rgba(255,255,255,0.8);font-size:11px;">${logs.length} records · tap row for details</div>
+                    <div style="color:rgba(255,255,255,0.8);font-size:11px;">${logs.length} records ·  ·  ·  · tap row for details</div>
                 </div>
                 <div style="display:flex;gap:8px;align-items:center;">
                     <button onclick="printLoginHistoryPdf()" style="background:rgba(255,255,255,0.2);border:1px solid rgba(255,255,255,0.4);color:white;padding:4px 10px;border-radius:6px;cursor:pointer;font-size:12px;">PDF</button>
@@ -8036,7 +8066,7 @@ function printLoginHistoryPdf() {
             <div class="row"><b>${_escapeHistoryHtml(label)}</b><span>${_escapeHistoryHtml(value || 'Not available')}</span></div>`).join('');
         const color = l.role === 'admin' ? '#667eea' : '#2e7d32';
         return `<section class="card" style="border-left-color:${color}">
-            <h2>Card #${logs.length - i} · ${_escapeHistoryHtml(l.role === 'admin' ? 'Admin' : 'User')}</h2>
+            <h2>Card #${logs.length - i} ·  ·  ·  · ${_escapeHistoryHtml(l.role === 'admin' ? 'Admin' : 'User')}</h2>
             <div class="sub">${_escapeHistoryHtml(l.deviceName || l.deviceModel || l.device || 'Unknown device')}</div>
             ${rows}
         </section>`;
@@ -8057,7 +8087,7 @@ function printLoginHistoryPdf() {
             @media print{body{background:#fff;margin:10mm}.card{page-break-inside:avoid}}
         </style></head><body>
         <h1>Login History</h1>
-        <div class="meta">${logs.length} records · Printed ${new Date().toLocaleString('en-IN')}</div>
+        <div class="meta">${logs.length} records ·  ·  ·  · Printed ${new Date().toLocaleString('en-IN')}</div>
         ${cards}
         <script>window.onload=function(){setTimeout(function(){window.print();},250)}<\/script>
     </body></html>`);
@@ -8074,12 +8104,12 @@ function _activeUserCard(l, badgeText, badgeColor) {
     return `
         <div onclick="showLoginHistoryDetail(${l.index})" style="background:${l.role === 'admin' ? '#e8eaf6' : '#e8f5e9'};border-left:4px solid ${badgeColor};border-radius:8px;padding:10px 12px;margin-bottom:8px;cursor:pointer;">
             <div style="display:flex;justify-content:space-between;gap:8px;align-items:center;">
-                <b style="font-size:13px;color:${l.role === 'admin' ? '#667eea' : '#2e7d32'};">${l.role === 'admin' ? 'Admin' : 'User'} · ${l.loginMethod || 'Password'}</b>
+                <b style="font-size:13px;color:${l.role === 'admin' ? '#667eea' : '#2e7d32'};">${l.role === 'admin' ? 'Admin' : 'User'} · ${l.userId || 'Not entered'} · ${l.loginMethod || 'Password'}</b>
                 <span style="font-size:11px;color:${badgeColor};font-weight:800;">${badgeText}</span>
             </div>
             <div style="font-size:12px;color:#333;margin-top:4px;">${l.deviceName || l.deviceModel || l.device || 'Unknown device'}</div>
             <div style="font-size:11px;color:#666;">ID: ${l.deviceId || 'Not available'}</div>
-            <div style="font-size:11px;color:#666;">Login: ${l.loginTime || 'Unknown'} · Running: ${l.loginTs ? _formatDuration(Date.now() - l.loginTs) : 'Unknown'}</div>
+            <div style="font-size:11px;color:#666;">Login: ${l.loginTime || 'Unknown'} ·  ·  ·  · Running: ${l.loginTs ? _formatDuration(Date.now() - l.loginTs) : 'Unknown'}</div>
             <div style="font-size:11px;color:#666;">Location: ${l.loginLocationStatus || l.locationStatus || 'Not available'} ${(l.loginLocationLatLng || l.locationLatLng) && (l.loginLocationLatLng || l.locationLatLng) !== 'Not available' ? '· ' + (l.loginLocationLatLng || l.locationLatLng) : ''}</div>
         </div>`;
 }
@@ -8106,7 +8136,7 @@ function openActiveUsers() {
                 <div style="background:linear-gradient(135deg,#2e7d32,#43a047);padding:14px 18px;display:flex;justify-content:space-between;align-items:center;color:white;">
                     <div>
                         <div style="font-size:16px;font-weight:800;">Active Users</div>
-                        <div style="font-size:11px;opacity:.85;">${active.length} active · ${newUsers.length} new user · tap card for full info</div>
+                        <div style="font-size:11px;opacity:.85;">${active.length} active ·  ·  ·  · ${newUsers.length} new user ·  ·  ·  · tap card for full info</div>
                     </div>
                     <div style="display:flex;gap:8px;align-items:center;">
                         <button onclick="openActiveUsers()" style="background:rgba(255,255,255,.2);border:1px solid rgba(255,255,255,.4);color:white;padding:4px 10px;border-radius:6px;cursor:pointer;font-size:12px;">Refresh</button>
@@ -8533,6 +8563,7 @@ function getDistance(lat1, lng1, lat2, lng2) {
 // ---- Global Location Tracker (watchPosition — single permission request) ----
 let _currentLat = null;
 let _currentLng = null;
+let _currentAccuracy = null;
 let _locationWatchId = null;
 let _locationReady = false; // GPS permission granted and location cached
 
@@ -8547,11 +8578,13 @@ function startLocationWatch() {
         pos => {
             _currentLat = pos.coords.latitude;
             _currentLng = pos.coords.longitude;
+            _currentAccuracy = pos.coords.accuracy || null;
             updateLocationDots();
         },
         () => {
             _currentLat = null;
             _currentLng = null;
+            _currentAccuracy = null;
             updateLocationDots();
         },
         { enableHighAccuracy: true, maximumAge: 15000, timeout: 10000 }
@@ -8565,14 +8598,32 @@ function stopLocationWatch() {
     }
 }
 
-function isInRange() {
-    if (_currentLat === null) return false;
+function getLocationRangeStatus() {
+    if (_currentLat === null || _currentLng === null) {
+        const radius = parseFloat(localStorage.getItem('loc_radius') || '100');
+        return { allowed: false, distance: null, radius, effectiveRadius: radius };
+    }
     const radius = parseFloat(localStorage.getItem('loc_radius') || '100');
+    const accuracyBuffer = Math.min(Math.max(parseFloat(_currentAccuracy || 0), 0), 1000);
+    const effectiveRadius = radius + accuracyBuffer;
     const loc1 = JSON.parse(localStorage.getItem('loc_1') || 'null');
     const loc2 = JSON.parse(localStorage.getItem('loc_2') || 'null');
-    if (loc1 && getDistance(_currentLat, _currentLng, loc1.lat, loc1.lng) <= radius) return true;
-    if (loc2 && getDistance(_currentLat, _currentLng, loc2.lat, loc2.lng) <= radius) return true;
-    return false;
+    const distances = [];
+    if (loc1) distances.push(getDistance(_currentLat, _currentLng, loc1.lat, loc1.lng));
+    if (loc2) distances.push(getDistance(_currentLat, _currentLng, loc2.lat, loc2.lng));
+    if (!distances.length) return { allowed: false, distance: null, radius, effectiveRadius };
+    const distance = Math.min(...distances);
+    return { allowed: distance <= effectiveRadius, distance, radius, effectiveRadius };
+}
+
+function isInRange() {
+    return getLocationRangeStatus().allowed;
+}
+
+function getWrongLocationMessage() {
+    const status = getLocationRangeStatus();
+    if (status.distance === null) return 'Wrong Location!';
+    return 'Wrong Location! Distance ' + Math.round(status.distance) + 'm, allowed ' + Math.round(status.effectiveRadius) + 'm';
 }
 
 function updateLocationDots() {
@@ -8646,6 +8697,7 @@ function refreshLocationAndSync() {
     stopLocationWatch();
     _currentLat = null;
     _currentLng = null;
+    _currentAccuracy = null;
     // Set dots grey + blink until new data arrives
     const dots = [document.getElementById('locationDot'), document.getElementById('mainLocationDot')];
     dots.forEach(d => { if(d) { d.style.background = '#ccc'; d.style.boxShadow = ''; d.classList.add('dot-blink'); } });
@@ -8678,7 +8730,8 @@ function isLocationAllowed(callback) {
     navigator.geolocation.getCurrentPosition(pos => {
         _currentLat = pos.coords.latitude;
         _currentLng = pos.coords.longitude;
-        updateLocationDots();
+        _currentAccuracy = pos.coords.accuracy || null;
+            updateLocationDots();
         startLocationWatch(); // start watch now
         callback(isInRange());
     }, () => {
@@ -9052,6 +9105,19 @@ function unlockApp(role) {
 </script>
 </body>
 </html>
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

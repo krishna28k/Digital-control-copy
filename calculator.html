@@ -134,8 +134,8 @@
         }
 
         body.dark-mode .result-value {
-            color: #00ffff;
-            text-shadow: 0 0 10px rgba(0, 255, 255, 0.6);
+            color: #111111;
+            text-shadow: none;
         }
 
         body.dark-mode .results {
@@ -513,15 +513,16 @@
 
         .range-boxes {
             display: flex;
-            gap: 10px;
-            margin-bottom: 18px;
+            gap: 6px;
+            margin-bottom: 12px;
             align-items: stretch;
         }
 
         .range-box {
-            flex: 1;
-            padding: 12px;
-            border-radius: 8px;
+            flex: 0 0 28%;
+            min-width: 0;
+            padding: 7px 5px;
+            border-radius: 7px;
             text-align: center;
             transition: transform 0.3s, box-shadow 0.3s;
         }
@@ -542,12 +543,13 @@
 
         /* Weight Selector in Middle */
         .weight-selector {
-            flex: 1;
+            flex: 0 0 34%;
+            min-width: 0;
             display: flex;
             flex-direction: column;
             justify-content: center;
             align-items: center;
-            padding: 8px;
+            padding: 6px 5px;
             background: linear-gradient(135deg, #f3e5f5 0%, #e1bee7 100%);
             border: 2px solid #9c27b0;
             border-radius: 8px;
@@ -605,7 +607,7 @@
         }
 
         .weight-label {
-            font-size: 9px;
+            font-size: 8px;
             font-weight: 700;
             color: #7b1fa2;
             text-transform: uppercase;
@@ -619,7 +621,7 @@
         }
 
         .weight-value {
-            font-size: 20px;
+            font-size: 16px;
             font-weight: 800;
             color: #9c27b0;
             display: flex;
@@ -646,9 +648,9 @@
 
         .range-label {
             display: block;
-            font-size: 10px;
+            font-size: 8px;
             font-weight: 700;
-            margin-bottom: 6px;
+            margin-bottom: 3px;
             text-transform: uppercase;
             letter-spacing: 0.5px;
         }
@@ -663,7 +665,7 @@
 
         .range-value {
             display: block;
-            font-size: 20px;
+            font-size: 16px;
             font-weight: 800;
             position: relative;
         }
@@ -852,6 +854,49 @@
             font-weight: 800;
             color: #667eea;
         }
+        .result-card {
+            background: rgba(255, 255, 255, 0.96) !important;
+        }
+
+        body.dark-mode .result-card {
+            background: rgba(255, 255, 255, 0.94) !important;
+        }
+
+        .result-card .result-value,
+        #shipperResult,
+        #bulkKgResult {
+            color: #111111 !important;
+            font-weight: 900 !important;
+            text-shadow: none !important;
+        }
+
+        .result-actions {
+            display: flex;
+            gap: 8px;
+            margin-top: 10px;
+        }
+
+        .result-action-btn {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            padding: 8px 10px;
+            border-radius: 7px;
+            border: 1.5px solid rgba(0, 255, 255, 0.45);
+            background: rgba(0, 30, 60, 0.86);
+            color: #ffffff;
+            font-size: 12px;
+            font-weight: 800;
+            cursor: pointer;
+            -webkit-tap-highlight-color: transparent;
+            touch-action: manipulation;
+        }
+
+        .result-action-btn:active {
+            transform: scale(0.98);
+        }
 
         .formula-info {
             background: linear-gradient(135deg, #fff9e6 0%, #fff3cd 100%);
@@ -878,10 +923,10 @@
 
         /* Target Calculator Section */
         .target-section {
-            margin-top: 20px;
+            margin-top: 12px;
             background: rgba(0, 50, 100, 0.3);
-            padding: 15px;
-            border-radius: 10px;
+            padding: 9px;
+            border-radius: 8px;
             border: 2px solid rgba(0, 255, 255, 0.3);
         }
 
@@ -893,7 +938,7 @@
 
         .target-row {
             display: flex;
-            gap: 10px;
+            gap: 7px;
             align-items: flex-end;
         }
 
@@ -904,17 +949,17 @@
         .target-input-box label {
             display: block;
             color: #00ffff;
-            font-size: 13px;
+            font-size: 11px;
             font-weight: 600;
-            margin-bottom: 6px;
+            margin-bottom: 3px;
         }
 
         .target-input-box input {
             width: 100%;
-            padding: 12px;
+            padding: 8px 9px;
             border: 2px solid rgba(0, 255, 255, 0.5);
-            border-radius: 8px;
-            font-size: 15px;
+            border-radius: 7px;
+            font-size: 13px;
             font-weight: 600;
             background: rgba(0, 30, 60, 0.8);
             color: #00ffff;
@@ -928,9 +973,10 @@
         }
 
         .target-result-box {
-            flex: 1;
-            padding: 12px;
-            border-radius: 8px;
+            flex: 0 0 28%;
+            min-width: 0;
+            padding: 7px 5px;
+            border-radius: 7px;
             text-align: center;
             border: 2px solid rgba(0, 255, 255, 0.3);
             background: #ffffff;
@@ -942,9 +988,9 @@
         }
 
         .target-label {
-            font-size: 11px;
+            font-size: 9px;
             color: #666;
-            margin-bottom: 5px;
+            margin-bottom: 2px;
             font-weight: 600;
         }
 
@@ -953,7 +999,7 @@
         }
 
         .target-value {
-            font-size: 22px;
+            font-size: 17px;
             font-weight: 800;
             color: #333;
         }
@@ -963,9 +1009,9 @@
         }
 
         .target-time {
-            font-size: 14px;
+            font-size: 11px;
             font-weight: 700;
-            margin-top: 5px;
+            margin-top: 2px;
             color: #666;
         }
 
@@ -1199,9 +1245,9 @@
                 <h3>📋 STEP 4: Formula Dekho</h3>
                 <p>Results ke neeche formula dikhega:</p>
                 <ul>
-                    <li>✓ Pouch = Shipper</li>
+                    <li>✓ Unit = Shipper</li>
                     <li>✓ Shipper = Pallet</li>
-                    <li>✓ Pouch = Pallet</li>
+                    <li>✓ Unit = Pallet</li>
                     <li>⚡ Speed: Pouch/min</li>
                 </ul>
             </div>
@@ -1256,7 +1302,7 @@
                 <span class="weight-label">&#9878;&#65039; WEIGHT</span>
                 <div class="weight-controls">
                     <div class="weight-value">
-                        <span id="currentWeight">1kg</span>
+                        <span id="currentWeight">Select</span>
                         <span style="font-size:12px;margin-left:4px;opacity:0.8;">&#9660;</span>
                     </div>
                 </div>
@@ -1273,7 +1319,7 @@
 
         <!-- Target Calculator -->
         <div class="target-section">
-            <h3 style="color: #00ffff; text-align: center; margin-bottom: 15px; font-size: 18px;">🎯 Target Calculator</h3>
+            <h3 style="color: #00ffff; text-align: center; margin-bottom: 7px; font-size: 14px;">🎯 Target Calculator</h3>
             <div class="target-row">
                 <div class="target-input-box">
                     <label>Target Shipper</label>
@@ -1326,24 +1372,28 @@
 
         <!-- Results -->
         <div class="results">
-            <div class="result-item">
-                <span class="result-label">📦 Total Pouches</span>
+            <div class="result-item result-card">
+                <span class="result-label" id="pouchResultLabel">📦 Total Pouches</span>
                 <span class="result-value" id="pouchResult">0</span>
             </div>
-            <div class="result-item">
+            <div class="result-item result-card">
                 <span class="result-label">📦 Total Shippers</span>
                 <span class="result-value" id="shipperResult">0</span>
             </div>
-            <div class="result-item">
+            <div class="result-item result-card">
                 <span class="result-label">⚗️ Bulk KG</span>
                 <span class="result-value" id="bulkKgResult">0</span>
             </div>
-            <div class="result-item" style="padding:8px 12px;">
+            <div class="result-item result-card" style="padding:8px 12px;">
                 <span class="result-label" style="font-size:13px;">🚛 Total Pallets</span>
                 <span class="result-value" id="palletResult" style="font-size:18px;">0</span>
             </div>
             <div class="result-item" style="padding:12px 16px;justify-content:center;background:#1a3a4a;border:2px solid #00ffff;">
                 <span style="font-size:16px;color:#ffffff;font-weight:800;letter-spacing:1px;" id="bulkTimeResult">⏱️ Time: —</span>
+            </div>
+            <div class="result-actions">
+                <button class="result-action-btn" onclick="copyReportText()" title="Copy report">📤 Copy</button>
+                <button class="result-action-btn" onclick="downloadReportPdf()" title="Download PDF report">📄 PDF</button>
             </div>
         </div>
 
@@ -1371,16 +1421,15 @@ w2QjzsKE==" type="audio/wav">
 
     <script>
         let isCalculating = false;
-        let currentWeightIndex = -1; // No default — user must select weight first
+        let currentWeightIndex = -1; // No default; user must select weight first
         let soundEnabled = true; // Sound enabled by default
         let alertTimeout = null;
         let calculationTimeout = null;
         let customFormulas = {}; // Store custom formulas
-        const weights = ['S1 70g', '300g', '500g', '850g', '900g', '1kg', '2kg', '3kg', '3.2kg', '4kg', '5kg', '6kg'];
+        const weights = ['300g', '500g', '850g', '900g', '1kg', '2kg', '3kg', '3.2kg', '4kg', '5kg', '6kg'];
         
         // Formulas for each weight
         const formulas = {
-            'S1 70g': { pouchToShipper: 2, shipperToPallet: 48, pouchToPallet: 96, speed: 3, unit: 'met', targetWeight: 0.07 },
             '300g': { pouchToShipper: 24, shipperToPallet: 42, pouchToPallet: 1008, speed: 40, unit: 'Pouch', targetWeight: 0.3 },
             '500g': { pouchToShipper: 24, shipperToPallet: 36, pouchToPallet: 864, speed: 40, unit: 'Pouch', targetWeight: 0.5 },
             '850g': { pouchToShipper: 12, shipperToPallet: 50, pouchToPallet: 600, speed: 40, unit: 'Pouch', targetWeight: 0.85 },
@@ -1394,13 +1443,126 @@ w2QjzsKE==" type="audio/wav">
             '6kg': { pouchToShipper: 2, shipperToPallet: 45, pouchToPallet: 90, speed: 8, unit: 'Pouch', targetWeight: 6.0 }
         };
 
+
+        const DEFAULT_WEIGHT_NAME = '1kg';
+        const HIDDEN_WEIGHTS = ['S1 70g', '70g'];
+
+        function readStoredObject(key) {
+            try {
+                const raw = localStorage.getItem(key);
+                return raw ? JSON.parse(raw) : {};
+            } catch (e) {
+                return {};
+            }
+        }
+
+        function inferTargetWeight(weightName, formula) {
+            const direct = parseFloat(formula && formula.targetWeight);
+            if (direct > 0) return direct;
+            const name = String(weightName || '').toLowerCase();
+            const kg = name.match(/(\d+(?:\.\d+)?)\s*kg/);
+            if (kg) return parseFloat(kg[1]);
+            const g = name.match(/(\d+(?:\.\d+)?)\s*g/);
+            if (g) return parseFloat(g[1]) / 1000;
+            return 2.1;
+        }
+
+        function normalizeUnit(unit) {
+            const clean = String(unit || 'Pouch').trim();
+            return clean.toLowerCase() === 'met' ? 'Sachet' : clean;
+        }
+
+        function pluralUnit(unit) {
+            const clean = normalizeUnit(unit);
+            return clean.toLowerCase() === 'sachet' ? 'Sachets' : clean + 's';
+        }
+
+        function getFormulaUnit(formula) {
+            const targetWeight = parseFloat(formula && formula.targetWeight) || 0;
+            if (targetWeight > 0 && targetWeight < 0.1) return 'Sachet';
+            return normalizeUnit(formula && formula.unit);
+        }
+
+        function getCurrentUnit() {
+            return getFormulaUnit(getCurrentFormula());
+        }
+
+        function updateUnitLabels(unit) {
+            const clean = normalizeUnit(unit);
+            const plural = pluralUnit(clean);
+            const pouchLabel = document.querySelector('label[for="pouchCount"]');
+            if (pouchLabel) pouchLabel.textContent = '📦 ' + clean + ' Count';
+            const pouchInput = document.getElementById('pouchCount');
+            if (pouchInput) pouchInput.placeholder = 'Enter ' + plural.toLowerCase();
+            const resultLabel = document.getElementById('pouchResultLabel');
+            if (resultLabel) resultLabel.textContent = '📦 Total ' + plural;
+        }
+
+        function normalizeFormula(weightName, formula) {
+            const src = formula || {};
+            const ps = parseInt(src.pouchToShipper, 10) || 1;
+            const sp = parseInt(src.shipperToPallet, 10) || 1;
+            const targetWeight = inferTargetWeight(weightName, src);
+            return {
+                pouchToShipper: ps,
+                shipperToPallet: sp,
+                pouchToPallet: ps * sp,
+                speed: parseFloat(src.speed) || 0,
+                unit: targetWeight > 0 && targetWeight < 0.1 ? 'Sachet' : normalizeUnit(src.unit),
+                targetWeight: targetWeight
+            };
+        }
+
+        function addFormulaToRuntime(weightName, formula) {
+            if (!weightName || !formula || HIDDEN_WEIGHTS.includes(weightName)) return null;
+            const normalized = normalizeFormula(weightName, formula);
+            formulas[weightName] = normalized;
+            if (!weights.includes(weightName)) weights.push(weightName);
+            return normalized;
+        }
+
+        function mergeFormulasIntoRuntime(formulaMap) {
+            Object.keys(formulaMap || {}).forEach(name => addFormulaToRuntime(name, formulaMap[name]));
+        }
+
+        function hasWeightSelected() {
+            return currentWeightIndex >= 0 && currentWeightIndex < weights.length && !!weights[currentWeightIndex];
+        }
+
+        function getCurrentWeightName() {
+            return hasWeightSelected() ? weights[currentWeightIndex] : null;
+        }
+
+        function resetCalculationDisplay() {
+            document.getElementById('shipperLowest').textContent = '0';
+            document.getElementById('shipperHighest').textContent = '0';
+            const targetResult = document.getElementById('targetResult');
+            if (targetResult) {
+                targetResult.className = 'target-result-box';
+                const tv = targetResult.querySelector('.target-value');
+                if (tv) tv.textContent = '--';
+                const tt = document.getElementById('targetTime');
+                if (tt) tt.textContent = '';
+            }
+        }
+
+        function requireWeightSelected(showAlert = true) {
+            if (hasWeightSelected()) return true;
+            const inputSection = document.getElementById('calcInputSection');
+            if (inputSection) inputSection.style.display = 'none';
+            document.getElementById('currentWeight').textContent = 'Select';
+            document.getElementById('formulaWeight').textContent = 'Select Weight';
+            resetCalculationDisplay();
+            if (showAlert) showCornerAlert('⚖️ Please select a weight first', 'weight-alert', 1800);
+            return false;
+        }
         // Settings functions removed - moved to admin panel
 
         function changeWeightManually() {
             const dropdown = document.getElementById('weightDropdown');
             if (!dropdown) return;
             currentWeightIndex = parseInt(dropdown.value);
-            const currentWeight = weights[currentWeightIndex];
+            const currentWeight = getCurrentWeightName();
             const formula = getCurrentFormula();
             
             document.getElementById('currentWeight').textContent = currentWeight;
@@ -1409,11 +1571,8 @@ w2QjzsKE==" type="audio/wav">
             showCornerAlert(`⚖️ ${currentWeight} Selected`, 'weight-alert', 2000);
             
             // Update label based on unit (Met or Pouch)
-            const unit = formula.unit || 'Pouch';
-            const pouchLabel = document.querySelector('label[for="pouchCount"]');
-            if (pouchLabel) {
-                pouchLabel.textContent = `📦 ${unit} Count`;
-            }
+            const unit = formula ? getFormulaUnit(formula) : 'Pouch';
+            updateUnitLabels(unit);
             
             // Update formula display
             document.getElementById('formula1').textContent = `✓ ${formula.pouchToShipper} ${unit} = 1 Shipper`;
@@ -1497,7 +1656,7 @@ w2QjzsKE==" type="audio/wav">
                 return;
             }
             if (!pouchToShipper || pouchToShipper < 1) {
-                alert('❌ Please enter valid Pouch per Shipper!');
+                alert('❌ Please enter valid Unit per Shipper!');
                 return;
             }
             if (!shipperToPallet || shipperToPallet < 1) {
@@ -1525,8 +1684,11 @@ w2QjzsKE==" type="audio/wav">
             // Update dropdown
             updateWeightDropdown();
             
-            // Save to localStorage
-            localStorage.setItem('customFormulas', JSON.stringify(formulas));
+            // Save only custom formulas so index.html/server sync stay clean
+            const custom = readStoredObject('customFormulas');
+            custom[weightName] = normalizeFormula(weightName, formulas[weightName]);
+            formulas[weightName] = custom[weightName];
+            localStorage.setItem('customFormulas', JSON.stringify(custom));
             localStorage.setItem('weights', JSON.stringify(weights));
             
             // Clear form
@@ -1564,7 +1726,7 @@ w2QjzsKE==" type="audio/wav">
             listDiv.innerHTML = '<div style="color: #00ffff; font-size: 13px; font-weight: 600; margin-bottom: 10px; border-top: 1px solid rgba(0, 255, 255, 0.3); padding-top: 10px;">📋 Custom Formulas:</div>';
             
             // Show only custom formulas (not default ones)
-            const defaultWeights = ['S1 70g', '300g', '500g', '850g', '900g', '1kg', '2kg', '3kg', '3.2kg', '4kg', '5kg', '6kg'];
+            const defaultWeights = ['300g', '500g', '850g', '900g', '1kg', '2kg', '3kg', '3.2kg', '4kg', '5kg', '6kg'];
             
             weights.forEach((weight) => {
                 if (!defaultWeights.includes(weight)) {
@@ -1599,8 +1761,10 @@ w2QjzsKE==" type="audio/wav">
                 // Update dropdown
                 updateWeightDropdown();
                 
-                // Save to localStorage
-                localStorage.setItem('customFormulas', JSON.stringify(formulas));
+                // Save only custom formulas so default formulas are not copied into synced data
+                const custom = readStoredObject('customFormulas');
+                delete custom[weightName];
+                localStorage.setItem('customFormulas', JSON.stringify(custom));
                 localStorage.setItem('weights', JSON.stringify(weights));
                 
                 // Refresh display
@@ -1630,6 +1794,23 @@ w2QjzsKE==" type="audio/wav">
             } catch (e) {}
         }
 
+        function playTargetWarning() {
+            try { if (navigator.vibrate) navigator.vibrate([180, 80, 180]); } catch(e) {}
+            if (!soundEnabled) return;
+            try {
+                const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                const oscillator = audioContext.createOscillator();
+                const gainNode = audioContext.createGain();
+                oscillator.connect(gainNode);
+                gainNode.connect(audioContext.destination);
+                oscillator.frequency.value = 1200;
+                oscillator.type = 'square';
+                gainNode.gain.setValueAtTime(0.18, audioContext.currentTime);
+                gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.22);
+                oscillator.start(audioContext.currentTime);
+                oscillator.stop(audioContext.currentTime + 0.22);
+            } catch(e) {}
+        }
         // Play weight change sound - using Web Audio API for better compatibility
         function playWeightSound() {
             if (!soundEnabled) return; // Check if sound is enabled
@@ -1696,14 +1877,14 @@ w2QjzsKE==" type="audio/wav">
 
         // Cycle through weights - NEXT
         function nextWeight() {
-            currentWeightIndex = (currentWeightIndex + 1) % weights.length;
+            currentWeightIndex = hasWeightSelected() ? (currentWeightIndex + 1) % weights.length : 0;
             updateWeightDisplay();
             showCornerAlert(`⚖️ ${weights[currentWeightIndex]} Selected`, 'weight-alert', 2000);
         }
 
         // Cycle through weights - PREVIOUS
         function previousWeight() {
-            currentWeightIndex = (currentWeightIndex - 1 + weights.length) % weights.length;
+            currentWeightIndex = hasWeightSelected() ? (currentWeightIndex - 1 + weights.length) % weights.length : weights.length - 1;
             updateWeightDisplay();
             showCornerAlert(`⚖️ ${weights[currentWeightIndex]} Selected`, 'weight-alert', 2000);
         }
@@ -1712,29 +1893,52 @@ w2QjzsKE==" type="audio/wav">
         function toggleWeightList() {
             const list = document.getElementById('weightList');
             if (list.style.display === 'block') { list.style.display = 'none'; return; }
-            // Build list items fresh every time
             list.innerHTML = '';
-            weights.forEach(function(w, idx) {
-                const item = document.createElement('div');
-                const f = formulas[w];
-                const isActive = idx === currentWeightIndex;
-                item.style.cssText = 'padding:10px 14px;cursor:pointer;border-bottom:1px solid #f0f0f0;transition:background 0.15s;background:' + (isActive ? '#667eea' : 'white') + ';color:' + (isActive ? 'white' : '#333') + ';font-weight:' + (isActive ? '700' : '400') + ';';
-                item.innerHTML = '<div style="font-size:15px;font-weight:700;">' + w + (isActive ? ' ✓' : '') + '</div>' +
-                    '<div style="font-size:11px;opacity:0.75;margin-top:2px;">' + (f ? f.pouchToShipper + ' Pouch/Shipper | ' + f.shipperToPallet + ' Shipper/Pallet' : '') + '</div>';
-                item.addEventListener('click', function(e) {
-                    e.stopPropagation();
-                    currentWeightIndex = idx;
-                    updateWeightDisplay();
-                    list.style.display = 'none';
-                    showCornerAlert('⚖️ ' + w + ' Selected', 'weight-alert', 2000);
+
+            const search = document.createElement('input');
+            search.type = 'text';
+            search.placeholder = 'Search weight...';
+            search.style.cssText = 'width:calc(100% - 16px);margin:8px;padding:8px;border:2px solid #667eea;border-radius:7px;font-size:13px;box-sizing:border-box;font-weight:700;outline:none;';
+            search.addEventListener('click', function(e) { e.stopPropagation(); });
+            list.appendChild(search);
+
+            const itemsWrap = document.createElement('div');
+            list.appendChild(itemsWrap);
+
+            function renderWeightItems(query) {
+                const q = String(query || '').toLowerCase().trim();
+                itemsWrap.innerHTML = '';
+                weights.forEach(function(w, idx) {
+                    const f = formulas[w];
+                    const detail = f ? f.pouchToShipper + ' ' + getFormulaUnit(f) + '/Shipper | ' + f.shipperToPallet + ' Shipper/Pallet' : '';
+                    if (q && (w + ' ' + detail).toLowerCase().indexOf(q) === -1) return;
+                    const item = document.createElement('div');
+                    const isActive = idx === currentWeightIndex;
+                    item.style.cssText = 'padding:9px 12px;cursor:pointer;border-bottom:1px solid #f0f0f0;transition:background 0.15s;background:' + (isActive ? '#667eea' : 'white') + ';color:' + (isActive ? 'white' : '#333') + ';font-weight:' + (isActive ? '700' : '400') + ';';
+                    item.innerHTML = '<div style="font-size:14px;font-weight:800;">' + w + (isActive ? ' ✓' : '') + '</div>' +
+                        '<div style="font-size:11px;opacity:0.75;margin-top:2px;">' + detail + '</div>';
+                    item.addEventListener('click', function(e) {
+                        e.stopPropagation();
+                        currentWeightIndex = idx;
+                        updateWeightDisplay();
+                        list.style.display = 'none';
+                        showCornerAlert('⚖️ ' + w + ' Selected', 'weight-alert', 2000);
+                    });
+                    itemsWrap.appendChild(item);
                 });
-                list.appendChild(item);
-            });
+                if (!itemsWrap.children.length) {
+                    const empty = document.createElement('div');
+                    empty.textContent = 'No weight found';
+                    empty.style.cssText = 'padding:12px;color:#777;font-size:12px;text-align:center;';
+                    itemsWrap.appendChild(empty);
+                }
+            }
+
+            search.addEventListener('input', function() { renderWeightItems(search.value); });
+            renderWeightItems('');
             list.style.display = 'block';
-            // Scroll active item into view
-            const activeItem = list.children[currentWeightIndex];
-            if (activeItem) activeItem.scrollIntoView({ block: 'nearest' });
-            // Close on outside click
+            setTimeout(function() { search.focus(); }, 60);
+
             setTimeout(function() {
                 document.addEventListener('click', function closeList(e) {
                     const selector = document.querySelector('.weight-selector');
@@ -1747,9 +1951,10 @@ w2QjzsKE==" type="audio/wav">
 
         // Update weight display and recalculate
         function updateWeightDisplay() {
-            const currentWeight = weights[currentWeightIndex];
+            if (!requireWeightSelected(false)) return;
+            const currentWeight = getCurrentWeightName();
             const formula = getCurrentFormula();
-            const unit = formula.unit || 'Pouch';
+            const unit = formula ? getFormulaUnit(formula) : 'Pouch';
             
             document.getElementById('currentWeight').textContent = currentWeight;
             document.getElementById('formulaWeight').textContent = currentWeight;
@@ -1760,10 +1965,7 @@ w2QjzsKE==" type="audio/wav">
             if (inputSection) inputSection.style.display = 'block';
             
             // Update label based on unit (Met or Pouch)
-            const pouchLabel = document.querySelector('label[for="pouchCount"]');
-            if (pouchLabel) {
-                pouchLabel.textContent = `📦 ${unit} Count`;
-            }
+            updateUnitLabels(unit);
             
             // Update formula display
             document.getElementById('formula1').textContent = `✓ ${formula.pouchToShipper} ${unit} = 1 Shipper`;
@@ -1797,7 +1999,8 @@ w2QjzsKE==" type="audio/wav">
 
         // Get current formula
         function getCurrentFormula() {
-            return formulas[weights[currentWeightIndex]];
+            const currentWeight = getCurrentWeightName();
+            return currentWeight ? (formulas[currentWeight] || normalizeFormula(currentWeight, formulas[DEFAULT_WEIGHT_NAME])) : null;
         }
 
         // Update 10% range boxes based on TARGET
@@ -1844,6 +2047,7 @@ w2QjzsKE==" type="audio/wav">
         }
 
         function calculateFromPouch() {
+            if (!requireWeightSelected()) return;
             if (isCalculating) {
                 // Safety: reset flag if stuck
                 setTimeout(() => { isCalculating = false; }, 100);
@@ -1855,7 +2059,7 @@ w2QjzsKE==" type="audio/wav">
                 playSound();
 
                 const formula = getCurrentFormula();
-                const unit = formula.unit || 'Pouch';
+                const unit = formula ? getFormulaUnit(formula) : 'Pouch';
                 const pouchInput = document.getElementById('pouchCount').value;
                 
                 // If input is empty, clear all fields
@@ -1900,6 +2104,7 @@ w2QjzsKE==" type="audio/wav">
         }
 
         function calculateFromShipper() {
+            if (!requireWeightSelected()) return;
             if (isCalculating) {
                 // Safety: reset flag if stuck
                 setTimeout(() => { isCalculating = false; }, 100);
@@ -1911,7 +2116,7 @@ w2QjzsKE==" type="audio/wav">
                 playSound();
 
                 const formula = getCurrentFormula();
-                const unit = formula.unit || 'Pouch';
+                const unit = formula ? getFormulaUnit(formula) : 'Pouch';
                 const shipperInput = document.getElementById('shipperCount').value;
                 
                 // If input is empty, clear all fields
@@ -1951,6 +2156,7 @@ w2QjzsKE==" type="audio/wav">
         }
 
         function calculateFromPallet() {
+            if (!requireWeightSelected()) return;
             if (isCalculating) {
                 // Safety: reset flag if stuck
                 setTimeout(() => { isCalculating = false; }, 100);
@@ -1962,7 +2168,7 @@ w2QjzsKE==" type="audio/wav">
                 playSound();
 
                 const formula = getCurrentFormula();
-                const unit = formula.unit || 'Pouch';
+                const unit = formula ? getFormulaUnit(formula) : 'Pouch';
                 const palletInput = document.getElementById('palletCount').value;
                 
                 // If input is empty, clear all fields
@@ -1996,6 +2202,7 @@ w2QjzsKE==" type="audio/wav">
         }
 
         function updateResults(pouch, shipper, pallet) {
+            if (!hasWeightSelected()) return;
             document.getElementById('pouchResult').textContent = Math.floor(pouch).toLocaleString();
             document.getElementById('shipperResult').textContent = Math.floor(shipper).toLocaleString();
             document.getElementById('palletResult').textContent = Math.floor(pallet).toLocaleString();
@@ -2026,6 +2233,7 @@ w2QjzsKE==" type="audio/wav">
 
         // Bulk Auto Calculator
         function calcBulkFromPouch() {
+            if (!requireWeightSelected()) return;
             const formula = getCurrentFormula();
             const pouch = parseFloat(document.getElementById('pouchCount').value) || 0;
             const targetWeight = parseFloat(formula.targetWeight) || 2.1;
@@ -2038,6 +2246,7 @@ w2QjzsKE==" type="audio/wav">
         }
 
         function calcBulkFromBulk() {
+            if (!requireWeightSelected()) return;
             const formula = getCurrentFormula();
             const bulk = parseFloat(document.getElementById('bulkKgInput').value) || 0;
             const targetWeight = parseFloat(formula.targetWeight) || 2.1;
@@ -2060,6 +2269,7 @@ w2QjzsKE==" type="audio/wav">
 
         // Target Calculator Function
         function calculateTarget() {
+            if (!requireWeightSelected()) return;
             const targetInput = document.getElementById('targetShipper');
             const targetValue = parseFloat(targetInput.value) || 0;
             const currentShipper = parseFloat(document.getElementById('shipperCount').value) || 0;
@@ -2139,6 +2349,7 @@ w2QjzsKE==" type="audio/wav">
                     valueElement.innerHTML = `+${Math.floor(difference)} <span class="range-dot-fast"></span>`;
                     timeElement.textContent = timeText;
                     resultBox.classList.add('target-excess-high');
+                    playTargetWarning();
                     showCornerAlert(`⚠️ +${Math.floor(difference)} (Over 10%)`, 'target-alert excess', 2500);
                 } else {
                     // Within 10% excess - WHITE background, RED text (NO DOT)
@@ -2172,6 +2383,65 @@ w2QjzsKE==" type="audio/wav">
             });
         });
 
+        function getCleanTimeText() {
+            const raw = (document.getElementById('bulkTimeResult')?.textContent || '').trim();
+            return raw.replace(/^⏱️\s*/, '').replace(/^Time to complete:\s*/i, '').replace(/^Time:\s*/i, '').trim() || '—';
+        }
+
+        function getReportText() {
+            if (!requireWeightSelected()) return '';
+            return [
+                '⚖️ Weight        = ' + (getCurrentWeightName() || '—'),
+                'time      = ' + getCleanTimeText(),
+                '📦 Total ' + pluralUnit(getCurrentUnit()).padEnd(8, ' ') + '= ' + (document.getElementById('pouchResult')?.textContent || '0'),
+                '📦 Total Shippers = ' + (document.getElementById('shipperResult')?.textContent || '0'),
+                '⚗️ Bulk KG        = ' + (document.getElementById('bulkKgResult')?.textContent || '0'),
+                '🚛 Total Pallets  = ' + (document.getElementById('palletResult')?.textContent || '0')
+            ].join('\n');
+        }
+
+        function copyReportText() {
+            const text = getReportText();
+            if (!text) return;
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(text).then(function() {
+                    showCornerAlert('📤 Report copied!', 'weight-alert', 1800);
+                }).catch(function() {
+                    fallbackCopyReport(text);
+                });
+            } else {
+                fallbackCopyReport(text);
+            }
+        }
+
+        function fallbackCopyReport(text) {
+            const area = document.createElement('textarea');
+            area.value = text;
+            area.style.position = 'fixed';
+            area.style.left = '-9999px';
+            document.body.appendChild(area);
+            area.focus();
+            area.select();
+            try { document.execCommand('copy'); } catch(e) {}
+            area.remove();
+            showCornerAlert('📤 Report copied!', 'weight-alert', 1800);
+        }
+
+        function downloadReportPdf() {
+            const report = getReportText();
+            if (!report) return;
+            const weight = getCurrentWeightName() || 'Selected Weight';
+            const created = new Date().toLocaleString('en-IN');
+            const rows = report.split('\n').map(function(line) {
+                const parts = line.split('=');
+                return '<tr><td>' + parts[0].trim() + '</td><td>' + parts.slice(1).join('=').trim() + '</td></tr>';
+            }).join('');
+            const win = window.open('', '_blank');
+            if (!win) { showCornerAlert('Allow popup to download PDF', 'weight-alert', 2200); return; }
+            win.document.write('<!doctype html><html><head><title>Production Calculator Report</title><style>body{font-family:Arial,sans-serif;padding:24px;color:#111}h1{font-size:20px;margin:0 0 6px}p{margin:0 0 16px;color:#555}table{border-collapse:collapse;width:100%;max-width:520px}td{border:1px solid #ddd;padding:10px 12px;font-size:15px}td:first-child{font-weight:700;background:#f4f7fb;width:55%}td:last-child{font-weight:900;text-align:right}.note{margin-top:18px;font-size:12px;color:#777}@media print{button{display:none}}</style></head><body><h1>Production Calculator</h1><p><strong>Production Report</strong><br>Weight: '+weight+'<br>Created: '+created+'</p><table>'+rows+'</table><div class="note">Report generated from Production Calculator.</div><script>window.onload=function(){window.print();};<\/script></body></html>');
+            win.document.close();
+        }
+
         // Dark mode toggle
         function toggleDarkMode() {
             const body = document.body;
@@ -2204,7 +2474,7 @@ w2QjzsKE==" type="audio/wav">
             
             // Reset extra boxes
             const formula = getCurrentFormula();
-            const unit = formula.unit || 'Pouch';
+            const unit = formula ? getFormulaUnit(formula) : 'Pouch';
             document.getElementById('extraPouch').textContent = '+ 0 ' + unit;
             document.getElementById('extraShipper').textContent = '+ 0 Shipper';
             
@@ -2244,7 +2514,7 @@ w2QjzsKE==" type="audio/wav">
                 ? Object.keys(localOnly).map(k => {
                     const f = localOnly[k];
                     return '<div style="display:flex;justify-content:space-between;align-items:center;padding:7px 10px;background:#e3f2fd;border-radius:6px;margin-bottom:5px;font-size:12px;">'
-                        + '<span><strong>' + k + '</strong> | ' + f.pouchToShipper + ' P/S | ' + f.shipperToPallet + ' S/P | ' + f.speed + ' ' + f.unit + '/min</span>'
+                        + '<span><strong>' + k + '</strong> | ' + f.pouchToShipper + ' P/S | ' + f.shipperToPallet + ' S/P | ' + f.speed + ' ' + f.unit + '/min | Target: ' + (f.targetWeight || '-') + 'kg</span>'
                         + '<button onclick="deleteLocalFormula(\'' + k + '\')" style="background:#f44336;color:white;border:none;padding:2px 8px;border-radius:4px;cursor:pointer;font-size:11px;">✕</button>'
                         + '</div>';
                 }).join('')
@@ -2264,10 +2534,10 @@ w2QjzsKE==" type="audio/wav">
                 + '</div>'
                 + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px;">'
                 + '<div style="grid-column:1/-1;"><label style="font-size:11px;font-weight:600;color:#555;">Weight Name</label><input id="lfName" placeholder="e.g. 1.5kg" style="width:100%;padding:8px;border:2px solid #ddd;border-radius:6px;font-size:14px;margin-top:3px;"></div>'
-                + '<div><label style="font-size:11px;font-weight:600;color:#555;">Pouch/Shipper</label><input id="lfPS" type="number" placeholder="12" style="width:100%;padding:8px;border:2px solid #ddd;border-radius:6px;font-size:14px;margin-top:3px;"></div>'
+                + '<div><label style="font-size:11px;font-weight:600;color:#555;">Unit/Shipper</label><input id="lfPS" type="number" placeholder="12" style="width:100%;padding:8px;border:2px solid #ddd;border-radius:6px;font-size:14px;margin-top:3px;"></div>'
                 + '<div><label style="font-size:11px;font-weight:600;color:#555;">Shipper/Pallet</label><input id="lfSP" type="number" placeholder="50" style="width:100%;padding:8px;border:2px solid #ddd;border-radius:6px;font-size:14px;margin-top:3px;"></div>'
-                + '<div><label style="font-size:11px;font-weight:600;color:#555;">Speed/min</label><input id="lfSpd" type="number" placeholder="15" style="width:100%;padding:8px;border:2px solid #ddd;border-radius:6px;font-size:14px;margin-top:3px;"></div>'
-                + '<div><label style="font-size:11px;font-weight:600;color:#555;">Unit</label><select id="lfUnit" style="width:100%;padding:8px;border:2px solid #ddd;border-radius:6px;font-size:14px;margin-top:3px;"><option value="Pouch">Pouch</option><option value="met">met</option></select></div>'
+                + '<div><label style="font-size:11px;font-weight:600;color:#555;">Speed/min</label><input id="lfSpd" type="number" placeholder="15" style="width:100%;padding:8px;border:2px solid #ddd;border-radius:6px;font-size:14px;margin-top:3px;"></div>'                + '<div><label style="font-size:11px;font-weight:600;color:#555;">Target Weight (kg)</label><input id="lfTarget" type="number" step="0.01" placeholder="1.5" style="width:100%;padding:8px;border:2px solid #ddd;border-radius:6px;font-size:14px;margin-top:3px;"></div>'
+                + '<div><label style="font-size:11px;font-weight:600;color:#555;">Unit</label><select id="lfUnit" style="width:100%;padding:8px;border:2px solid #ddd;border-radius:6px;font-size:14px;margin-top:3px;"><option value="Pouch">Pouch</option><option value="Sachet">Sachet</option></select></div>'
                 + '</div>'
                 + '<button onclick="saveLocalFormula()" style="width:100%;padding:11px;background:#667eea;color:white;border:none;border-radius:8px;font-size:14px;cursor:pointer;font-weight:700;margin-bottom:12px;">💾 Save on This Device</button>'
                 + '<h3 style="font-size:13px;color:#333;margin-bottom:8px;">📋 Local Formulas</h3>'
@@ -2283,12 +2553,13 @@ w2QjzsKE==" type="audio/wav">
             const sp   = parseInt(document.getElementById('lfSP').value);
             const spd  = parseFloat(document.getElementById('lfSpd').value) || 0;
             const unit = document.getElementById('lfUnit').value;
+            const targetWeight = parseFloat(document.getElementById('lfTarget')?.value) || inferTargetWeight(name, {});
             if (!name) { alert('Weight name required!'); return; }
-            if (!ps || !sp) { alert('Pouch/Shipper and Shipper/Pallet required!'); return; }
+            if (!ps || !sp) { alert('Unit/Shipper and Shipper/Pallet required!'); return; }
 
             // Save to localOnlyFormulas (not synced to server)
             const local = JSON.parse(localStorage.getItem('localOnlyFormulas') || '{}');
-            local[name] = { pouchToShipper:ps, shipperToPallet:sp, pouchToPallet:ps*sp, speed:spd, unit };
+            local[name] = normalizeFormula(name, { pouchToShipper:ps, shipperToPallet:sp, speed:spd, unit, targetWeight });
             localStorage.setItem('localOnlyFormulas', JSON.stringify(local));
 
             // Also add to active formulas and weights for this session
@@ -2349,10 +2620,10 @@ w2QjzsKE==" type="audio/wav">
                 + '<select id="csEditSel" onchange="csLoadEdit()" style="width:100%;padding:9px;border:2px solid #ff9800;border-radius:7px;font-size:14px;margin-bottom:10px;"><option value="">-- Select Weight --</option>'+weightOpts+'</select>'
                 + '<div id="csEditFields" style="display:none;">'
                 + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;">'
-                + '<div><label style="font-size:11px;font-weight:600;">Pouch/Shipper</label><input id="csEPS" type="number" style="width:100%;padding:8px;border:2px solid #ddd;border-radius:6px;font-size:14px;" oninput="csUpdatePreview()"></div>'
+                + '<div><label style="font-size:11px;font-weight:600;">Unit/Shipper</label><input id="csEPS" type="number" style="width:100%;padding:8px;border:2px solid #ddd;border-radius:6px;font-size:14px;" oninput="csUpdatePreview()"></div>'
                 + '<div><label style="font-size:11px;font-weight:600;">Shipper/Pallet</label><input id="csESP" type="number" style="width:100%;padding:8px;border:2px solid #ddd;border-radius:6px;font-size:14px;" oninput="csUpdatePreview()"></div>'
-                + '<div><label style="font-size:11px;font-weight:600;">Speed/min</label><input id="csESpd" type="number" style="width:100%;padding:8px;border:2px solid #ddd;border-radius:6px;font-size:14px;"></div>'
-                + '<div><label style="font-size:11px;font-weight:600;">Unit</label><select id="csEUnit" style="width:100%;padding:8px;border:2px solid #ddd;border-radius:6px;font-size:14px;"><option value="Pouch">Pouch</option><option value="met">met</option></select></div>'
+                + '<div><label style="font-size:11px;font-weight:600;">Speed/min</label><input id="csESpd" type="number" style="width:100%;padding:8px;border:2px solid #ddd;border-radius:6px;font-size:14px;"></div>'                + '<div><label style="font-size:11px;font-weight:600;">Target Weight (kg)</label><input id="csETarget" type="number" step="0.01" style="width:100%;padding:8px;border:2px solid #ddd;border-radius:6px;font-size:14px;" oninput="csUpdatePreview()"></div>'
+                + '<div><label style="font-size:11px;font-weight:600;">Unit</label><select id="csEUnit" style="width:100%;padding:8px;border:2px solid #ddd;border-radius:6px;font-size:14px;"><option value="Pouch">Pouch</option><option value="Sachet">Sachet</option></select></div>'
                 + '</div><div id="csPreview" style="background:#f9f9f9;border-radius:6px;padding:8px;font-size:12px;color:#555;margin-bottom:8px;"></div>'
                 + '<button onclick="csSaveEdit()" style="width:100%;padding:10px;background:#ff9800;color:white;border:none;border-radius:7px;font-size:14px;cursor:pointer;font-weight:700;">Save Changes</button>'
                 + '</div></div>'
@@ -2360,10 +2631,10 @@ w2QjzsKE==" type="audio/wav">
                 + '<h3 style="margin:0 0 10px;color:#2e7d32;font-size:14px;">Add New Formula</h3>'
                 + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;">'
                 + '<div style="grid-column:1/-1;"><label style="font-size:11px;font-weight:600;">Weight Name</label><input id="csNName" placeholder="e.g. 1.5kg" style="width:100%;padding:8px;border:2px solid #ddd;border-radius:6px;font-size:14px;"></div>'
-                + '<div><label style="font-size:11px;font-weight:600;">Pouch/Shipper</label><input id="csNPS" type="number" style="width:100%;padding:8px;border:2px solid #ddd;border-radius:6px;font-size:14px;"></div>'
+                + '<div><label style="font-size:11px;font-weight:600;">Unit/Shipper</label><input id="csNPS" type="number" style="width:100%;padding:8px;border:2px solid #ddd;border-radius:6px;font-size:14px;"></div>'
                 + '<div><label style="font-size:11px;font-weight:600;">Shipper/Pallet</label><input id="csNSP" type="number" style="width:100%;padding:8px;border:2px solid #ddd;border-radius:6px;font-size:14px;"></div>'
-                + '<div><label style="font-size:11px;font-weight:600;">Speed/min</label><input id="csNSpd" type="number" style="width:100%;padding:8px;border:2px solid #ddd;border-radius:6px;font-size:14px;"></div>'
-                + '<div><label style="font-size:11px;font-weight:600;">Unit</label><select id="csNUnit" style="width:100%;padding:8px;border:2px solid #ddd;border-radius:6px;font-size:14px;"><option value="Pouch">Pouch</option><option value="met">met</option></select></div>'
+                + '<div><label style="font-size:11px;font-weight:600;">Speed/min</label><input id="csNSpd" type="number" style="width:100%;padding:8px;border:2px solid #ddd;border-radius:6px;font-size:14px;"></div>'                + '<div><label style="font-size:11px;font-weight:600;">Target Weight (kg)</label><input id="csNTarget" type="number" step="0.01" placeholder="Auto" style="width:100%;padding:8px;border:2px solid #ddd;border-radius:6px;font-size:14px;"></div>'
+                + '<div><label style="font-size:11px;font-weight:600;">Unit</label><select id="csNUnit" style="width:100%;padding:8px;border:2px solid #ddd;border-radius:6px;font-size:14px;"><option value="Pouch">Pouch</option><option value="Sachet">Sachet</option></select></div>'
                 + '</div><button onclick="csSaveNew()" style="width:100%;padding:10px;background:#4caf50;color:white;border:none;border-radius:7px;font-size:14px;cursor:pointer;font-weight:700;">Add Formula</button>'
                 + '</div>'
                 + '<div><h3 style="font-size:13px;color:#333;margin-bottom:8px;">All Formulas</h3><div style="max-height:160px;overflow-y:auto;">'+rows+'</div></div>'
@@ -2382,6 +2653,7 @@ w2QjzsKE==" type="audio/wav">
             document.getElementById('csEPS').value = f.pouchToShipper;
             document.getElementById('csESP').value = f.shipperToPallet;
             document.getElementById('csESpd').value = f.speed;
+            document.getElementById('csETarget').value = f.targetWeight || inferTargetWeight(key, f);
             document.getElementById('csEUnit').value = f.unit||'Pouch';
             fields.style.display = 'block';
             csUpdatePreview();
@@ -2393,8 +2665,9 @@ w2QjzsKE==" type="audio/wav">
             const sp = document.getElementById('csESP').value;
             const spd = document.getElementById('csESpd').value;
             const unit = document.getElementById('csEUnit').value;
+            const target = document.getElementById('csETarget')?.value || inferTargetWeight(key, {});
             if (!ps||!sp) return;
-            document.getElementById('csPreview').textContent = key+': '+ps+' '+unit+'/Shipper | '+sp+' Shipper/Pallet | Speed: '+spd+' '+unit+'/min';
+            document.getElementById('csPreview').textContent = key+': '+ps+' '+unit+'/Shipper | '+sp+' Shipper/Pallet | Speed: '+spd+' '+unit+'/min | Target: '+target+'kg';
         }
 
         function csSaveEdit() {
@@ -2404,11 +2677,12 @@ w2QjzsKE==" type="audio/wav">
             const sp=parseInt(document.getElementById('csESP').value);
             const spd=parseFloat(document.getElementById('csESpd').value)||0;
             const unit=document.getElementById('csEUnit').value;
-            if (!ps||!sp) { alert('Pouch/Shipper and Shipper/Pallet required!'); return; }
-            const custom = JSON.parse(localStorage.getItem('customFormulas')||'{}');
-            custom[key] = {pouchToShipper:ps,shipperToPallet:sp,pouchToPallet:ps*sp,speed:spd,unit};
+            const targetWeight=parseFloat(document.getElementById('csETarget')?.value)||inferTargetWeight(key, {});
+            if (!ps||!sp) { alert('Unit/Shipper and Shipper/Pallet required!'); return; }
+            const custom = readStoredObject('customFormulas');
+            custom[key] = normalizeFormula(key, {pouchToShipper:ps,shipperToPallet:sp,speed:spd,unit,targetWeight});
             localStorage.setItem('customFormulas', JSON.stringify(custom));
-            Object.assign(formulas, custom);
+            mergeFormulasIntoRuntime(custom);
             if (!weights.includes(key)) weights.push(key);
             showCornerAlert('Saved: '+key, 'weight-alert', 2000);
             document.getElementById('calcSettingsModal').remove();
@@ -2421,10 +2695,11 @@ w2QjzsKE==" type="audio/wav">
             const sp=parseInt(document.getElementById('csNSP').value);
             const spd=parseFloat(document.getElementById('csNSpd').value)||0;
             const unit=document.getElementById('csNUnit').value;
+            const targetWeight=parseFloat(document.getElementById('csNTarget')?.value)||inferTargetWeight(name, {});
             if (!name) { alert('Weight name required!'); return; }
-            if (!ps||!sp) { alert('Pouch/Shipper and Shipper/Pallet required!'); return; }
-            const custom = JSON.parse(localStorage.getItem('customFormulas')||'{}');
-            custom[name] = {pouchToShipper:ps,shipperToPallet:sp,pouchToPallet:ps*sp,speed:spd,unit};
+            if (!ps||!sp) { alert('Unit/Shipper and Shipper/Pallet required!'); return; }
+            const custom = readStoredObject('customFormulas');
+            custom[name] = normalizeFormula(name, {pouchToShipper:ps,shipperToPallet:sp,speed:spd,unit,targetWeight});
             localStorage.setItem('customFormulas', JSON.stringify(custom));
             formulas[name] = custom[name];
             if (!weights.includes(name)) weights.push(name);
@@ -2435,7 +2710,7 @@ w2QjzsKE==" type="audio/wav">
 
         function deleteCalcF(name) {
             if (!confirm('Delete "'+name+'" formula?')) return;
-            const custom = JSON.parse(localStorage.getItem('customFormulas')||'{}');
+            const custom = readStoredObject('customFormulas');
             delete custom[name];
             localStorage.setItem('customFormulas', JSON.stringify(custom));
             delete formulas[name];
@@ -2482,8 +2757,7 @@ w2QjzsKE==" type="audio/wav">
             if (savedFormulas) {
                 try {
                     const cf = JSON.parse(savedFormulas);
-                    Object.assign(formulas, cf);
-                    Object.keys(cf).forEach(w => { if (!weights.includes(w)) weights.push(w); });
+                    mergeFormulasIntoRuntime(cf);
                 } catch(e) {}
             }
             // Load local-only formulas (device only, not from server)
@@ -2491,14 +2765,13 @@ w2QjzsKE==" type="audio/wav">
             if (localOnly) {
                 try {
                     const lf = JSON.parse(localOnly);
-                    Object.assign(formulas, lf);
-                    Object.keys(lf).forEach(w => { if (!weights.includes(w)) weights.push(w); });
+                    mergeFormulasIntoRuntime(lf);
                 } catch(e) {}
             }
             const savedWeights = localStorage.getItem('weights');
             if (savedWeights) {
                 try {
-                    JSON.parse(savedWeights).forEach(w => { if (!weights.includes(w)) weights.push(w); });
+                    JSON.parse(savedWeights).forEach(w => { if (formulas[w] && !HIDDEN_WEIGHTS.includes(w) && !weights.includes(w)) weights.push(w); });
                 } catch(e) {}
             }
 
@@ -2514,31 +2787,42 @@ w2QjzsKE==" type="audio/wav">
                 if (icon) icon.textContent = '🌙';
             }
 
-            // Init weight display
-            const currentWeight = weights[currentWeightIndex];
-            const formula = getCurrentFormula();
-            const unit = formula ? formula.unit || 'Pouch' : 'Pouch';
-            document.getElementById('currentWeight').textContent = currentWeight;
-            document.getElementById('formulaWeight').textContent = currentWeight;
-            if (formula) {
-                document.getElementById('formula1').textContent = '✓ ' + formula.pouchToShipper + ' ' + unit + ' = 1 Shipper';
-                document.getElementById('formula2').textContent = '✓ ' + formula.shipperToPallet + ' Shipper = 1 Pallet';
-                document.getElementById('formula3').textContent = '✓ ' + formula.pouchToPallet + ' ' + unit + ' = 1 Pallet';
-                document.getElementById('formula4').textContent = '⚡ Speed: ' + (formula.speed > 0 ? formula.speed + ' ' + unit + '/min' : 'Not Set');
-            }
+            // Start without a selected weight. User must choose weight before any calculation runs.
+            currentWeightIndex = -1;
+            document.getElementById('currentWeight').textContent = 'Select';
+            document.getElementById('formulaWeight').textContent = 'Select Weight';
             const pouchLabel = document.querySelector('label[for="pouchCount"]');
-            if (pouchLabel) pouchLabel.textContent = '📦 ' + unit + ' Count';
-
-            // Default weight already selected — show inputs
+            updateUnitLabels('Pouch');
             const inputSection = document.getElementById('calcInputSection');
-            if (inputSection) inputSection.style.display = 'block';
-
-            setTimeout(function() {
-                showCornerAlert('⚖️ ' + currentWeight + ' Selected', 'weight-alert', 2000);
-            }, 1800);
+            if (inputSection) inputSection.style.display = 'none';
+            resetCalculationDisplay();
         }
 
     </script>
 </body>
 </html>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 

@@ -1,7 +1,4 @@
-
-<!DOCTYPE html>
-<html lang="en">
-<head>
+<html lang="en"><head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="theme-color" content="#667eea">
@@ -1274,16 +1271,157 @@ body.dark-mode .corner {
     0% { transform: rotate(0deg); }
     100% { transform: rotate(360deg); }
 }
-/* Remove number input spinner */
-.no-spinner::-webkit-outer-spin-button,
-.no-spinner::-webkit-inner-spin-button {
-    -webkit-appearance: none;
-    margin: 0;
-}
-.no-spinner {
-    -moz-appearance: textfield;
-    appearance: textfield;
-}
+	/* Remove number input spinner */
+	.no-spinner::-webkit-outer-spin-button,
+	.no-spinner::-webkit-inner-spin-button {
+	    -webkit-appearance: none;
+	    margin: 0;
+	}
+	.no-spinner {
+	    -moz-appearance: textfield;
+	    appearance: textfield;
+	}
+
+    /* Daily Activity Styles */
+    .daily-active-modal {
+        max-width: 700px !important;
+    }
+    .da-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 15px;
+        flex-wrap: wrap;
+        gap: 10px;
+    }
+    .da-controls {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+    }
+    .da-shift-badge {
+        background: #667eea;
+        color: white;
+        padding: 4px 12px;
+        border-radius: 20px;
+        font-size: 13px;
+        font-weight: 600;
+    }
+    .da-list {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        margin-top: 15px;
+    }
+    .da-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 12px 15px;
+        background: #f8f9fa;
+        border-radius: 8px;
+        border-left: 4px solid #667eea;
+        transition: all 0.3s;
+    }
+    body.dark-mode .da-item {
+        background: #1a1a2e;
+        border-color: #8b9cff;
+    }
+    .da-item-info {
+        flex: 1;
+    }
+    .da-item-title {
+        font-weight: 600;
+        font-size: 14px;
+        color: #333;
+    }
+    body.dark-mode .da-item-title {
+        color: #e0e0e0;
+    }
+    .da-item-sub {
+        font-size: 12px;
+        color: #666;
+    }
+    body.dark-mode .da-item-sub {
+        color: #aaa;
+    }
+    .da-actions {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+    }
+    .da-checkbox-wrapper {
+        display: flex;
+        align-items: center;
+        gap: 5px;
+        cursor: pointer;
+    }
+    .da-checkbox {
+        width: 22px;
+        height: 22px;
+        cursor: pointer;
+    }
+    .da-na-btn {
+        padding: 4px 8px;
+        font-size: 11px;
+        background: #eee;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+        cursor: pointer;
+    }
+    .da-na-btn.active {
+        background: #f44336;
+        color: white;
+        border-color: #d32f2f;
+    }
+    .da-comment-box {
+        margin-top: 20px;
+    }
+    .da-comment-box textarea {
+        width: 100%;
+        height: 80px;
+        padding: 10px;
+        border: 2px solid #ddd;
+        border-radius: 8px;
+        resize: none;
+        font-size: 14px;
+    }
+    body.dark-mode .da-comment-box textarea {
+        background: #1a1a2e;
+        color: #e0e0e0;
+        border-color: #667eea;
+    }
+    .da-footer {
+        margin-top: 20px;
+        display: flex;
+        gap: 10px;
+    }
+    .da-mode-toggle {
+        background: #FF9800;
+        color: white;
+        border: none;
+        padding: 8px 15px;
+        border-radius: 5px;
+        cursor: pointer;
+        font-size: 13px;
+        font-weight: 600;
+    }
+    .da-history-btn {
+        background: #4CAF50;
+        color: white;
+        border: none;
+        padding: 8px 15px;
+        border-radius: 5px;
+        cursor: pointer;
+        font-size: 13px;
+    }
+    .da-item.na {
+        opacity: 0.6;
+        border-left-color: #999;
+    }
+    .da-item.na .da-item-title {
+        text-decoration: line-through;
+    }
 
 @media (max-width: 768px) {
     .search-section {
@@ -1407,71 +1545,96 @@ body.dark-mode .corner {
 /* Screenshot prevention */
 body { -webkit-user-select: none; -moz-user-select: none; user-select: none; }
 @media print { body { display: none !important; } }
-    </style>
+    
+    /* Daily Activity compact override */
+    .daily-active-modal {
+        max-width: 460px !important;
+        padding: 14px !important;
+    }
+    .daily-active-modal h2 {
+        font-size: 18px !important;
+        margin: 0 0 2px !important;
+    }
+    .daily-active-modal .da-header {
+        margin-bottom: 8px !important;
+        gap: 6px !important;
+    }
+    .daily-active-modal .da-list {
+        gap: 5px !important;
+        margin-top: 8px !important;
+    }
+    .daily-active-modal .da-item {
+        padding: 7px 9px !important;
+        border-radius: 6px !important;
+        border-left-width: 3px !important;
+    }
+    .daily-active-modal .da-item-title {
+        font-size: 12px !important;
+        font-weight: 700 !important;
+    }
+    .daily-active-modal .da-item-sub {
+        font-size: 10px !important;
+    }
+    .daily-active-modal .da-actions {
+        gap: 5px !important;
+    }
+    .daily-active-modal .da-checkbox {
+        width: 18px !important;
+        height: 18px !important;
+    }
+    .daily-active-modal .da-check-label {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        font-size: 11px;
+        font-weight: 800;
+        color: #17202f;
+        white-space: nowrap;
+    }
+    .daily-active-modal .da-na-btn {
+        padding: 3px 6px !important;
+        font-size: 10px !important;
+    }
+    .daily-active-modal .da-comment-box {
+        margin-top: 8px !important;
+    }
+    .daily-active-modal .da-comment-box textarea {
+        height: 48px !important;
+        padding: 7px !important;
+        font-size: 12px !important;
+    }
+    .daily-active-modal .da-footer {
+        margin-top: 10px !important;
+        gap: 7px !important;
+    }
+
+</style>
 </head>
 
 <body>
     <!-- Password Screen -->
-    <div id="passwordScreen" class="password-screen">
-        <div class="password-box">
-            <!-- Lock icon with location dot indicator -->
-            <div style="position:relative;display:inline-block;margin-bottom:10px;">
-                <div class="lock-icon" style="margin-bottom:0;">🔒</div>
-                <div id="locationDot" style="position:absolute;top:0;right:-4px;width:12px;height:12px;border-radius:50%;background:#ccc;box-shadow:0 0 6px rgba(0,0,0,0.3);transition:background 0.5s;border:2px solid white;" title="Location Status"></div>
-            </div>
-            <!-- Guide ? button — left side -->
-            <div onclick="openUserGuide()" style="position:absolute;top:12px;left:15px;width:26px;height:26px;background:rgba(102,126,234,0.15);border-radius:50%;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:14px;font-weight:700;color:#667eea;border:1.5px solid #667eea;" title="User Guide">?</div>
-            <!-- Calculator button — top right -->
-            <button onclick="openCalculator()" style="position:absolute;top:12px;right:15px;width:36px;height:36px;background:rgba(102,126,234,0.15);border-radius:8px;display:flex;align-items:center;justify-content:center;cursor:pointer;border:1.5px solid #667eea;padding:0;-webkit-tap-highlight-color:transparent;" title="Calculator">
-                <svg width="22" height="22" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
-                    <rect width="100" height="100" fill="#667eea" rx="15"/>
-                    <rect x="10" y="10" width="35" height="35" fill="white" rx="5"/>
-                    <rect x="20" y="24" width="5" height="7" fill="#ff0000"/>
-                    <rect x="24" y="20" width="7" height="5" fill="#ff0000"/>
-                    <rect x="55" y="10" width="35" height="35" fill="white" rx="5"/>
-                    <rect x="65" y="24" width="15" height="7" fill="#ff0000"/>
-                    <circle cx="50" cy="50" r="20" fill="white" stroke="#667eea" stroke-width="3"/>
-                    <rect x="38" y="46" width="12" height="3" fill="#ff0000"/>
-                    <rect x="38" y="54" width="12" height="3" fill="#ff0000"/>
-                    <rect x="10" y="55" width="35" height="35" fill="white" rx="5"/>
-                    <line x1="20" y1="65" x2="30" y2="80" stroke="#ff0000" stroke-width="3" stroke-linecap="round"/>
-                    <line x1="30" y1="65" x2="20" y2="80" stroke="#ff0000" stroke-width="3" stroke-linecap="round"/>
-                    <rect x="55" y="55" width="35" height="35" fill="white" rx="5"/>
-                    <text x="72" y="82" font-size="14" font-weight="bold" fill="#ff0000" text-anchor="middle">Lite</text>
-                </svg>
-            </button>
-            <h2>Digital Control Copy</h2>
-            <p>User ID optional, password required</p>
-            <div id="gpsWarning" style="display:none;color:#f44336;font-size:12px;font-weight:600;margin-bottom:8px;text-align:center;"></div>
-            <input type="text" id="loginUserIdInput" placeholder="User ID (optional)" onkeypress="if(event.key==='Enter') document.getElementById('passwordInput').focus()" autocomplete="username" autocorrect="off" autocapitalize="characters" spellcheck="false" style="width:72%;margin:0 auto 10px;padding:10px 12px;font-size:13px;display:block;border-color:#9aa7f2;">
-            <input type="password" id="passwordInput" placeholder="Enter Password" onkeypress="if(event.key==='Enter') checkPassword()" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
-            <button onclick="checkPassword()">Unlock</button>
-            <!-- Single fingerprint button — auto detects role -->
-            <div style="display:flex;justify-content:center;margin-top:15px;">
-                <div style="text-align:center;">
-                    <div onclick="useFingerprintAuth('auto')" style="width:55px;height:55px;background:linear-gradient(135deg,#667eea,#4CAF50);border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto;cursor:pointer;transition:all 0.3s;box-shadow:0 2px 15px rgba(102,126,234,0.5);" onmouseover="this.style.transform='scale(1.1)'" onmouseout="this.style.transform='scale(1)'">
-                        <span style="font-size:28px;">👆</span>
-                    </div>
-                    <p style="font-size:10px;color:#888;margin-top:5px;font-weight:600;">Fingerprint</p>
-                </div>
-            </div>
-            <p class="password-error" id="passwordError"></p>
-        </div>
+    <div id="passwordScreen" class="password-screen" style="display: none;">
+        <div class="password-box" style="border: 3px solid rgb(76, 175, 80); box-shadow: rgba(76, 175, 80, 0.5) 0px 0px 30px;">
+            <div style="text-align:center;padding:20px 0;">
+                <div style="width:60px;height:60px;border:5px solid rgba(102,126,234,0.2);border-top:5px solid #667eea;border-radius:50%;animation:spin 0.8s linear infinite;margin:0 auto 20px;"></div>
+                <div style="font-size:16px;font-weight:700;color:#667eea;">Syncing data...</div>
+                <div style="font-size:12px;color:#aaa;margin-top:6px;">Please wait</div>
+            </div></div>
     </div>
 
     <header>
         <div class="header-content">
-            <div class="menu-icon" onclick="toggleMenu()">
+            <div class="menu-icon" onclick="toggleMenu()" data-manus_clickable="true" data-manus_click_id="1">
                 <div class="dot"></div>
                 <div class="dot"></div>
                 <div class="dot"></div>
             </div>
             <h1>Digital Control Copy</h1>
             <div id="offlineIndicator" style="display:none;background:#f44336;color:white;font-size:10px;font-weight:700;padding:2px 7px;border-radius:10px;margin-left:6px;flex-shrink:0;">OFFLINE</div>
-            <button onclick="openCalculator()" title="Calculator" style="background:rgba(255,255,255,0.2);border:1.5px solid rgba(255,255,255,0.4);cursor:pointer;font-size:18px;width:36px;height:36px;border-radius:8px;display:flex;align-items:center;justify-content:center;-webkit-tap-highlight-color:transparent;color:white;flex-shrink:0;margin-left:10px;">⇄</button>
+            <button onclick="openCalculator()" title="Calculator" style="background: rgba(255, 255, 255, 0.2); border: 1.5px solid rgba(255, 255, 255, 0.4); cursor: pointer; font-size: 18px; width: 36px; height: 36px; border-radius: 8px; align-items: center; justify-content: center; -webkit-tap-highlight-color: transparent; color: white; flex-shrink: 0; margin-left: 10px;" data-manus_clickable="true" data-manus_click_id="2">⇄</button>
             <div style="flex:1;"></div>
-            <button onclick="logoutApp()" title="Lock Screen" style="background:rgba(255,255,255,0.2);border:1.5px solid rgba(255,255,255,0.4);cursor:pointer;font-size:16px;width:36px;height:36px;border-radius:8px;display:flex;align-items:center;justify-content:center;-webkit-tap-highlight-color:transparent;color:white;flex-shrink:0;">🔒</button>
-            <div class="dark-mode-toggle" onclick="toggleDarkMode()" title="Toggle Dark Mode" style="margin-left:8px;">
+            <button onclick="logoutApp()" title="Lock Screen" style="background:rgba(255,255,255,0.2);border:1.5px solid rgba(255,255,255,0.4);cursor:pointer;font-size:16px;width:36px;height:36px;border-radius:8px;display:flex;align-items:center;justify-content:center;-webkit-tap-highlight-color:transparent;color:white;flex-shrink:0;" data-manus_clickable="true" data-manus_click_id="3">🔒</button>
+            <div class="dark-mode-toggle" onclick="toggleDarkMode()" title="Toggle Dark Mode" style="margin-left:8px;" data-manus_clickable="true" data-manus_click_id="4">
                 <span id="darkModeIcon">🌙</span>
             </div>
         </div>
@@ -1480,97 +1643,100 @@ body { -webkit-user-select: none; -moz-user-select: none; user-select: none; }
     <div id="sideMenu" class="side-menu">
         <div class="menu-header">
             <h2>Settings</h2>
-            <span class="close-btn" onclick="toggleMenu()">&times;</span>
+            <span class="close-btn" onclick="toggleMenu()" data-manus_clickable="true" data-manus_click_id="5">×</span>
         </div>
         <div class="menu-content">
-                        <div class="menu-item admin-only" onclick="openUsageDashboard();toggleMenu()">
+                        <div class="menu-item admin-only" onclick="openUsageDashboard();toggleMenu()" style="display: none;">
                 <span>📊 Dashboard</span>
             </div>
-<div class="menu-item" onclick="openUploadModal()">
+<div class="menu-item" onclick="openUploadModal()" style="display: none;">
                 <span>📁 Upload File (CSV/Excel)</span>
             </div>
-            <div class="menu-item" onclick="downloadTemplate()">
+            <div class="menu-item" onclick="downloadTemplate()" style="display: none;">
                 <span>📥 Download CSV Template</span>
             </div>
-            <div class="menu-item user-visible" onclick="openMasterSearch();toggleMenu()">
+            <div class="menu-item user-visible" onclick="openMasterSearch();toggleMenu()" style="display: block;" data-manus_clickable="true" data-manus_click_id="6">
                 <span>🔎 Master Search</span>
             </div>
-            <div class="menu-item user-visible" onclick="openSecondaryIft();toggleMenu()">
+<div class="menu-item user-visible" onclick="openSecondaryIft();toggleMenu()" style="display: block;" data-manus_clickable="true" data-manus_click_id="7">
                 <span>✅ Secondary IFT</span>
             </div>
-            <div class="menu-item admin-only" onclick="openBackupExport();toggleMenu()">
+            <div class="menu-item user-visible" onclick="openDailyActive();toggleMenu()" style="display: block;" data-manus_clickable="true" data-manus_click_id="8">
+                <span>📅 Daily Activity</span>
+            </div>
+            <div class="menu-item admin-only" onclick="openBackupExport();toggleMenu()" style="display: none;">
                 <span>💾 Data Backup Export</span>
             </div>
-            <div class="menu-item" onclick="openManualEntryModal()">
+            <div class="menu-item" onclick="openManualEntryModal()" style="display: none;">
                 <span>✏️ Add Manual Data</span>
             </div>
-            <div class="menu-item user-visible" onclick="openCenterlineSearch();toggleMenu()">
+            <div class="menu-item user-visible" onclick="openCenterlineSearch();toggleMenu()" style="display: block;" data-manus_clickable="true" data-manus_click_id="9">
                 <span>🔍 Centerline Search</span>
             </div>
-            <div class="menu-item user-visible" onclick="openCaseSpsPatternUpcoming();toggleMenu()">
+            <div class="menu-item user-visible" onclick="openCaseSpsPatternUpcoming();toggleMenu()" style="display: block;" data-manus_clickable="true" data-manus_click_id="10">
                 <span>📦 CASE SPS PATTERN</span>
             </div>
-            <div class="menu-item admin-only" onclick="openStaticCenterline();toggleMenu()">
+            <div class="menu-item admin-only" onclick="openStaticCenterline();toggleMenu()" style="display: none;">
                 <span>📌 Static Centerline</span>
             </div>
-            <div class="menu-item" onclick="openPrivacySettings()" style="background:linear-gradient(135deg,#667eea15,#764ba215);border-left:3px solid #667eea;">
-                <span>🔐 Privacy Settings</span>
+            <div class="menu-item" onclick="openPersonalAccess();toggleMenu()" style="background: linear-gradient(135deg, rgba(102, 126, 234, 0.082), rgba(118, 75, 162, 0.082)); border-left: 3px solid rgb(102, 126, 234); display: block;" data-manus_clickable="true" data-manus_click_id="11">
+                <span>👤 Personal Settings</span>
             </div>
-            <div class="menu-item admin-only" onclick="openAutoLogoutSettings();toggleMenu()">
+            <div class="menu-item admin-only" onclick="openAutoLogoutSettings();toggleMenu()" style="display: none;">
                 <span>⏱️ Auto Logout Time</span>
             </div>
-            <div class="menu-item admin-only" onclick="openActiveUsers();toggleMenu()">
+            <div class="menu-item admin-only" onclick="openActiveUsers();toggleMenu()" style="display: none;">
                 <span>🟢 Active Users</span>
             </div>
-<div class="menu-item" onclick="openFullGuide();toggleMenu()">
+<div class="menu-item" onclick="openFullGuide();toggleMenu()" style="display: block;" data-manus_clickable="true" data-manus_click_id="12">
                 <span>📖 Guide</span>
             </div>
-            <div class="menu-item" onclick="downloadAPK()"><span>📱 Download APK for Android</span></div>
-            <div class="menu-item" onclick="openQRShare();toggleMenu()">
+            <div class="menu-item" onclick="downloadAPK()" style="display: none;"><span>📱 Download APK for Android</span></div>
+            <div class="menu-item" onclick="openQRShare();toggleMenu()" style="display: block;" data-manus_clickable="true" data-manus_click_id="13">
                 <span>📲 Share App (QR Code)</span>
             </div>
-            <div class="menu-item admin-only" onclick="openHighlightNote()">
+            <div class="menu-item admin-only" onclick="openHighlightNote()" style="display: block;" data-manus_clickable="true" data-manus_click_id="14">
                 <span>📢 Highlight Note</span>
             </div>
-            <div class="menu-item admin-only" onclick="openCalcFormulaManager();toggleMenu()">
+            <div class="menu-item admin-only" onclick="openCalcFormulaManager();toggleMenu()" style="display: none;">
                 <span>⚗️ Calculator Formulas</span>
             </div>
-            <div class="menu-item admin-only" onclick="openGuideEditor();toggleMenu()">
+            <div class="menu-item admin-only" onclick="openGuideEditor();toggleMenu()" style="display: block;" data-manus_clickable="true" data-manus_click_id="15">
                 <span>📝 Edit Guide</span>
             </div>
-<div class="menu-item admin-only" onclick="openRecycleBin();toggleMenu()">
+<div class="menu-item admin-only" onclick="openRecycleBin();toggleMenu()" style="display: none;">
                 <span>♻️ Recycle Bin</span>
             </div>
-            <div class="menu-item admin-only" onclick="openUserFeedbackList();toggleMenu()">
+            <div class="menu-item admin-only" onclick="openUserFeedbackList();toggleMenu()" style="display: block;" data-manus_clickable="true" data-manus_click_id="16">
                 <span>⭐ User Feedback</span>
             </div>
-            <div class="menu-item user-visible" onclick="openFeedbackModal();toggleMenu()">
+            <div class="menu-item user-visible" onclick="openFeedbackModal();toggleMenu()" style="display: block;" data-manus_clickable="true" data-manus_click_id="17">
                 <span>💬 Feedback</span>
             </div>
-            <div class="menu-item user-visible" onclick="openBugReportModal();toggleMenu()">
+            <div class="menu-item user-visible" onclick="openBugReportModal();toggleMenu()" style="display: block;" data-manus_clickable="true" data-manus_click_id="18">
                 <span>🐞 Bug Report</span>
             </div>
-            <div class="menu-item admin-only" onclick="openBugReportList();toggleMenu()">
+            <div class="menu-item admin-only" onclick="openBugReportList();toggleMenu()" style="display: block;" data-manus_clickable="true" data-manus_click_id="19">
                 <span>🧾 Bug Reports</span>
             </div>
-            <div class="menu-item" onclick="logoutApp()" style="border-top: 2px solid #f44336;">
+            <div class="menu-item" onclick="logoutApp()" style="border-top: 2px solid rgb(244, 67, 54); display: none;">
                 <span style="color:#f44336;">🚪 Logout</span>
             </div>
-        </div>
+        <div id="userChangePwdItem" class="menu-item user-visible" data-manus_clickable="true" data-manus_click_id="20"><span>🔑 Change My Password</span></div></div>
     </div>
 
     <div class="container">
         <div class="search-section">
             <div style="position:relative;flex:1 1 120px;min-width:0;display:flex;align-items:center;">
-                <input type="text" id="searchInput" placeholder="Search by PCode, SKU, Case G/Case, Pouch G/Case..." onkeyup="searchData();toggleClearBtn()" style="width:100%;padding-right:36px;">
+                <input type="text" id="searchInput" placeholder="Search by PCode, SKU, Case G/Case, Pouch G/Case..." onkeyup="searchData();toggleClearBtn()" style="width:100%;padding-right:36px;" data-manus_clickable="true" data-manus_click_id="21">
                 <button id="clearBtnInline" onclick="clearSearch()" title="Clear" style="display:none;position:absolute;right:6px;background:none;border:none;cursor:pointer;font-size:18px;color:#999;padding:0;line-height:1;">✕</button>
             </div>
-            <button class="camera-btn" onclick="openScanner()">📷</button>
-            <button class="filter-toggle-btn" onclick="toggleFilters()" title="Toggle Filters">🔽</button>
+            <button class="camera-btn" onclick="openScanner()" data-manus_clickable="true" data-manus_click_id="22">📷</button>
+            <button class="filter-toggle-btn" onclick="toggleFilters()" title="Toggle Filters" data-manus_clickable="true" data-manus_click_id="23">🔽</button>
             <!-- Location dot + Refresh — search row -->
             <div style="display:flex;align-items:center;gap:5px;padding:0 4px;">
-                <div id="mainLocationDot" class="dot-blink" style="width:12px;height:12px;border-radius:50%;background:#ccc;box-shadow:0 0 6px rgba(0,0,0,0.3);flex-shrink:0;" title="Location Status"></div>
-                <button onclick="refreshLocationAndSync()" title="Location & Server Refresh" style="background:#667eea;border:none;cursor:pointer;font-size:16px;padding:8px 12px;border-radius:5px;color:white;line-height:1;">🔄</button>
+                <div id="mainLocationDot" class="" style="width: 12px; height: 12px; border-radius: 50%; background: rgb(204, 204, 204); flex-shrink: 0;" title="Location Status"></div>
+                <button onclick="refreshLocationAndSync()" title="Location &amp; Server Refresh" style="background:#667eea;border:none;cursor:pointer;font-size:16px;padding:8px 12px;border-radius:5px;color:white;line-height:1;" data-manus_clickable="true" data-manus_click_id="24">🔄</button>
             </div>
         </div>
 
@@ -1601,13 +1767,12 @@ body { -webkit-user-select: none; -moz-user-select: none; user-select: none; }
             </div>
         </div>
 
-        <div id="resultsContainer" class="results-container">
-        </div>
+        <div id="resultsContainer" class="results-container"><p class="no-data">🔍 Use search or scan to find products</p></div>
     </div>
 
     <div id="uploadModal" class="modal">
         <div class="modal-content">
-            <span class="close" onclick="closeUploadModal()">&times;</span>
+            <span class="close" onclick="closeUploadModal()">×</span>
             <h2>Upload File</h2>
             <input type="file" id="fileInput" accept=".csv,.xlsx,.xls">
             <button onclick="uploadFile()">Upload</button>
@@ -1616,11 +1781,11 @@ body { -webkit-user-select: none; -moz-user-select: none; user-select: none; }
 
     <div id="manualEntryModal" class="modal">
         <div class="modal-content">
-            <span class="close" onclick="closeManualEntryModal()">&times;</span>
+            <span class="close" onclick="closeManualEntryModal()">×</span>
             <h2>Add Manual Data</h2>
             <form id="manualForm">
                 <h3 style="color: #667eea; margin-bottom: 10px;">Basic Information</h3>
-                <input type="text" id="pcode" placeholder="PCode *" required>
+                <input type="text" id="pcode" placeholder="PCode *" required="">
                 <input type="text" id="sku" placeholder="Description / SKU">
                 <input type="text" id="bulkGCase" placeholder="Bulk G/Case">
                 <input type="text" id="mrpOld" placeholder="MRP Old (Rs.)">
@@ -1662,7 +1827,7 @@ body { -webkit-user-select: none; -moz-user-select: none; user-select: none; }
 
     <div id="scannerModal" class="modal">
         <div class="modal-content scanner-modal">
-            <span class="close" onclick="closeScanner()">&times;</span>
+            <span class="close" onclick="closeScanner()">×</span>
             <h2>Scan QR/Barcode</h2>
             <div class="scanner-container">
                 <div id="reader" style="width: 100%; max-width: 500px; margin: 0 auto; position: relative;"></div>
@@ -1688,7 +1853,7 @@ body { -webkit-user-select: none; -moz-user-select: none; user-select: none; }
 
     <div id="themeModal" class="modal">
         <div class="modal-content">
-            <span class="close" onclick="closeThemeModal()">&times;</span>
+            <span class="close" onclick="closeThemeModal()">×</span>
             <h2>Choose Theme</h2>
             <div class="theme-grid">
                 <div class="theme-option" onclick="setTheme('default')">
@@ -2154,7 +2319,8 @@ function createProductCard(item, isCompact = false, searchTerm = '') {
     const shareBtn = isView && !isAccessAllowed('share') ? '' : `<button class="share-card-btn" onclick="shareProduct('${item.pcode}')">📤 Share Product</button>`;
     const clBtn = isView && !isAccessAllowed('centerline') ? '' : `<button onclick="openCenterlineUser()" style="width:100%;padding:8px;background:linear-gradient(135deg,#667eea,#764ba2);color:white;border:none;border-radius:5px;cursor:pointer;font-size:14px;margin-top:6px;">📋 Centerline</button>`;
     const printBtn = isView && !isAccessAllowed('print_card') ? '' : `<button onclick="printProductCard('${item.pcode}')" style="width:100%;padding:8px;background:#FF9800;color:white;border:none;border-radius:5px;cursor:pointer;font-size:14px;margin-top:6px;">🖨️ Print PDF</button>`;
-    const qrLabelBtn = isView && !isAccessAllowed('product_qr_label') ? '' : `<button onclick="openProductQrPopup('${String(item.pcode || '').replace(/'/g, "\\'")}')" style="position:absolute;right:8px;top:8px;z-index:5;padding:4px 7px;background:#17202f;color:white;border:1px solid rgba(255,255,255,.25);border-radius:5px;cursor:pointer;font-size:9px;letter-spacing:.3px;font-weight:900;line-height:1;">QR CODE</button>`;
+    const qrLabelBtnPri = isView && !isAccessAllowed('product_qr_label') ? '' : `<button onclick="openProductQrPopup('${String(item.pcode || '').replace(/'/g, "\\'")}', 'primary')" style="position:absolute;right:8px;top:8px;z-index:5;padding:4px 7px;background:#17202f;color:white;border:1px solid rgba(255,255,255,.25);border-radius:5px;cursor:pointer;font-size:9px;letter-spacing:.3px;font-weight:900;line-height:1;">QR CODE</button>`;
+    const qrLabelBtnSec = isView && !isAccessAllowed('product_qr_label') ? '' : `<button onclick="openProductQrPopup('${String(item.pcode || '').replace(/'/g, "\\'")}', 'secondary')" style="position:absolute;right:8px;top:8px;z-index:5;padding:4px 7px;background:#17202f;color:white;border:1px solid rgba(255,255,255,.25);border-radius:5px;cursor:pointer;font-size:9px;letter-spacing:.3px;font-weight:900;line-height:1;">QR CODE</button>`;
     
     // Helper function to highlight matching text
     const highlightText = (text, search) => {
@@ -2215,7 +2381,6 @@ function createProductCard(item, isCompact = false, searchTerm = '') {
     
     return `
         <div class="product-card${compactClass}" id="${cardId}" style="position:relative;">
-            ${qrLabelBtn}
             <div class="section-toggle">
                 <div class="toggle-btn primary" onclick="switchSection('${cardId}', 'primary')">
                     PRIMARY
@@ -2225,6 +2390,7 @@ function createProductCard(item, isCompact = false, searchTerm = '') {
                 </div>
             </div>
             <div class="section-content primary-section" data-section="primary">
+                ${qrLabelBtnPri}
                 <span class="primary-label">PRIMARY</span>
                 <div class="card-split">
                     <!-- Left: Main Data -->
@@ -2274,6 +2440,7 @@ function createProductCard(item, isCompact = false, searchTerm = '') {
                 ${(item.addedOn || item.addedBy) ? `<div style="display:flex;justify-content:space-between;margin-top:10px;padding-top:6px;border-top:1px solid #eee;"><span style="font-size:11px;color:#888;">👤 ${item.addedBy || ''}</span><span style="font-size:11px;color:#aaa;">📅 ${item.addedOn || ''}</span></div>` : ''}
             </div>
             <div class="section-content secondary-section" data-section="secondary">
+                ${qrLabelBtnSec}
                 <span class="secondary-label">SECONDARY</span>
                 <div class="card-split">
                     <!-- Left: Main Data -->
@@ -2831,8 +2998,34 @@ window.onload = function() {
 
 // Password Protection
 function showPasswordScreen() {
-    document.getElementById('passwordScreen').style.display = 'flex';
+    const screen = document.getElementById('passwordScreen');
+    if (screen) screen.style.display = 'flex';
     _locationReady = false;
+    // If the saved HTML opens with the sync spinner, rebuild the login form.
+    if (!document.getElementById('passwordInput')) {
+        const pwdBox = document.querySelector('.password-box');
+        if (pwdBox) {
+            pwdBox.style.border = '';
+            pwdBox.style.boxShadow = '';
+            pwdBox.innerHTML =
+                '<div style="position:relative;display:inline-block;margin-bottom:10px;">' +
+                '<div class="lock-icon" style="margin-bottom:0;">🔒</div>' +
+                '<div id="locationDot" style="position:absolute;top:0;right:-4px;width:12px;height:12px;border-radius:50%;background:#ccc;box-shadow:0 0 6px rgba(0,0,0,0.3);transition:background 0.5s;border:2px solid white;" title="Location Status"></div>' +
+                '</div>' +
+                '<div onclick="openUserGuide()" style="position:absolute;top:12px;left:15px;width:26px;height:26px;background:rgba(102,126,234,0.15);border-radius:50%;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:14px;font-weight:700;color:#667eea;border:1.5px solid #667eea;" title="User Guide">?</div>' +
+                '<button onclick="openCalculator()" style="position:absolute;top:12px;right:15px;width:36px;height:36px;background:rgba(102,126,234,0.15);border-radius:8px;display:flex;align-items:center;justify-content:center;cursor:pointer;border:1.5px solid #667eea;padding:0;" title="Calculator">↔</button>' +
+                '<h2>Digital Control Copy</h2>' +
+                '<p>User ID optional, password required</p>' +
+                '<div id="gpsWarning" style="display:none;color:#f44336;font-size:12px;font-weight:600;margin-bottom:8px;text-align:center;"></div>' +
+                '<input type="text" id="loginUserIdInput" placeholder="User ID (optional)" onkeypress="if(event.key===\'Enter\') document.getElementById(\'passwordInput\').focus()" autocomplete="username" autocorrect="off" autocapitalize="characters" spellcheck="false" style="width:72%;margin:0 auto 10px;padding:10px 12px;font-size:13px;display:block;border-color:#9aa7f2;">' +
+                '<input type="password" id="passwordInput" placeholder="Enter Password" onkeypress="if(event.key===\'Enter\') checkPassword()" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">' +
+                '<button onclick="checkPassword()">Unlock</button>' +
+                '<div style="display:flex;justify-content:center;margin-top:15px;"><div style="text-align:center;">' +
+                '<div onclick="useFingerprintAuth(\'auto\')" style="width:55px;height:55px;background:linear-gradient(135deg,#667eea,#4CAF50);border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto;cursor:pointer;transition:all 0.3s;box-shadow:0 2px 15px rgba(102,126,234,0.5);"><span style="font-size:28px;">👆</span></div>' +
+                '<p style="font-size:10px;color:#888;margin-top:5px;font-weight:600;">Fingerprint</p>' +
+                '</div></div><p class="password-error" id="passwordError"></p>';
+        }
+    }
     // No GPS on load — only requested when view user tries to unlock
 }
 
@@ -2875,9 +3068,9 @@ async function refreshLoginSettingsFromServer() {
     if (!binId || !apiKey) return false;
 
     try {
-        const res = await fetch('https://api.jsonbin.io/v3/b/' + binId + '/latest', {
+        const res = await fetchWithTimeout('https://api.jsonbin.io/v3/b/' + binId + '/latest', {
             headers: { 'X-Bin-Meta': 'false', 'X-Access-Key': apiKey }
-        });
+        }, 8000);
         if (!res.ok) throw new Error('HTTP ' + res.status);
         const json = await res.json();
         const rec = (json.record || json || {});
@@ -3143,6 +3336,7 @@ function applyRoleAccess(role) {
             if (txt.includes('Static Centerline'))el.style.display = ac.cl_add !== false ? 'block' : 'none';
             if (txt.includes('Download CSV'))     el.style.display = ac.export !== false ? 'block' : 'none';
             if (txt.includes('Highlight Note'))   el.style.display = ac.highlight_note !== false ? 'block' : 'none';
+            if ((txt.includes('Daily Activity') || txt.includes('Daily Active')))     el.style.display = ac.daily_active !== false ? 'block' : 'none';
         });
 
         // Personal Access Control — show to user only if admin has enabled it
@@ -3387,10 +3581,43 @@ function renderFingerprintSetupRole(role) {
 }
 
 async function registerFingerprintFromModal(role) {
-    const pwd = (document.getElementById('fpSetupPassword')?.value || '').trim();
+    const pwdInput = document.getElementById('fpSetupPassword');
+    const pwd = (pwdInput?.value || '').trim();
     if (!pwd) { showErrorPopup('Password required!'); return; }
-    const ok = await _registerFingerprint(role, pwd);
-    if (ok) closeFingerprintSetupModal();
+    
+    const btn = event?.target || document.querySelector('#fingerprintSetupBody button');
+    const originalText = btn ? btn.textContent : 'Register Fingerprint';
+    
+    if (btn) {
+        btn.disabled = true;
+        btn.textContent = '🔄 Checking server...';
+        btn.style.opacity = '0.7';
+    }
+
+    try {
+        // Force sync from server to get latest passwords
+        if (isJsonBinConfigured()) {
+            await syncFromServer();
+        }
+        
+        const ok = await _registerFingerprint(role, pwd);
+        if (ok) {
+            closeFingerprintSetupModal();
+        } else {
+            if (btn) {
+                btn.disabled = false;
+                btn.textContent = originalText;
+                btn.style.opacity = '1';
+            }
+        }
+    } catch (err) {
+        showErrorPopup('Server check failed: ' + err.message);
+        if (btn) {
+            btn.disabled = false;
+            btn.textContent = originalText;
+            btn.style.opacity = '1';
+        }
+    }
 }
 
 function disableFingerprintFromModal(role) {
@@ -4227,10 +4454,42 @@ async function openScanner() {
             // Success callback
             playSearchSound();
             vibrateDevice([200, 100, 200]);
-            document.getElementById('searchInput').value = decodedText;
-            showSuccessPopup('Code scanned: ' + decodedText);
+            
+            let pcode = decodedText;
+            let section = 'primary';
+            
+            // Detect PCode and Section from text data
+            const pcodeMatch = decodedText.match(/PCode:\s*([^\n\r]+)/i);
+            if (pcodeMatch) {
+                pcode = pcodeMatch[1].trim();
+            } else {
+                // Fallback for raw pcode scan
+                pcode = decodedText.trim();
+            }
+            
+            if (decodedText.includes('[SEC:SECONDARY]')) {
+                section = 'secondary';
+            } else if (decodedText.includes('[SEC:PRIMARY]')) {
+                section = 'primary';
+            }
+            
+            document.getElementById('searchInput').value = pcode;
+            showSuccessPopup('Code scanned: ' + pcode);
             closeScanner();
-            searchData();
+            
+            // Custom search and tab opening
+            const stored = JSON.parse(localStorage.getItem("mc_data_v1") || "{}");
+            const key = Object.keys(stored).find(k => String(k).toLowerCase() === pcode.toLowerCase());
+            
+            if (key) {
+                displayResults({ [key]: stored[key] }, pcode);
+                // Switch to correct section
+                setTimeout(() => {
+                    switchSection('card_' + key, section);
+                }, 100);
+            } else {
+                searchData();
+            }
         },
         (errorMessage) => {
             // Error callback - ignore, keep scanning
@@ -4455,6 +4714,7 @@ function downloadAPK() {
 // MASTER SEARCH, BUG REPORTS, AND QR LABELS
 // ============================================================
 const BUG_REPORT_KEY = 'bugReportRecords';
+const DAILY_ACTIVE_KEY = 'dailyActiveRecords';
 
 function _appEscape(value) {
     return String(value ?? '').replace(/[&<>"']/g, ch => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[ch]));
@@ -4516,12 +4776,37 @@ function _appBaseUrlForQr() {
 function getProductOpenUrl(pcode) {
     return _appBaseUrlForQr() + '?pcode=' + encodeURIComponent(pcode || '');
 }
-function openProductQrPopup(pcode) {
+function openProductQrPopup(pcode, section = 'primary') {
     const item = JSON.parse(localStorage.getItem('mc_data_v1') || '{}')[pcode];
     if (!item) { appAlert('Record not found!'); return; }
     const existing = document.getElementById('productQrModal');
     if (existing) existing.remove();
-    const qrText = _buildProductQrText(item);
+    
+    // Build visual text card for QR using box-drawing characters
+    const sectionTag = section === 'secondary' ? '[SEC:SECONDARY]' : '[SEC:PRIMARY]';
+    const label = section === 'secondary' ? 'SECONDARY' : 'PRIMARY';
+    const weight = section === 'secondary' ? (item.secTarget || item.target) : item.target;
+    const lsl = section === 'secondary' ? (item.secLsl || item.lsl) : item.lsl;
+    const usl = section === 'secondary' ? (item.secUsl || item.usl) : item.usl;
+
+    const qrText = [
+        '╔══════════════════════════════╗',
+        '║      PRODUCT DATA CARD       ║',
+        '╠══════════════════════════════╣',
+        '  PCode: ' + (item.pcode || pcode),
+        '  SKU  : ' + (item.sku || '-').substring(0, 22),
+        '  MRP  : Rs.' + (item.mrpNew || '-'),
+        '  UNIT : Rs.' + (item.perUnitMrp || '-'),
+        '  TYPE : ' + label + ' ' + sectionTag,
+        '╟──────────────────────────────╢',
+        '  WT   : ' + weight + ' (' + lsl + '-' + usl + ')',
+        '  BULK : ' + (item.bulkGCase || '-'),
+        '  CASE : ' + (item.caseGCase || '-'),
+        '╠══════════════════════════════╣',
+        '║     Digital Control Copy     ║',
+        '╚══════════════════════════════╝'
+    ].join('\n');
+    
     const qrUrl = 'https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=' + encodeURIComponent(qrText) + '&bgcolor=ffffff&color=17202f&margin=8';
     const modal = document.createElement('div');
     modal.id = 'productQrModal';
@@ -5426,6 +5711,248 @@ function _iftDashboardPeriodStart(period) {
     d.setDate(d.getDate() - 6);
     return d.getTime();
 }
+
+function getDailyActiveRecords() {
+    try { return JSON.parse(localStorage.getItem(DAILY_ACTIVE_KEY) || '[]'); }
+    catch(e) { return []; }
+}
+function saveDailyActiveRecords(records) {
+    localStorage.setItem(DAILY_ACTIVE_KEY, JSON.stringify(records || []));
+}
+function _daEscape(value) {
+    return String(value ?? '').replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
+}
+function _daDateInputToDisplay(value) {
+    if (!value) return '';
+    if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+        const [y, m, d] = value.split('-');
+        return d + '-' + m + '-' + y;
+    }
+    return value;
+}
+function _daDisplayToDateInput(value) {
+    if (!value) return '';
+    if (/^\d{2}-\d{2}-\d{4}$/.test(value)) {
+        const [d, m, y] = value.split('-');
+        return y + '-' + m + '-' + d;
+    }
+    return value;
+}
+function _daTodayDisplay() {
+    return new Date().toLocaleDateString('en-GB').split('/').join('-');
+}
+function _daCurrentShift() {
+    return getIftShiftByDate(new Date());
+}
+function _daIsCurrentShift(data) {
+    return data && data.date === _daTodayDisplay() && data.shift === _daCurrentShift();
+}
+function _daChecklist() {
+    return [
+        { id: 'e1_cl', label: 'E-1 - Centreline', auto: { '1st Shift': true, '2nd Shift': 'NA', '3rd Shift': 'NA' } },
+        { id: 'e1_cal', label: 'E-1 - Calibration', sub: '1st shift', auto: { '1st Shift': true, '2nd Shift': 'NA', '3rd Shift': 'NA' } },
+        { id: 'e2_cl', label: 'E-2 - Centreline', auto: { '1st Shift': true, '2nd Shift': 'NA', '3rd Shift': 'NA' } },
+        { id: 'e2_cal', label: 'E-2 - Calibration', sub: '1st shift', auto: { '1st Shift': true, '2nd Shift': 'NA', '3rd Shift': 'NA' } },
+        { id: 'e3_cl', label: 'E-3 - Centreline', auto: { '1st Shift': true, '2nd Shift': true, '3rd Shift': 'NA' } },
+        { id: 'e3_cal', label: 'E-3 - Calibration', sub: '2nd shift', auto: { '1st Shift': 'NA', '2nd Shift': true, '3rd Shift': 'NA' } },
+        { id: 's1_cal', label: 'S-1 - Calibration', sub: '3rd shift', auto: { '1st Shift': 'NA', '2nd Shift': 'NA', '3rd Shift': true } },
+        { id: 'edds', label: 'EDDS Filled', auto: { '1st Shift': true, '2nd Shift': true, '3rd Shift': true } },
+        { id: 'bos', label: 'BOS', auto: { '1st Shift': true, '2nd Shift': true, '3rd Shift': true } },
+        { id: 'game_plan', label: 'Game Plan', auto: { '1st Shift': 'NA', '2nd Shift': 'NA', '3rd Shift': 'NA' } },
+        { id: 'techo', label: 'Techo', auto: { '1st Shift': 'NA', '2nd Shift': 'NA', '3rd Shift': 'NA' } },
+        { id: 'npt', label: 'NPT', auto: { '1st Shift': false, '2nd Shift': false, '3rd Shift': false } },
+        { id: 'defect_fixing', label: 'Defect Fixing', auto: { '1st Shift': false, '2nd Shift': false, '3rd Shift': false } },
+        { id: 'production_update', label: 'Production Update', auto: { '1st Shift': false, '2nd Shift': false, '3rd Shift': false } },
+        { id: 'online_co', label: 'Online C/O', auto: { '1st Shift': true, '2nd Shift': true, '3rd Shift': true } },
+        { id: 'e3_su', label: 'E3 - SU', auto: { '1st Shift': true, '2nd Shift': true, '3rd Shift': true } },
+        { id: 'mtr_verified', label: 'MTR - Verified', auto: { '1st Shift': 'NA', '2nd Shift': 'NA', '3rd Shift': 'NA' } }
+    ];
+}
+function _daAutoItems(shift) {
+    const items = {};
+    _daChecklist().forEach(item => {
+        const val = item.auto && Object.prototype.hasOwnProperty.call(item.auto, shift) ? item.auto[shift] : false;
+        items[item.id] = val;
+    });
+    return items;
+}
+function _daNewRecord(date = _daTodayDisplay(), shift = _daCurrentShift()) {
+    return { date, shift, mode: 'auto', items: _daAutoItems(shift), comment: '' };
+}
+function _daFindRecord(date, shift) {
+    return getDailyActiveRecords().find(r => r.date === date && r.shift === shift);
+}
+function openDailyActive() {
+    if (!isAccessAllowed('daily_active')) {
+        showErrorPopup('Access Denied: Daily Activity is disabled.');
+        return;
+    }
+    const date = _daTodayDisplay();
+    const shift = _daCurrentShift();
+    const existing = _daFindRecord(date, shift);
+    renderDailyActiveModal(existing || _daNewRecord(date, shift));
+}
+function renderDailyActiveModal(data) {
+    document.getElementById('dailyActiveModal')?.remove();
+    const isAdmin = window._userRole === 'admin';
+    const isNew = !data.id;
+    const isLocked = !isAdmin && !isNew && !_daIsCurrentShift(data);
+    const mode = data.mode || 'auto';
+    const items = mode === 'auto' ? _daAutoItems(data.shift) : (data.items || {});
+    data.items = items;
+    data.mode = mode;
+
+    const rows = _daChecklist().map(item => {
+        const val = Object.prototype.hasOwnProperty.call(items, item.id) ? items[item.id] : false;
+        const checked = val === true;
+        const na = val === 'NA';
+        const disabled = isLocked;
+        return '<div class="da-item ' + (na ? 'na' : '') + '" id="da_row_' + item.id + '">' +
+            '<div class="da-item-info"><div class="da-item-title">' + _daEscape(item.label) + '</div>' +
+            (item.sub ? '<div class="da-item-sub">' + _daEscape(item.sub) + '</div>' : '') +
+            '</div><div class="da-actions">' +
+            '<label class="da-check-label"><input type="checkbox" class="da-checkbox" data-id="' + item.id + '" ' + (checked ? 'checked' : '') + ' ' + (disabled || na ? 'disabled' : '') + ' onchange="handleDaInteraction(\'' + item.id + '\')"><span>Done</span></label>' +
+            '<button class="da-na-btn ' + (na ? 'active' : '') + '" onclick="toggleDaNA(\'' + item.id + '\')" style="' + (checked ? 'display:none;' : '') + '" ' + (disabled ? 'disabled' : '') + '>NA</button>' +
+            '</div></div>';
+    }).join('');
+
+    const modal = document.createElement('div');
+    modal.id = 'dailyActiveModal';
+    modal.className = 'modal active';
+    modal.innerHTML =
+        '<div class="modal-content daily-active-modal">' +
+        '<span class="close" onclick="this.closest(\'.modal\').remove()">&times;</span>' +
+        '<div class="da-header"><div><h2>Daily Activity</h2><div style="font-size:12px;color:#667;">Date: ' + _daEscape(data.date) + ' | Shift: ' + _daEscape(data.shift) + (isLocked ? ' | Preview only' : '') + '</div></div>' +
+        '<div class="da-controls"><span class="da-shift-badge">' + _daEscape(data.shift) + '</span></div></div>' +
+        '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px;">' +
+        '<div><label style="font-size:11px;font-weight:900;color:#38506b;">MODE</label><select id="da_mode" onchange="changeDaMode()" style="width:100%;padding:8px;border:1px solid #d7dce5;border-radius:7px;" ' + (isLocked ? 'disabled' : '') + '><option value="auto" ' + (mode === 'auto' ? 'selected' : '') + '>Auto</option><option value="manual" ' + (mode === 'manual' ? 'selected' : '') + '>Manual</option></select></div>' +
+        '<div><label style="font-size:11px;font-weight:900;color:#38506b;">DATE</label><input id="da_date" type="date" value="' + _daEscape(_daDisplayToDateInput(data.date)) + '" onchange="changeDaDateShift()" style="width:100%;padding:8px;border:1px solid #d7dce5;border-radius:7px;" ' + (mode === 'auto' || isLocked ? 'disabled' : '') + '></div>' +
+        '<div><label style="font-size:11px;font-weight:900;color:#38506b;">SHIFT AUTO</label><input value="' + _daEscape(data.shift) + '" readonly style="width:100%;padding:8px;border:1px solid #d7dce5;border-radius:7px;background:#f7f9fc;"></div>' +
+        '<div><label style="font-size:11px;font-weight:900;color:#38506b;">PREVIOUS</label><button onclick="openDailyActiveHistory()" style="width:100%;padding:8px;background:#4CAF50;color:white;border:none;border-radius:7px;font-weight:900;">Preview</button></div>' +
+        '</div>' +
+        '<div class="da-list">' + rows + '</div>' +
+        '<div class="da-comment-box"><div class="da-item-title" style="margin-bottom:5px;">Comment / Note</div><textarea id="da_comment" placeholder="Write comment or note..." ' + (isLocked ? 'disabled' : '') + '>' + _daEscape(data.comment || '') + '</textarea></div>' +
+        '<div class="da-footer">' +
+        (!isLocked ? '<button onclick="saveDailyActive()" style="flex:2;background:#667eea;color:white;border:none;padding:12px;border-radius:8px;font-weight:700;cursor:pointer;">Save</button>' : '') +
+        '<button onclick="this.closest(\'.modal\').remove()" style="flex:1;background:#eee;color:#333;border:none;padding:12px;border-radius:8px;cursor:pointer;">Close</button>' +
+        '</div></div>';
+    document.body.appendChild(modal);
+    window._currentDaData = data;
+}
+function changeDaMode() {
+    const data = window._currentDaData || _daNewRecord();
+    const mode = document.getElementById('da_mode')?.value || 'auto';
+    data.mode = mode;
+    if (mode === 'auto') {
+        data.date = _daTodayDisplay();
+        data.shift = _daCurrentShift();
+        data.items = _daAutoItems(data.shift);
+    } else {
+        data.items = data.items || _daAutoItems(data.shift);
+    }
+    renderDailyActiveModal(data);
+}
+function changeDaDateShift() {
+    const data = window._currentDaData || _daNewRecord();
+    const dateVal = document.getElementById('da_date')?.value || '';
+    data.date = _daDateInputToDisplay(dateVal) || data.date;
+    const existing = _daFindRecord(data.date, data.shift);
+    renderDailyActiveModal(existing || data);
+}
+function toggleDaNA(itemId) {
+    const data = window._currentDaData;
+    if (!data) return;
+    data.items = data.items || {};
+    data.items[itemId] = data.items[itemId] === 'NA' ? false : 'NA';
+    renderDailyActiveModal(data);
+}
+function handleDaInteraction(itemId) {
+    const data = window._currentDaData;
+    if (!data) return;
+    const input = document.querySelector('.da-checkbox[data-id="' + itemId + '"]');
+    data.items = data.items || {};
+    const checked = !!(input && input.checked);
+    data.items[itemId] = checked;
+    const row = document.getElementById('da_row_' + itemId);
+    const naBtn = row?.querySelector('.da-na-btn');
+    if (checked) {
+        if (naBtn) { naBtn.classList.remove('active'); naBtn.style.display = 'none'; }
+        row?.classList.remove('na');
+    } else if (naBtn) {
+        naBtn.style.display = '';
+    }
+}
+function _daReadModalItems() {
+    const items = {};
+    document.querySelectorAll('.da-item').forEach(row => {
+        const id = row.id.replace('da_row_', '');
+        const na = row.querySelector('.da-na-btn')?.classList.contains('active');
+        const cb = row.querySelector('input[type="checkbox"]');
+        items[id] = na ? 'NA' : !!(cb && cb.checked);
+    });
+    return items;
+}
+function saveDailyActive() {
+    const data = window._currentDaData || _daNewRecord();
+    const isAdmin = window._userRole === 'admin';
+    if (!isAdmin && data.id && !_daIsCurrentShift(data)) {
+        appAlert('Old shift checklist can be changed by admin only.');
+        return;
+    }
+    data.mode = document.getElementById('da_mode')?.value || data.mode || 'auto';
+    if (data.mode === 'manual') data.date = _daDateInputToDisplay(document.getElementById('da_date')?.value || '') || data.date;
+    else {
+        data.date = _daTodayDisplay();
+        data.shift = _daCurrentShift();
+    }
+    if (!isAdmin && (data.date !== _daTodayDisplay() || data.shift !== _daCurrentShift())) {
+        appAlert('Previous shift/date Daily Activity can be added or edited by admin only.');
+        return;
+    }
+    data.items = _daReadModalItems();
+    data.comment = document.getElementById('da_comment')?.value || '';
+    if (!data.id) data.id = 'da-' + Date.now();
+    data.savedAt = new Date().toISOString();
+    data.savedBy = window._userRole || 'user';
+    const records = getDailyActiveRecords();
+    const idx = records.findIndex(r => r.id === data.id || (r.date === data.date && r.shift === data.shift));
+    if (idx >= 0 && records[idx].id !== data.id && !isAdmin) {
+        appAlert('This date and shift already exists. Open Preview to view it. Admin can edit old records.');
+        return;
+    }
+    if (idx >= 0) records[idx] = data; else records.unshift(data);
+    saveDailyActiveRecords(records);
+    syncToServer();
+    document.getElementById('dailyActiveModal')?.remove();
+    showSuccessPopup('Daily Activity saved!');
+}
+function openDailyActiveHistory() {
+    document.getElementById('dailyActiveHistoryModal')?.remove();
+    const currentDate = _daTodayDisplay();
+    const currentShift = _daCurrentShift();
+    const records = getDailyActiveRecords()
+        .filter(r => !(r.date === currentDate && r.shift === currentShift))
+        .slice()
+        .sort((a, b) => new Date(b.savedAt || 0) - new Date(a.savedAt || 0));
+    const rows = records.map(r =>
+        '<div style="padding:10px;border:1px solid #d7dce5;background:white;border-radius:8px;margin-bottom:8px;display:flex;justify-content:space-between;gap:8px;align-items:center;">' +
+        '<div><div style="font-weight:900;color:#17202f;">' + _daEscape(r.date) + ' | ' + _daEscape(r.shift) + '</div><div style="font-size:11px;color:#657386;">' + _daEscape(r.mode || 'auto') + ' | Saved: ' + (r.savedAt ? new Date(r.savedAt).toLocaleString('en-IN') : '-') + '</div></div>' +
+        '<button onclick="viewDaRecord(\'' + _daEscape(r.id) + '\')" style="padding:7px 10px;background:#17202f;color:white;border:none;border-radius:7px;font-size:12px;font-weight:900;">Preview</button></div>'
+    ).join('') || '<div style="padding:12px;background:white;border-radius:8px;color:#777;">No previous shift found.</div>';
+    const modal = document.createElement('div');
+    modal.id = 'dailyActiveHistoryModal';
+    modal.className = 'modal active';
+    modal.style.zIndex = '10001';
+    modal.innerHTML = '<div class="modal-content" style="max-width:430px;background:#f5f7fb;"><span class="close" onclick="this.closest(\'.modal\').remove()">&times;</span><h2 style="margin-bottom:12px;">Daily Activity Preview</h2><div style="max-height:62vh;overflow-y:auto;">' + rows + '</div></div>';
+    document.body.appendChild(modal);
+}
+function viewDaRecord(id) {
+    const data = getDailyActiveRecords().find(r => String(r.id) === String(id));
+    if (!data) return;
+    document.getElementById('dailyActiveHistoryModal')?.remove();
+    renderDailyActiveModal({ ...data, items: { ...(data.items || {}) } });
+}
+
 function _iftDashboardSummary(period) {
     const start = _iftDashboardPeriodStart(period);
     const records = getSecondaryIftRecords().filter(r => {
@@ -7391,6 +7918,7 @@ const ACCESS_ITEMS = [
     { key: 'print_card',    label: '🖨️ Print PDF',              desc: 'Print product PDF' },
     { key: 'product_qr_label', label: 'QR CODE Label',           desc: 'Small scan label on product/IFT cards' },
     { key: 'personal_access',label: '👤 Personal Access Control', desc: 'Allow users to set personal settings' },
+    { key: 'daily_active',   label: '📅 Daily Activity',           desc: 'Daily activity checklist and tasks' },
 ];
 
 function getAccessControl() {
@@ -8794,6 +9322,13 @@ function isJsonBinConfigured() {
 }
 
 let _serverDownAlertAt = 0;
+function fetchWithTimeout(url, options = {}, timeoutMs = 8000) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    return fetch(url, { ...options, signal: controller.signal })
+        .finally(() => clearTimeout(timer));
+}
+
 function showServerDownAlert(detail) {
     const now = Date.now();
     if (now - _serverDownAlertAt < 15000) return;
@@ -8864,6 +9399,7 @@ function applyJsonBinRecord(rec, sourceLabel) {
     if (rec.secondaryIftRecycleBin) localStorage.setItem('secondaryIftRecycleBin', JSON.stringify(rec.secondaryIftRecycleBin));
     if (rec.userFeedbackRecords) localStorage.setItem('userFeedbackRecords', JSON.stringify(rec.userFeedbackRecords));
     if (rec.bugReportRecords) localStorage.setItem('bugReportRecords', JSON.stringify(rec.bugReportRecords));
+    if (rec.dailyActiveRecords) localStorage.setItem(DAILY_ACTIVE_KEY, JSON.stringify(rec.dailyActiveRecords));
     if (rec.customGuides) localStorage.setItem('customGuides', JSON.stringify(rec.customGuides));
     if (rec.autoLogoutMinutes) localStorage.setItem('auto_logout_minutes', String(rec.autoLogoutMinutes));
     if (rec.usageAnalytics && rec.usageAnalytics.length) {
@@ -8890,7 +9426,7 @@ async function syncFromServer() {
         try {
             const headers = { 'X-Bin-Meta': 'false' };
             if (target.apiKey) headers['X-Access-Key'] = target.apiKey;
-            const res = await fetch('https://api.jsonbin.io/v3/b/' + target.binId + '/latest', { headers });
+            const res = await fetchWithTimeout('https://api.jsonbin.io/v3/b/' + target.binId + '/latest', { headers }, 8000);
             if (!res.ok) {
                 if (res.status === 401) throw new Error(target.label + ': 401 - API Key wrong!');
                 if (res.status === 404) throw new Error(target.label + ': 404 - Bin ID not found!');
@@ -8962,7 +9498,7 @@ function buildSyncPayload() {
         loc_radius: localStorage.getItem('loc_radius') || '100',
         loc_enabled: localStorage.getItem('loc_enabled') || 'false'
     };
-    return { records: data, locationSettings, viewPassword: localStorage.getItem('view_password') || '2468', adminPassword: localStorage.getItem('admin_password') || '1234', customFormulas: JSON.parse(localStorage.getItem('customFormulas') || '{}'), highlightNote: JSON.parse(localStorage.getItem('highlightNote') || '{}'), centerlineData: JSON.parse(localStorage.getItem('centerlineData') || '[]'), centerlinePrimary: JSON.parse(localStorage.getItem('centerlinePrimary') || '[]'), centerlineSecondary: JSON.parse(localStorage.getItem('centerlineSecondary') || '[]'), cl_lines: JSON.parse(localStorage.getItem('cl_lines') || '[2,3,4,5]'), cl_skus: JSON.parse(localStorage.getItem('cl_skus') || '[]'), cl_variants: JSON.parse(localStorage.getItem('cl_variants') || '[]'), loginHistory: JSON.parse(localStorage.getItem('loginHistory') || '[]'), accessControl: JSON.parse(localStorage.getItem('accessControl') || '{}'), customGuides: JSON.parse(localStorage.getItem('customGuides') || '{}'), recycleBin: JSON.parse(localStorage.getItem('mc_deleted_records_v1') || '{}'), palletPatterns: JSON.parse(localStorage.getItem('palletPatterns') || '{}'), secondaryIftRecords: JSON.parse(localStorage.getItem('secondaryIftRecords') || '[]'), secondaryIftRecycleBin: JSON.parse(localStorage.getItem('secondaryIftRecycleBin') || '[]'), userFeedbackRecords: JSON.parse(localStorage.getItem('userFeedbackRecords') || '[]'), bugReportRecords: JSON.parse(localStorage.getItem('bugReportRecords') || '[]'), autoLogoutMinutes: getAutoLockMinutes(), usageAnalytics: getUsageAnalytics() };
+    return { records: data, locationSettings, viewPassword: localStorage.getItem('view_password') || '2468', adminPassword: localStorage.getItem('admin_password') || '1234', customFormulas: JSON.parse(localStorage.getItem('customFormulas') || '{}'), highlightNote: JSON.parse(localStorage.getItem('highlightNote') || '{}'), centerlineData: JSON.parse(localStorage.getItem('centerlineData') || '[]'), centerlinePrimary: JSON.parse(localStorage.getItem('centerlinePrimary') || '[]'), centerlineSecondary: JSON.parse(localStorage.getItem('centerlineSecondary') || '[]'), cl_lines: JSON.parse(localStorage.getItem('cl_lines') || '[2,3,4,5]'), cl_skus: JSON.parse(localStorage.getItem('cl_skus') || '[]'), cl_variants: JSON.parse(localStorage.getItem('cl_variants') || '[]'), loginHistory: JSON.parse(localStorage.getItem('loginHistory') || '[]'), accessControl: JSON.parse(localStorage.getItem('accessControl') || '{}'), customGuides: JSON.parse(localStorage.getItem('customGuides') || '{}'), recycleBin: JSON.parse(localStorage.getItem('mc_deleted_records_v1') || '{}'), palletPatterns: JSON.parse(localStorage.getItem('palletPatterns') || '{}'), secondaryIftRecords: JSON.parse(localStorage.getItem('secondaryIftRecords') || '[]'), secondaryIftRecycleBin: JSON.parse(localStorage.getItem('secondaryIftRecycleBin') || '[]'), dailyActiveRecords: getDailyActiveRecords(), userFeedbackRecords: JSON.parse(localStorage.getItem('userFeedbackRecords') || '[]'), bugReportRecords: JSON.parse(localStorage.getItem('bugReportRecords') || '[]'), autoLogoutMinutes: getAutoLockMinutes(), usageAnalytics: getUsageAnalytics() };
 }
 
 // Save data to server — tries Primary API, then Second API
@@ -9103,39 +9639,4 @@ function unlockApp(role) {
     }
 }
 </script>
-</body>
-</html>
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+</body></html>

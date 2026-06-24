@@ -1747,18 +1747,13 @@ body { -webkit-user-select: none; -moz-user-select: none; user-select: none; }
         <div class="filter-panel" id="filterPanel" style="display: none;">
             <h3>Advanced Filters</h3>
             <div class="filter-row">
-                <label>Price Range:</label>
-                <input type="number" id="minPrice" placeholder="Min Price">
-                <input type="number" id="maxPrice" placeholder="Max Price">
-            </div>
-            <div class="filter-row">
                 <label>Sort By:</label>
                 <select id="sortBy">
                     <option value="">None</option>
                     <option value="pcode-asc">PCode (A-Z)</option>
                     <option value="pcode-desc">PCode (Z-A)</option>
-                    <option value="price-asc">Price (Low-High)</option>
-                    <option value="price-desc">Price (High-Low)</option>
+                    <option value="date-new">Date (New to Old)</option>
+                    <option value="date-old">Date (Old to New)</option>
                 </select>
             </div>
             <div class="filter-buttons">
@@ -4374,24 +4369,16 @@ function applyFilters() {
         );
     }
     
-    // Price filter
-    const minPrice = parseFloat(document.getElementById('minPrice').value) || 0;
-    const maxPrice = parseFloat(document.getElementById('maxPrice').value) || Infinity;
-    data = data.filter(item => {
-        const price = parseFloat(item.mrpNew) || 0;
-        return price >= minPrice && price <= maxPrice;
-    });
-    
     // Sort
     const sortBy = document.getElementById('sortBy').value;
     if (sortBy === 'pcode-asc') {
         data.sort((a, b) => a.pcode.localeCompare(b.pcode));
     } else if (sortBy === 'pcode-desc') {
         data.sort((a, b) => b.pcode.localeCompare(a.pcode));
-    } else if (sortBy === 'price-asc') {
-        data.sort((a, b) => (parseFloat(a.mrpNew) || 0) - (parseFloat(b.mrpNew) || 0));
-    } else if (sortBy === 'price-desc') {
-        data.sort((a, b) => (parseFloat(b.mrpNew) || 0) - (parseFloat(a.mrpNew) || 0));
+    } else if (sortBy === 'date-new') {
+        data.sort((a, b) => new Date(b.addedOn || 0) - new Date(a.addedOn || 0));
+    } else if (sortBy === 'date-old') {
+        data.sort((a, b) => new Date(a.addedOn || 0) - new Date(b.addedOn || 0));
     }
     
     // Convert back to object
@@ -4423,8 +4410,9 @@ let isScanning = false;
 let currentZoom = 1.0;
 let videoStream = null;
 
-async function openScanner() {
+async function openScanner(mode = 'main') {
     const modal = document.getElementById('scannerModal');
+    if (modal) modal.style.zIndex = '13000';
     modal.classList.add('active');
     currentZoom = 1.0;
     updateZoomDisplay();
@@ -4454,6 +4442,12 @@ async function openScanner() {
             // Success callback
             playSearchSound();
             vibrateDevice([200, 100, 200]);
+
+            if (mode === 'secondaryIft') {
+                closeScanner();
+                fillSecondaryIftFromBarcode(decodedText);
+                return;
+            }
             
             let pcode = decodedText;
             let section = 'primary';
@@ -4508,8 +4502,12 @@ async function openScanner() {
         closeScanner();
         const manualCode = await appPrompt('Camera not available. Please enter code manually:');
         if (manualCode) {
-            document.getElementById('searchInput').value = manualCode;
-            searchData();
+            if (mode === 'secondaryIft') {
+                fillSecondaryIftFromBarcode(manualCode);
+            } else {
+                document.getElementById('searchInput').value = manualCode;
+                searchData();
+            }
         }
     });
 }
@@ -5451,6 +5449,121 @@ function _secondaryIftCode() {
     const hdl = _secondaryIftHdl();
     return julian + 'B095' + (SECONDARY_IFT_HDL_SUFFIX[hdl] || '1') + '#';
 }
+
+function _iftNormalizeCode(value) {
+    return String(value || '').trim().toLowerCase().replace(/\s+/g, '').replace(/[^a-z0-9#-]/g, '');
+}
+function _iftExtractScanCandidates(raw) {
+    const text = String(raw || '').trim();
+    const candidates = new Set([text]);
+    const patterns = [
+        /PCode:\s*([^\n\r]+)/i,
+        /P\s*Code:\s*([^\n\r]+)/i,
+        /GCase:\s*([^\n\r]+)/i,
+        /G\s*Case:\s*([^\n\r]+)/i,
+        /Case\s*G\/Case:\s*([^\n\r]+)/i,
+        /Pouch\s*G\/Case:\s*([^\n\r]+)/i
+    ];
+    patterns.forEach(re => {
+        const m = text.match(re);
+        if (m && m[1]) candidates.add(m[1].trim());
+    });
+    text.split(/[\n\r|,;]+/).forEach(part => {
+        const v = part.replace(/^\s*(PCode|P Code|GCase|G Case|Case G\/Case|Pouch G\/Case)\s*:\s*/i, '').trim();
+        if (v) candidates.add(v);
+    });
+    return Array.from(candidates).filter(Boolean);
+}
+function _iftFindMasterByBarcode(raw) {
+    const records = JSON.parse(localStorage.getItem('mc_data_v1') || '{}');
+    const candidates = _iftExtractScanCandidates(raw);
+    const normalized = candidates.map(_iftNormalizeCode).filter(Boolean);
+    const fields = ['pcode', 'bulkGCase', 'pouchGCase', 'caseGCase', 'secPouchGCase', 'secCaseGCase'];
+    for (const [key, item] of Object.entries(records)) {
+        for (const field of fields) {
+            const value = item && item[field];
+            if (!value) continue;
+            const n = _iftNormalizeCode(value);
+            if (normalized.includes(n)) return { key, item, field, value };
+        }
+    }
+    for (const [key, item] of Object.entries(records)) {
+        const hay = fields.map(f => item && item[f]).filter(Boolean).map(_iftNormalizeCode);
+        if (normalized.some(n => n && hay.some(h => h.includes(n) || n.includes(h)))) {
+            return { key, item, field: 'partial', value: raw };
+        }
+    }
+    return null;
+}
+function _iftSelectOption(selectId, value, customInputId) {
+    const select = document.getElementById(selectId);
+    if (!select) return;
+    const raw = String(value || '').trim();
+    const rawNorm = raw.toLowerCase().replace(/\s+/g, '');
+    const option = Array.from(select.options).find(o => String(o.value || o.text).toLowerCase().replace(/\s+/g, '') === rawNorm);
+    if (option) {
+        select.value = option.value || option.text;
+    } else if (raw) {
+        select.value = 'CUSTOM';
+        const custom = document.getElementById(customInputId);
+        if (custom) custom.value = raw.toUpperCase();
+    }
+}
+function _iftInferVariant(item) {
+    const text = [item.variant, item.product, item.name, item.sku, item.pcode, item.note].filter(Boolean).join(' ').toUpperCase();
+    if (text.includes('ARIEL') && text.includes('TL')) return 'ARIEL TL';
+    if (text.includes('ARIEL') && text.includes('FL')) return 'ARIEL FL';
+    if (text.includes('TIDE')) return 'TIDE ALL';
+    return item.variant || '';
+}
+function _iftSetAutoField(textId, inputId, value) {
+    const text = document.getElementById(textId);
+    const input = document.getElementById(inputId);
+    if (input) input.value = value || '';
+    if (text) text.textContent = value || '-';
+}
+function openSecondaryIftGcaseScanner() {
+    openScanner('secondaryIft');
+}
+function fillSecondaryIftFromBarcode(raw) {
+    const match = _iftFindMasterByBarcode(raw);
+    if (!match) {
+        showIftRightAlert('Barcode not found in Master Data');
+        return;
+    }
+    const item = match.item || {};
+    const sku = item.sku || '';
+    const variant = _iftInferVariant(item);
+    _iftSelectOption('secondaryIftSku', sku, 'secondaryIftCustomSku');
+    _iftSelectOption('secondaryIftVariant', variant, 'secondaryIftCustomVariant');
+    const custom = _secondaryIftValue('secondaryIftSku') === 'CUSTOM' || _secondaryIftValue('secondaryIftVariant') === 'CUSTOM';
+    const customRow = document.getElementById('secondaryIftCustomRow');
+    if (customRow) customRow.style.display = custom ? 'grid' : 'none';
+    [
+        ['secondaryIftPcodeText', 'secondaryIftPcode'],
+        ['secondaryIftGcaseText', 'secondaryIftGcase'],
+        ['secondaryIftLclAutoText', 'secondaryIftLclAuto'],
+        ['secondaryIftUslAutoText', 'secondaryIftUslAuto']
+    ].forEach(([textId, inputId]) => {
+        const text = document.getElementById(textId);
+        const input = document.getElementById(inputId);
+        if (text) text.style.display = custom ? 'none' : 'block';
+        if (input) input.style.display = custom ? 'block' : 'none';
+    });
+    const gcase = item.secCaseGCase || item.caseGCase || item.bulkGCase || item.pouchGCase || match.value || '';
+    const lsl = item.secLsl || item.lsl || '';
+    const usl = item.secUsl || item.usl || '';
+    _iftSetAutoField('secondaryIftPcodeText', 'secondaryIftPcode', item.pcode || match.key || '');
+    _iftSetAutoField('secondaryIftGcaseText', 'secondaryIftGcase', gcase);
+    _iftSetAutoField('secondaryIftLclAutoText', 'secondaryIftLclAuto', lsl);
+    _iftSetAutoField('secondaryIftUslAutoText', 'secondaryIftUslAuto', usl);
+    if (!document.getElementById('secondaryIftLclCurrent')?.value && (item.secTarget || item.target)) {
+        document.getElementById('secondaryIftLclCurrent').value = item.secTarget || item.target || '';
+    }
+    updateSecondaryIftClock();
+    showIftRightAlert('IFT data filled from barcode');
+}
+
 function _secondaryIftFindCard(sku, variant) {
     const records = JSON.parse(localStorage.getItem('mc_data_v1') || '{}');
     const skuNeedle = String(sku || '').toLowerCase().replace(/\s+/g, '');
@@ -5771,8 +5884,7 @@ function _daChecklist() {
 function _daAutoItems(shift) {
     const items = {};
     _daChecklist().forEach(item => {
-        const val = item.auto && Object.prototype.hasOwnProperty.call(item.auto, shift) ? item.auto[shift] : false;
-        items[item.id] = val;
+        items[item.id] = false;
     });
     return items;
 }
@@ -5798,7 +5910,7 @@ function renderDailyActiveModal(data) {
     const isNew = !data.id;
     const isLocked = !isAdmin && !isNew && !_daIsCurrentShift(data);
     const mode = data.mode || 'auto';
-    const items = mode === 'auto' ? _daAutoItems(data.shift) : (data.items || {});
+    const items = data.items || _daAutoItems(data.shift);
     data.items = items;
     data.mode = mode;
 
@@ -5846,10 +5958,8 @@ function changeDaMode() {
     if (mode === 'auto') {
         data.date = _daTodayDisplay();
         data.shift = _daCurrentShift();
-        data.items = _daAutoItems(data.shift);
-    } else {
-        data.items = data.items || _daAutoItems(data.shift);
     }
+    data.items = data.items || _daAutoItems(data.shift);
     renderDailyActiveModal(data);
 }
 function changeDaDateShift() {
@@ -6158,7 +6268,7 @@ function openSecondaryIft() {
                         <label style="font-size:10px;font-weight:900;color:#38506b;margin-top:4px;display:block;">SHIFT AUTO</label><div id="secondaryIftShiftText" style="padding:6px 7px;border:1px solid #d7dce5;border-radius:6px;background:#f8fafc;color:#17202f;font-size:12px;font-weight:900;">-</div><input id="secondaryIftShift" type="hidden">
                         <input id="secondaryIftJulian" type="hidden"><div id="secondaryIftJulianCode" style="margin-top:6px;padding:8px;border-radius:7px;background:#17202f;color:white;font-size:16px;font-weight:900;text-align:center;">----</div>
                         <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:6px;">
-                            <div><label style="font-size:10px;font-weight:900;color:#38506b;">GCASE AUTO</label><div id="secondaryIftGcaseText" style="padding:6px 7px;border:1px solid #d7dce5;border-radius:6px;background:#f8fafc;color:#526173;font-size:11px;font-weight:900;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">-</div><input id="secondaryIftGcase" placeholder="GCase" style="display:none;width:100%;padding:7px;border:1px solid #d7dce5;border-radius:6px;"></div>
+                            <div><label style="font-size:10px;font-weight:900;color:#38506b;display:flex;align-items:center;justify-content:space-between;gap:5px;">GCASE AUTO <button onclick="openSecondaryIftGcaseScanner()" title="Scan barcode" style="border:none;background:#17202f;color:white;border-radius:5px;width:25px;height:22px;font-size:12px;cursor:pointer;line-height:1;">📷</button></label><div id="secondaryIftGcaseText" style="padding:6px 7px;border:1px solid #d7dce5;border-radius:6px;background:#f8fafc;color:#526173;font-size:11px;font-weight:900;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">-</div><input id="secondaryIftGcase" placeholder="GCase" style="display:none;width:100%;padding:7px;border:1px solid #d7dce5;border-radius:6px;"></div>
                             <div><label style="font-size:10px;font-weight:900;color:#38506b;">PCODE AUTO</label><div id="secondaryIftPcodeText" style="padding:6px 7px;border:1px solid #d7dce5;border-radius:6px;background:#f8fafc;color:#526173;font-size:11px;font-weight:900;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">-</div><input id="secondaryIftPcode" placeholder="PCode" style="display:none;width:100%;padding:7px;border:1px solid #d7dce5;border-radius:6px;"></div>
                         </div>
                         <label style="font-size:10px;font-weight:900;color:#38506b;margin-top:4px;display:block;">TEST DONE BY</label><input id="secondaryIftTestName" placeholder="Name" style="width:100%;padding:7px;border:1px solid #d7dce5;border-radius:6px;">
@@ -8720,37 +8830,62 @@ async function clearLoginHistory() {
 // ============================================================
 // CALCULATOR FORMULA MANAGER
 // ============================================================
+const DEFAULT_FORMULAS = {
+    'S1 70g': { pouchToShipper:2,  shipperToPallet:48, pouchToPallet:96,  speed:3,  unit:'met',   targetWeight:0.07 },
+    '300g':   { pouchToShipper:24, shipperToPallet:42, pouchToPallet:1008,speed:40, unit:'Pouch', targetWeight:0.3  },
+    '500g':   { pouchToShipper:24, shipperToPallet:36, pouchToPallet:864, speed:40, unit:'Pouch', targetWeight:0.5  },
+    '850g':   { pouchToShipper:12, shipperToPallet:50, pouchToPallet:600, speed:40, unit:'Pouch', targetWeight:0.85 },
+    '900g':   { pouchToShipper:12, shipperToPallet:50, pouchToPallet:600, speed:40, unit:'Pouch', targetWeight:0.9  },
+    '1kg':    { pouchToShipper:12, shipperToPallet:50, pouchToPallet:600, speed:40, unit:'Pouch', targetWeight:1.0  },
+    '2kg':    { pouchToShipper:6,  shipperToPallet:40, pouchToPallet:240, speed:30, unit:'Pouch', targetWeight:2.1  },
+    '3kg':    { pouchToShipper:4,  shipperToPallet:40, pouchToPallet:160, speed:25, unit:'Pouch', targetWeight:3.0  },
+    '3.2kg':  { pouchToShipper:4,  shipperToPallet:40, pouchToPallet:160, speed:25, unit:'Pouch', targetWeight:3.2  },
+    '4kg':    { pouchToShipper:4,  shipperToPallet:32, pouchToPallet:128, speed:21, unit:'Pouch', targetWeight:4.1  },
+    '5kg':    { pouchToShipper:2,  shipperToPallet:60, pouchToPallet:120, speed:10, unit:'Pouch', targetWeight:5.0  },
+    '6kg':    { pouchToShipper:2,  shipperToPallet:45, pouchToPallet:90,  speed:8,  unit:'Pouch', targetWeight:6.0  },
+};
+
 function openCalcFormulaManager() {
     if (!requireAdminAction('Calculator formulas')) return;
-    const saved = JSON.parse(localStorage.getItem('customFormulas') || '{}');
     const modal = document.createElement('div');
     modal.id = 'calcFormulaModal';
     modal.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.6);display:flex;justify-content:center;align-items:flex-start;padding:20px;box-sizing:border-box;overflow-y:auto;z-index:9999;';
 
-    const listHtml = () => {
-        const f = JSON.parse(localStorage.getItem('customFormulas') || '{}');
-        if (!Object.keys(f).length) return '<p style="color:#888;font-size:13px;text-align:center;padding:10px;">No custom formulas yet</p>';
-        return Object.keys(f).map(k => `
-            <div style="background:#f5f5f5;border-radius:8px;padding:10px 12px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;">
-                <div>
-                    <div style="font-weight:700;font-size:14px;">${k}</div>
-                    <div style="font-size:11px;color:#666;">${f[k].pouchToShipper} Pouch/Shipper • ${f[k].shipperToPallet} Shipper/Pallet • Speed: ${f[k].speed} • Target: ${f[k].targetWeight || '-'} kg</div>
+    const buildList = () => {
+        const custom = JSON.parse(localStorage.getItem('customFormulas') || '{}');
+        const allF = Object.assign({}, DEFAULT_FORMULAS, custom);
+        return Object.keys(allF).map(k => {
+            const f = allF[k];
+            const isCustom = !!custom[k];
+            return `
+            <div style="background:${isCustom?'#e8f5e9':'#f5f5f5'};border-radius:8px;padding:10px 12px;margin-bottom:8px;">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+                    <div style="font-weight:700;font-size:14px;">${k} <span style="font-size:10px;color:${isCustom?'#4CAF50':'#999'};font-weight:600;">${isCustom?'custom':'default'}</span></div>
+                    <div style="display:flex;gap:6px;">
+                        <button onclick="editCalcFormula('${k}')" style="background:#2196F3;color:white;border:none;padding:4px 10px;border-radius:5px;cursor:pointer;font-size:12px;">✏️ Edit</button>
+                        ${isCustom ? `<button onclick="deleteCalcFormula('${k}')" style="background:#f44336;color:white;border:none;padding:4px 10px;border-radius:5px;cursor:pointer;font-size:12px;">✕</button>` : ''}
+                    </div>
                 </div>
-                <button onclick="deleteCalcFormula('${k}')" style="background:#f44336;color:white;border:none;padding:4px 10px;border-radius:5px;cursor:pointer;font-size:12px;">✕</button>
-            </div>`).join('');
+                <div style="font-size:11px;color:#666;">${f.pouchToShipper} ${f.unit||'Pouch'}/Shipper • ${f.shipperToPallet} Shipper/Pallet • Speed: ${f.speed} • Target: ${f.targetWeight||'-'} kg</div>
+            </div>`;
+        }).join('');
     };
 
     modal.innerHTML = `
-        <div style="background:white;padding:20px;border-radius:15px;width:100%;max-width:480px;margin:auto;box-sizing:border-box;">
+        <div style="background:white;padding:20px;border-radius:15px;width:100%;max-width:500px;margin:auto;box-sizing:border-box;">
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
                 <h3 style="color:#667eea;font-size:17px;margin:0;">⚗️ Calculator Formulas</h3>
                 <span onclick="document.getElementById('calcFormulaModal').remove()" style="font-size:26px;cursor:pointer;color:#999;line-height:1;">×</span>
             </div>
 
-            <div id="cfList">${listHtml()}</div>
+            <div style="background:#e3f2fd;border-radius:8px;padding:8px 12px;margin-bottom:12px;font-size:12px;color:#1565c0;">
+                🟢 Green = Custom &nbsp;|&nbsp; Grey = Default &nbsp;|&nbsp; Click ✏️ Edit to modify any formula
+            </div>
 
-            <div style="border-top:2px solid #eee;margin-top:14px;padding-top:14px;">
-                <h4 style="color:#333;font-size:14px;margin-bottom:12px;">➕ Add New Formula</h4>
+            <div id="cfList" style="max-height:300px;overflow-y:auto;margin-bottom:14px;">${buildList()}</div>
+
+            <div style="border-top:2px solid #eee;padding-top:14px;">
+                <h4 style="color:#333;font-size:14px;margin-bottom:12px;" id="cfFormTitle">➕ Add New Formula</h4>
                 <input id="cfName" placeholder="Weight Name (e.g. 2kg)" style="width:100%;padding:9px;border:2px solid #ddd;border-radius:7px;font-size:14px;margin-bottom:8px;box-sizing:border-box;">
                 <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;">
                     <input id="cfPS" type="number" placeholder="Pouch/Shipper" style="padding:9px;border:2px solid #ddd;border-radius:7px;font-size:14px;box-sizing:border-box;">
@@ -8774,6 +8909,32 @@ function openCalcFormulaManager() {
         </div>`;
     document.body.appendChild(modal);
     modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
+}
+
+function editCalcFormula(name) {
+    const custom = JSON.parse(localStorage.getItem('customFormulas') || '{}');
+    const f = custom[name] || DEFAULT_FORMULAS[name];
+    if (!f) return;
+    // Fill form
+    document.getElementById('cfName').value = name;
+    document.getElementById('cfPS').value = f.pouchToShipper;
+    document.getElementById('cfSP').value = f.shipperToPallet;
+    document.getElementById('cfSpd').value = f.speed;
+    document.getElementById('cfTW').value = f.targetWeight || '';
+    const unitSel = document.getElementById('cfUnitSelect');
+    const unitCustom = document.getElementById('cfUnitCustom');
+    if (f.unit === 'Pouch' || f.unit === 'met') {
+        unitSel.value = f.unit;
+        unitCustom.style.display = 'none';
+    } else {
+        unitSel.value = 'custom';
+        unitCustom.value = f.unit || '';
+        unitCustom.style.display = 'block';
+    }
+    document.getElementById('cfFormTitle').textContent = '✏️ Edit: ' + name;
+    document.getElementById('cfName').focus();
+    // Scroll to form
+    document.getElementById('cfFormTitle').scrollIntoView({ behavior: 'smooth' });
 }
 
 function updateCfUnit() {

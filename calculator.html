@@ -2390,13 +2390,17 @@ w2QjzsKE==" type="audio/wav">
 
         function getReportText() {
             if (!requireWeightSelected()) return '';
+            const palletVal = document.getElementById('palletResult')?.textContent || '0';
+            const extraShipperEl = document.getElementById('extraShipper');
+            const extraShipperText = extraShipperEl ? extraShipperEl.textContent.trim() : '';
+            const palletLine = '🚛 TOTAL PALLETS  = ' + palletVal + (extraShipperText && extraShipperText !== '+ 0 Shipper' ? '  ' + extraShipperText : '');
             return [
-                '⚖️ Weight        = ' + (getCurrentWeightName() || '—'),
-                'time      = ' + getCleanTimeText(),
-                '📦 Total ' + pluralUnit(getCurrentUnit()).padEnd(8, ' ') + '= ' + (document.getElementById('pouchResult')?.textContent || '0'),
-                '📦 Total Shippers = ' + (document.getElementById('shipperResult')?.textContent || '0'),
-                '⚗️ Bulk KG        = ' + (document.getElementById('bulkKgResult')?.textContent || '0'),
-                '🚛 Total Pallets  = ' + (document.getElementById('palletResult')?.textContent || '0')
+                '⚖️ WEIGHT         = ' + (getCurrentWeightName() || '—'),
+                '⏱️ TOTAL TIME     = ' + getCleanTimeText(),
+                '📦 TOTAL ' + pluralUnit(getCurrentUnit()).toUpperCase().padEnd(8, ' ') + '= ' + (document.getElementById('pouchResult')?.textContent || '0'),
+                '📦 TOTAL SHIPPERS = ' + (document.getElementById('shipperResult')?.textContent || '0'),
+                '⚗️ BULK KG        = ' + (document.getElementById('bulkKgResult')?.textContent || '0'),
+                palletLine
             ].join('\n');
         }
 

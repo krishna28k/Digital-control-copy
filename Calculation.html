@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Production Calculator</title>
+    <title>Production Calculation</title>
     <style>
         * {
             margin: 0;
@@ -921,7 +921,7 @@
             font-weight: 600;
         }
 
-        /* Target Calculator Section */
+        /* Target Calculation Section */
         .target-section {
             margin-top: 12px;
             background: rgba(0, 50, 100, 0.3);
@@ -1197,7 +1197,7 @@
         <div class="loading-scan"></div>
         <div class="loading-content">
             <div class="loading-spinner"></div>
-            <div class="loading-title">Production Calculator</div>
+            <div class="loading-title">Production Calculation</div>
             <div class="loading-dots">
                 <div class="loading-dot"></div>
                 <div class="loading-dot"></div>
@@ -1279,7 +1279,7 @@
     <div class="container">
         <header>
             <button onclick="openLocalFormulaPanel()" title="Local Formula" style="background:rgba(255,255,255,0.2);border:1.5px solid rgba(255,255,255,0.4);cursor:pointer;color:white;font-size:18px;width:34px;height:34px;border-radius:8px;display:flex;align-items:center;justify-content:center;-webkit-tap-highlight-color:transparent;flex-shrink:0;">📐</button>
-            <h1 style="flex:0 1 auto;margin-left:8px;">&#127981; Production Calculator</h1>
+            <h1 style="flex:0 1 auto;margin-left:8px;">&#127981; Production Calculation</h1>
             <button class="calc-dcc-btn" onclick="window.location.href='index.html'" title="Back to Digital Control Copy" style="margin-left:10px;margin-right:auto;">⇄</button>
             <div class="header-right">
                 <div class="dark-mode-toggle" onclick="refreshAll()" title="Refresh All">
@@ -1317,9 +1317,9 @@
             </div>
         </div>
 
-        <!-- Target Calculator -->
+        <!-- Target Calculation -->
         <div class="target-section">
-            <h3 style="color: #00ffff; text-align: center; margin-bottom: 7px; font-size: 14px;">🎯 Target Calculator</h3>
+            <h3 style="color: #00ffff; text-align: center; margin-bottom: 7px; font-size: 14px;">🎯 Target Calculation</h3>
             <div class="target-row">
                 <div class="target-input-box">
                     <label>Target Shipper</label>
@@ -2231,7 +2231,7 @@ w2QjzsKE==" type="audio/wav">
             calculateTarget();
         }
 
-        // Bulk Auto Calculator
+        // Bulk Auto Calculation
         function calcBulkFromPouch() {
             if (!requireWeightSelected()) return;
             const formula = getCurrentFormula();
@@ -2267,7 +2267,7 @@ w2QjzsKE==" type="audio/wav">
 
         function calcBulk() { calcBulkFromBulk(); }
 
-        // Target Calculator Function
+        // Target Calculation Function
         function calculateTarget() {
             if (!requireWeightSelected()) return;
             const targetInput = document.getElementById('targetShipper');
@@ -2442,7 +2442,7 @@ w2QjzsKE==" type="audio/wav">
             }).join('');
             const win = window.open('', '_blank');
             if (!win) { showCornerAlert('Allow popup to download PDF', 'weight-alert', 2200); return; }
-            win.document.write('<!doctype html><html><head><title>Production Calculator Report</title><style>body{font-family:Arial,sans-serif;padding:24px;color:#111}h1{font-size:20px;margin:0 0 6px}p{margin:0 0 16px;color:#555}table{border-collapse:collapse;width:100%;max-width:520px}td{border:1px solid #ddd;padding:10px 12px;font-size:15px}td:first-child{font-weight:700;background:#f4f7fb;width:55%}td:last-child{font-weight:900;text-align:right}.note{margin-top:18px;font-size:12px;color:#777}@media print{button{display:none}}</style></head><body><h1>Production Calculator</h1><p><strong>Production Report</strong><br>Weight: '+weight+'<br>Created: '+created+'</p><table>'+rows+'</table><div class="note">Report generated from Production Calculator.</div><script>window.onload=function(){window.print();};<\/script></body></html>');
+            win.document.write('<!doctype html><html><head><title>Production Calculation Report</title><style>body{font-family:Arial,sans-serif;padding:24px;color:#111}h1{font-size:20px;margin:0 0 6px}p{margin:0 0 16px;color:#555}table{border-collapse:collapse;width:100%;max-width:520px}td{border:1px solid #ddd;padding:10px 12px;font-size:15px}td:first-child{font-weight:700;background:#f4f7fb;width:55%}td:last-child{font-weight:900;text-align:right}.note{margin-top:18px;font-size:12px;color:#777}@media print{button{display:none}}</style></head><body><h1>Production Calculation</h1><p><strong>Production Report</strong><br>Weight: '+weight+'<br>Created: '+created+'</p><table>'+rows+'</table><div class="note">Report generated from Production Calculation.</div><script>window.onload=function(){window.print();};<\/script></body></html>');
             win.document.close();
         }
 
@@ -2459,12 +2459,12 @@ w2QjzsKE==" type="audio/wav">
                 if (icon) icon.textContent = '☀️';
                 if (themeLabel) themeLabel.textContent = 'Dark Mode';
                 if (themeSwitch) themeSwitch.classList.add('active');
-                localStorage.setItem('calculatorDarkMode', 'enabled');
+                localStorage.setItem('CalculationDarkMode', 'enabled');
             } else {
                 if (icon) icon.textContent = '🌙';
                 if (themeLabel) themeLabel.textContent = 'Light Mode';
                 if (themeSwitch) themeSwitch.classList.remove('active');
-                localStorage.setItem('calculatorDarkMode', 'disabled');
+                localStorage.setItem('CalculationDarkMode', 'disabled');
             }
         }
 
@@ -2596,7 +2596,7 @@ w2QjzsKE==" type="audio/wav">
             overlay.style.display = isOpen ? 'none' : 'block';
         }
 
-        // Open Calculator Formula Settings
+        // Open Calculation Formula Settings
         function openCalcSettings() {
             const existing = document.getElementById('calcSettingsModal');
             if (existing) existing.remove();
@@ -2780,7 +2780,7 @@ w2QjzsKE==" type="audio/wav">
             }
 
             // Dark mode
-            const darkMode = localStorage.getItem('calculatorDarkMode');
+            const darkMode = localStorage.getItem('CalculationDarkMode');
             const body = document.body;
             const icon = document.getElementById('darkModeIcon');
             if (darkMode === 'enabled' || darkMode === null) {

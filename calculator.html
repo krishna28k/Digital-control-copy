@@ -1428,7 +1428,7 @@
             <span id="bulkTimeResult" style="display:none;">⏱️ Time: —</span>
             <div class="result-actions">
                 <button class="result-action-btn" onclick="copyReportText()" title="Copy report">📤 Copy</button>
-                <button class="result-action-btn" onclick="downloadReportPdf()" title="Download PDF report">📄 PDF</button>
+                <button class="result-action-btn" onclick="openPdfModal()" title="Download PDF report">📄 PDF</button>
             </div>
         </div>
 
@@ -1441,6 +1441,84 @@
             <p id="formula4">⚡ Speed: 40 Pouch/min</p>
         </div>
         </div><!-- end calcInputSection -->
+    <!-- PDF Options Modal -->
+    <div id="pdfModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:9999;align-items:center;justify-content:center;">
+        <div style="background:#fff;border-radius:16px;padding:22px 20px 18px;width:92%;max-width:370px;box-shadow:0 8px 32px rgba(0,0,0,0.22);max-height:90vh;overflow-y:auto;">
+            <h3 style="margin:0 0 14px;font-size:16px;color:#1a237e;">📄 PDF mein kya print karna hai?</h3>
+
+            <!-- Title -->
+            <label style="display:flex;align-items:center;gap:8px;margin-bottom:8px;font-weight:600;font-size:14px;">
+                <input type="checkbox" id="pdf_title" checked onchange="togglePdfInput('titleInput',this.checked)" style="width:17px;height:17px;">
+                Title
+            </label>
+            <input id="titleInput" type="text" placeholder="Title likhein..." value="Production Calculation Report"
+                style="width:100%;padding:8px 10px;border:1.5px solid #90caf9;border-radius:8px;font-size:13px;margin-bottom:12px;box-sizing:border-box;">
+
+            <!-- Created Time -->
+            <label style="display:flex;align-items:center;gap:8px;margin-bottom:12px;font-weight:600;font-size:14px;">
+                <input type="checkbox" id="pdf_time" checked style="width:17px;height:17px;">
+                Created Time
+            </label>
+
+            <!-- PO Number -->
+            <label style="display:flex;align-items:center;gap:8px;margin-bottom:8px;font-weight:600;font-size:14px;">
+                <input type="checkbox" id="pdf_po" onchange="togglePdfInput('poInput',this.checked)" style="width:17px;height:17px;">
+                PO Number
+            </label>
+            <input id="poInput" type="text" placeholder="PO Number likhein..." disabled
+                style="width:100%;padding:8px 10px;border:1.5px solid #b0bec5;border-radius:8px;font-size:13px;margin-bottom:12px;box-sizing:border-box;background:#f5f5f5;color:#aaa;">
+
+            <hr style="border:none;border-top:1px solid #e0e0e0;margin:4px 0 12px;">
+            <div style="font-size:11px;color:#888;margin-bottom:8px;font-weight:700;letter-spacing:0.5px;">MATERIAL INFO</div>
+
+            <!-- Weight -->
+            <label style="display:flex;align-items:center;gap:8px;margin-bottom:12px;font-size:14px;">
+                <input type="checkbox" id="pdf_weight" checked style="width:17px;height:17px;">
+                ⚖️ Weight
+            </label>
+
+            <!-- P-Code + Batch ek line mein -->
+            <label style="display:flex;align-items:center;gap:8px;margin-bottom:8px;font-weight:600;font-size:14px;">
+                <input type="checkbox" id="pdf_material" onchange="togglePdfMaterial(this.checked)" style="width:17px;height:17px;">
+                P-Code &amp; Batch Number
+            </label>
+            <div style="display:flex;gap:8px;margin-bottom:12px;">
+                <input id="pcodeInput" type="text" placeholder="P-Code" disabled
+                    style="flex:1;padding:8px 10px;border:1.5px solid #b0bec5;border-radius:8px;font-size:13px;box-sizing:border-box;background:#f5f5f5;color:#aaa;">
+                <input id="batchInput" type="text" placeholder="Batch No." disabled
+                    style="flex:1;padding:8px 10px;border:1.5px solid #b0bec5;border-radius:8px;font-size:13px;box-sizing:border-box;background:#f5f5f5;color:#aaa;">
+            </div>
+
+            <hr style="border:none;border-top:1px solid #e0e0e0;margin:4px 0 12px;">
+            <div style="font-size:11px;color:#888;margin-bottom:8px;font-weight:700;letter-spacing:0.5px;">CALCULATION RESULTS</div>
+
+            <label style="display:flex;align-items:center;gap:8px;margin-bottom:8px;font-size:14px;">
+                <input type="checkbox" id="pdf_pouch" checked style="width:17px;height:17px;">
+                📦 Total Pouch / Shipper / Bulk KG / Pallet
+            </label>
+            <label style="display:flex;align-items:center;gap:8px;margin-bottom:12px;font-size:14px;">
+                <input type="checkbox" id="pdf_calctime" checked style="width:17px;height:17px;">
+                ⏱️ Time to Complete
+            </label>
+
+            <hr style="border:none;border-top:1px solid #e0e0e0;margin:4px 0 12px;">
+
+            <!-- Remark - sabse last mein -->
+            <label style="display:flex;align-items:center;gap:8px;margin-bottom:8px;font-weight:600;font-size:14px;">
+                <input type="checkbox" id="pdf_remark" onchange="togglePdfInput('remarkInput',this.checked)" style="width:17px;height:17px;">
+                📝 Remark (last mein note ki tarah)
+            </label>
+            <textarea id="remarkInput" placeholder="Remark likhein..." disabled rows="3"
+                style="width:100%;padding:8px 10px;border:1.5px solid #b0bec5;border-radius:8px;font-size:13px;margin-bottom:14px;box-sizing:border-box;background:#f5f5f5;color:#aaa;resize:vertical;"></textarea>
+
+            <!-- Buttons -->
+            <div style="display:flex;gap:10px;">
+                <button onclick="generatePdfFromOptions()" style="flex:1;padding:11px;background:#1a237e;color:#fff;border:none;border-radius:10px;font-size:15px;font-weight:700;cursor:pointer;">🖨️ Print / PDF</button>
+                <button onclick="document.getElementById('pdfModal').style.display='none'" style="flex:1;padding:11px;background:#e0e0e0;color:#333;border:none;border-radius:10px;font-size:15px;font-weight:700;cursor:pointer;">❌ Cancel</button>
+            </div>
+        </div>
+    </div>
+
     <audio id="typingSound" preload="auto">
         <source src="data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBSuBzvLZiTYIGGS57OihUBELTKXh8bllHAU2jdXvzn0pBSh+zPDajzsKElyx6OyrWBQLSKDf8sFuJAUuhM/z24k2CBhku+zooVARC0yl4fG5ZRwFNo3V7859KQUofsz
 w2QjzsKElyx6OyrWBQLSKDf8sFuJAUuhM/z24k2CBhku+zooVARC0yl4fG5ZRwFNo3V7859KQUofsz
@@ -2133,7 +2211,6 @@ w2QjzsKE==" type="audio/wav">
 
                 document.getElementById('shipperCount').value = fullShippers;
                 document.getElementById('palletCount').value = fullPallets;
-                
                 // Update extra boxes with correct unit
                 document.getElementById('extraPouch').textContent = `+ ${extraPouch} ${unit}`;
                 document.getElementById('extraShipper').textContent = `+ ${extraShipper} Shipper`;
@@ -2176,7 +2253,7 @@ w2QjzsKE==" type="audio/wav">
                     return;
                 }
                 
-                const shipperCount = Math.floor(parseFloat(shipperInput)) || 0;
+                const shipperCount = parseFloat(shipperInput) || 0;
                 
                 const pouchCount = shipperCount * formula.pouchToShipper;
                 const palletCount = shipperCount / formula.shipperToPallet;
@@ -2188,11 +2265,11 @@ w2QjzsKE==" type="audio/wav">
                 // Extra pouch is 0 when entering shipper directly
                 document.getElementById('extraPouch').textContent = `+ 0 ${unit}`;
 
-                document.getElementById('pouchCount').value = Math.floor(pouchCount);
+                document.getElementById('pouchCount').value = pouchCount;
                 document.getElementById('palletCount').value = fullPallets;
                 
-                // Update extra shipper box - show whole number
-                document.getElementById('extraShipper').textContent = `+ ${Math.floor(extraShipper)} Shipper`;
+                // Update extra shipper box
+                document.getElementById('extraShipper').textContent = `+ ${extraShipper} Shipper`;
 
                 updateResults(pouchCount, shipperCount, palletCount);
                 updateShipperRange(shipperCount);
@@ -2233,8 +2310,8 @@ w2QjzsKE==" type="audio/wav">
                 const pouchCount = palletCount * formula.pouchToPallet;
                 const shipperCount = palletCount * formula.shipperToPallet;
 
-                document.getElementById('pouchCount').value = Math.round(pouchCount);
-                document.getElementById('shipperCount').value = Math.floor(shipperCount);
+                document.getElementById('pouchCount').value = pouchCount;
+                document.getElementById('shipperCount').value = shipperCount;
                 
                 // Extra boxes are 0 when entering pallet directly
                 document.getElementById('extraPouch').textContent = `+ 0 ${unit}`;
@@ -2249,15 +2326,15 @@ w2QjzsKE==" type="audio/wav">
 
         function updateResults(pouch, shipper, pallet) {
             if (!hasWeightSelected()) return;
-            document.getElementById('pouchResult').textContent = Math.floor(pouch).toLocaleString();
-            document.getElementById('shipperResult').textContent = Math.floor(shipper).toLocaleString();
-            document.getElementById('palletResult').textContent = Math.floor(pallet).toLocaleString();
+            document.getElementById('pouchResult').textContent = pouch.toLocaleString();
+            document.getElementById('shipperResult').textContent = shipper.toLocaleString();
+            document.getElementById('palletResult').textContent = pallet.toLocaleString();
             // Bulk KG auto update — sirf tab jab user bulk box mein type nahi kar raha
             if (!document.getElementById('bulkKgInput').matches(':focus')) {
                 const formula = getCurrentFormula();
                 if (!formula) return;
                 const targetWeight = parseFloat(formula.targetWeight) || 2.1;
-                const bulkKg = (Math.floor(pouch) * targetWeight).toFixed(2);
+                const bulkKg = (pouch * targetWeight).toFixed(2);
                 document.getElementById('bulkKgResult').textContent = parseFloat(bulkKg).toLocaleString();
                 document.getElementById('bulkKgInput').value = bulkKg;
                 // Time calculate karo
@@ -2310,7 +2387,6 @@ w2QjzsKE==" type="audio/wav">
             const formula = getCurrentFormula();
             const bulk = parseFloat(document.getElementById('bulkKgInput').value) || 0;
             const targetWeight = parseFloat(formula.targetWeight) || 2.1;
-            const pouchPerShipper = formula.pouchToShipper || 6;
             if (bulk <= 0) {
                 document.getElementById('pouchCount').value = '';
                 document.getElementById('pouchResult').textContent = '0';
@@ -2653,20 +2729,116 @@ w2QjzsKE==" type="audio/wav">
             showCornerAlert('📤 Report copied!', 'weight-alert', 1800);
         }
 
-        function downloadReportPdf() {
-            const report = getReportText();
-            if (!report) return;
-            const weight = getCurrentWeightName() || 'Selected Weight';
-            const created = new Date().toLocaleString('en-IN');
-            const rows = report.split('\n').map(function(line) {
-                const parts = line.split('=');
-                return '<tr><td>' + parts[0].trim() + '</td><td>' + parts.slice(1).join('=').trim() + '</td></tr>';
-            }).join('');
-            const win = window.open('', '_blank');
-            if (!win) { showCornerAlert('Allow popup to download PDF', 'weight-alert', 2200); return; }
-            win.document.write('<!doctype html><html><head><title> Production Calculation Report</title><style>body{font-family:Arial,sans-serif;padding:24px;color:#111}h1{font-size:20px;margin:0 0 6px}p{margin:0 0 16px;color:#555}table{border-collapse:collapse;width:100%;max-width:520px}td{border:1px solid #ddd;padding:10px 12px;font-size:15px}td:first-child{font-weight:700;background:#f4f7fb;width:55%}td:last-child{font-weight:900;text-align:right}.note{margin-top:18px;font-size:12px;color:#777}@media print{button{display:none}}</style></head><body><h1> Production Calculation</h1><p><strong>Production Report</strong><br>Weight: '+weight+'<br>Created: '+created+'</p><table>'+rows+'</table><div class="note">Report generated from  Production Calculation.</div><script>window.onload=function(){window.print();};<\/script></body></html>');
-            win.document.close();
+        function openPdfModal() {
+            if (!requireWeightSelected()) return;
+            document.getElementById('pdfModal').style.display = 'flex';
         }
+
+        function togglePdfInput(inputId, enabled) {
+            const el = document.getElementById(inputId);
+            if (!el) return;
+            el.disabled = !enabled;
+            el.style.background = enabled ? '#fff' : '#f5f5f5';
+            el.style.color = enabled ? '#111' : '#aaa';
+            el.style.borderColor = enabled ? '#90caf9' : '#b0bec5';
+            if (enabled) el.focus();
+        }
+
+        function togglePdfMaterial(enabled) {
+            ['pcodeInput','batchInput'].forEach(id => togglePdfInput(id, enabled));
+        }
+
+        function generatePdfFromOptions() {
+            const weight    = getCurrentWeightName() || '—';
+            const created   = new Date().toLocaleString('en-IN');
+            const unit      = pluralUnit(getCurrentUnit()).toUpperCase();
+
+            const showTitle    = document.getElementById('pdf_title').checked;
+            const showTime     = document.getElementById('pdf_time').checked;
+            const showPo       = document.getElementById('pdf_po').checked;
+            const showWeight   = document.getElementById('pdf_weight').checked;
+            const showMaterial = document.getElementById('pdf_material').checked;
+            const showResults  = document.getElementById('pdf_pouch').checked;
+            const showCalcTime = document.getElementById('pdf_calctime').checked;
+            const showRemark   = document.getElementById('pdf_remark').checked;
+
+            const titleVal  = document.getElementById('titleInput').value.trim() || 'Production Calculation Report';
+            const poVal     = document.getElementById('poInput').value.trim();
+            const pcodeVal  = document.getElementById('pcodeInput').value.trim();
+            const batchVal  = document.getElementById('batchInput').value.trim();
+            const remarkVal = document.getElementById('remarkInput').value.trim();
+
+            // ── Header section ──
+            let headerHtml = '';
+            if (showTitle) headerHtml += '<h1 style="margin:0 0 4px;font-size:22px;color:#1a237e;">' + titleVal + '</h1>';
+            if (showTime)  headerHtml += '<div style="color:#777;font-size:12px;margin-bottom:6px;">Created: ' + created + '</div>';
+            if (showPo && poVal) headerHtml += '<div style="font-size:14px;font-weight:700;margin-bottom:10px;">PO Number: <span style="font-weight:900;">' + poVal + '</span></div>';
+
+            // ── Material Info block (P-Code + Batch ek line mein) ──
+            let materialHtml = '';
+            if (showMaterial && (pcodeVal || batchVal)) {
+                materialHtml =
+                    '<div style="background:#f0f4ff;border:1.5px solid #c5cae9;border-radius:8px;padding:10px 14px;margin-bottom:14px;">' +
+                    '<div style="font-size:11px;color:#5c6bc0;font-weight:700;letter-spacing:0.8px;margin-bottom:5px;">MATERIAL INFO</div>' +
+                    '<div style="display:flex;gap:32px;font-size:15px;">' +
+                    (pcodeVal ? '<span><span style="color:#555;font-size:12px;">P-Code</span><br><strong>' + pcodeVal + '</strong></span>' : '') +
+                    (batchVal ? '<span><span style="color:#555;font-size:12px;">Batch Number</span><br><strong>' + batchVal + '</strong></span>' : '') +
+                    '</div></div>';
+            }
+
+            // ── Results table ──
+            let rows = '';
+            const addRow = (label, value) => { rows += '<tr><td>' + label + '</td><td>' + value + '</td></tr>'; };
+
+            if (showWeight) addRow('⚖️ Weight', weight);
+
+            if (showResults) {
+                const pouch   = document.getElementById('pouchResult')?.textContent   || '0';
+                const shipper = document.getElementById('shipperResult')?.textContent || '0';
+                const bulk    = document.getElementById('bulkKgResult')?.textContent  || '0';
+                const pallet  = document.getElementById('palletResult')?.textContent  || '0';
+                const extra   = document.getElementById('extraShipper')?.textContent?.trim() || '';
+                addRow('📦 Total ' + unit, pouch);
+                addRow('📦 Total Shippers', shipper);
+                addRow('⚗️ Bulk KG', bulk);
+                addRow('🚛 Total Pallets', pallet + (extra && extra !== '+ 0 Shipper' ? ' <span style="font-size:12px;color:#888;">(' + extra + ')</span>' : ''));
+            }
+            if (showCalcTime) addRow('⏱️ Time to Complete', getCleanTimeText());
+
+            const tableHtml = rows ? '<table>' + rows + '</table>' : '';
+
+            // ── Remark — note style, sabse last mein ──
+            let remarkHtml = '';
+            if (showRemark && remarkVal) {
+                remarkHtml =
+                    '<div style="margin-top:18px;border-top:1.5px dashed #ccc;padding-top:12px;">' +
+                    '<div style="font-size:11px;color:#888;font-weight:700;letter-spacing:0.8px;margin-bottom:4px;">📝 REMARK</div>' +
+                    '<div style="font-size:14px;color:#333;white-space:pre-wrap;">' + remarkVal + '</div>' +
+                    '</div>';
+            }
+
+            const win = window.open('', '_blank');
+            if (!win) { showCornerAlert('Popup allow karo PDF ke liye', 'weight-alert', 2200); return; }
+            win.document.write(
+                '<!doctype html><html><head><title>' + titleVal + '</title>' +
+                '<style>body{font-family:Arial,sans-serif;padding:28px;color:#111;max-width:600px;margin:0 auto;}' +
+                'table{border-collapse:collapse;width:100%;margin-top:14px;}' +
+                'td{border:1px solid #ddd;padding:11px 14px;font-size:15px;}' +
+                'td:first-child{font-weight:700;background:#f4f7fb;width:52%;}' +
+                'td:last-child{font-weight:900;text-align:right;}' +
+                '@media print{button{display:none}}</style></head><body>' +
+                headerHtml +
+                materialHtml +
+                tableHtml +
+                remarkHtml +
+                '<div style="margin-top:22px;font-size:11px;color:#bbb;">Production Calculation Report</div>' +
+                '<script>window.onload=function(){window.print();};<\/script></body></html>'
+            );
+            win.document.close();
+            document.getElementById('pdfModal').style.display = 'none';
+        }
+
+        function downloadReportPdf() { openPdfModal(); }
 
         // Dark mode toggle
         function toggleDarkMode() {
@@ -2983,7 +3155,7 @@ w2QjzsKE==" type="audio/wav">
             }
 
             const binId = localStorage.getItem('jb_bin_id') || localStorage.getItem('jb_public_bin_id') || '69be6b9cb7ec241ddc8b64c7';
-            const apiKey = localStorage.getItem('jb_api_key') || '$2a$10$TK8oCU.0rQaU8UXPTE4BUej17TV7OuWTBl0nrcmW1wWTf1Beq/X2q';
+            const apiKey = localStorage.getItem('jb_api_key') || '$2a$10$7yKDK4eU8xJnFHJDzssaBuJvnDVw4iulb2F0faX2fJBFaziBWXiTG';
             if (binId) {
                 const headers = { 'X-Bin-Meta': 'false' };
                 if (apiKey) headers['X-Access-Key'] = apiKey;
@@ -3061,28 +3233,3 @@ w2QjzsKE==" type="audio/wav">
     </script>
 </body>
 </html>
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

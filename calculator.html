@@ -798,6 +798,14 @@
             touch-action: manipulation;
         }
 
+        /* Hide spinner buttons on all number inputs */
+        input[type="number"]::-webkit-outer-spin-button,
+        input[type="number"]::-webkit-inner-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+        input[type="number"] { -moz-appearance: textfield; }
+
         input[type="number"]:focus {
             outline: none;
             border-color: #667eea;
@@ -868,6 +876,10 @@
             color: #111111 !important;
             font-weight: 900 !important;
             text-shadow: none !important;
+        }
+
+        #bulkKgResult {
+            font-size: 25px !important;
         }
 
         .result-actions {
@@ -999,7 +1011,7 @@
         }
 
         .target-value {
-            font-size: 17px;
+            font-size: 20px;
             font-weight: 800;
             color: #333;
         }
@@ -1292,8 +1304,9 @@
         </header>
         <!-- 10% Range Boxes at Top with Weight Selector -->
         <div class="range-boxes">
-            <div class="range-box lowest">
-                <span class="range-label">📉 Lowest 10%</span>
+            <div class="range-box lowest" onclick="showRangeBulk('lowest')" style="cursor:pointer;">
+                <span class="range-label">📉 10%-</span>
+                <span id="lowestBulkLabel" style="display:block;font-size:10px;color:#1976D2;font-weight:700;min-height:10px;"></span>
                 <span class="range-value" id="shipperLowest">0</span>
             </div>
             
@@ -1311,8 +1324,9 @@
                 </div>
             </div>
             
-            <div class="range-box highest">
-                <span class="range-label">📈 Highest 10%</span>
+            <div class="range-box highest" onclick="showRangeBulk('highest')" style="cursor:pointer;">
+                <span class="range-label">📈 10%+</span>
+                <span id="highestBulkLabel" style="display:block;font-size:10px;color:#d32f2f;font-weight:700;min-height:10px;"></span>
                 <span class="range-value" id="shipperHighest">0</span>
             </div>
         </div>
@@ -1325,8 +1339,9 @@
                     <label>Target Shipper</label>
                     <input type="number" id="targetShipper" placeholder="Enter target" min="0" step="1" oninput="calculateTarget()">
                 </div>
-                <div class="target-result-box" id="targetResult">
-                    <div class="target-label">Difference</div>
+                <div class="target-result-box" id="targetResult" onclick="showDiffBulk()" style="cursor:pointer;">
+                    <div class="target-label">Shipper</div>
+                    <div id="diffBulkLabel" style="font-size:8px;color:#555;font-weight:600;min-height:10px;"></div>
                     <div class="target-value">--</div>
                     <div class="target-time" id="targetTime"></div>
                 </div>
@@ -1370,6 +1385,27 @@
             </div>
         </div>
 
+        <!-- Time Input Section -->
+        <div class="input-group" style="margin-top:8px;">
+            <div style="background:rgba(0,40,80,0.5);border:2px solid rgba(0,255,255,0.4);border-radius:8px;padding:6px 10px;display:flex;align-items:center;gap:8px;">
+                <span style="color:#00ffff;font-size:12px;font-weight:700;white-space:nowrap;flex-shrink:0;">⏱️ Time to complete</span>
+                <div style="display:flex;align-items:center;gap:4px;">
+                    <input type="number" id="timeHours" placeholder="0" min="0" step="1"
+                        style="width:48px;padding:5px 3px;border:2px solid rgba(0,255,255,0.5);border-radius:6px;font-size:15px;font-weight:700;background:rgba(0,20,50,0.9);color:#00ffff;text-align:center;"
+                        oninput="calculateFromTime()">
+                    <span style="color:rgba(0,255,255,0.6);font-size:10px;font-weight:600;">hr</span>
+                </div>
+                <span style="color:#00ffff;font-size:15px;font-weight:900;">:</span>
+                <div style="display:flex;align-items:center;gap:4px;">
+                    <input type="number" id="timeMinutes" placeholder="0" min="0" max="59" step="1"
+                        style="width:48px;padding:5px 3px;border:2px solid rgba(0,255,255,0.5);border-radius:6px;font-size:15px;font-weight:700;background:rgba(0,20,50,0.9);color:#00ffff;text-align:center;"
+                        oninput="calculateFromTime()">
+                    <span style="color:rgba(0,255,255,0.6);font-size:10px;font-weight:600;">min</span>
+                </div>
+                <button onclick="clearTimeInputs()" style="padding:4px 8px;background:rgba(255,50,50,0.3);border:2px solid rgba(255,100,100,0.5);border-radius:6px;color:#ff8888;font-size:13px;cursor:pointer;font-weight:700;flex-shrink:0;margin-left:auto;">✕</button>
+            </div>
+        </div>
+
         <!-- Results -->
         <div class="results">
             <div class="result-item result-card">
@@ -1388,9 +1424,8 @@
                 <span class="result-label" style="font-size:13px;">🚛 Total Pallets</span>
                 <span class="result-value" id="palletResult" style="font-size:18px;">0</span>
             </div>
-            <div class="result-item" style="padding:12px 16px;justify-content:center;background:#1a3a4a;border:2px solid #00ffff;">
-                <span style="font-size:16px;color:#ffffff;font-weight:800;letter-spacing:1px;" id="bulkTimeResult">⏱️ Time: —</span>
-            </div>
+            <!-- bulkTimeResult hidden — time input box mein dikhta hai -->
+            <span id="bulkTimeResult" style="display:none;">⏱️ Time: —</span>
             <div class="result-actions">
                 <button class="result-action-btn" onclick="copyReportText()" title="Copy report">📤 Copy</button>
                 <button class="result-action-btn" onclick="downloadReportPdf()" title="Download PDF report">📄 PDF</button>
@@ -1426,6 +1461,7 @@ w2QjzsKE==" type="audio/wav">
         let alertTimeout = null;
         let calculatorTimeout = null;
         let customFormulas = {}; // Store custom formulas
+        window._timeUserTyping = false; // Fix: initialize karo pehle se
         const weights = ['300g', '500g', '850g', '900g', '1kg', '2kg', '3kg', '3.2kg', '4kg', '5kg', '6kg'];
         
         // Formulas for each weight
@@ -1607,12 +1643,14 @@ w2QjzsKE==" type="audio/wav">
         // How to Use functions
         function showHowToUse() {
             document.getElementById('howtoPopup').classList.add('open');
-            document.getElementById('settingsOverlay').classList.add('open');
+            const overlay = document.getElementById('settingsOverlay');
+            if (overlay) overlay.classList.add('open');
         }
 
         function closeHowToUse() {
             document.getElementById('howtoPopup').classList.remove('open');
-            document.getElementById('settingsOverlay').classList.remove('open');
+            const overlay = document.getElementById('settingsOverlay');
+            if (overlay) overlay.classList.remove('open');
         }
 
         function toggleSound() {
@@ -1648,7 +1686,7 @@ w2QjzsKE==" type="audio/wav">
             const unitName = document.getElementById('customUnitName').value.trim() || 'Pouch';
             const pouchToShipper = parseInt(document.getElementById('customPouchToShipper').value);
             const shipperToPallet = parseInt(document.getElementById('customShipperToPallet').value);
-            const speed = parseInt(document.getElementById('customSpeed').value) || 0;
+            const speed = parseFloat(document.getElementById('customSpeed').value) || 0;
             
             // Validation
             if (!weightName) {
@@ -1856,9 +1894,9 @@ w2QjzsKE==" type="audio/wav">
             // Remove all type classes
             alert.className = 'corner-alert';
             
-            // Add type class
+            // Add type class — space-separated multiple classes support
             if (type !== 'default') {
-                alert.classList.add(type);
+                type.split(' ').forEach(cls => { if (cls) alert.classList.add(cls); });
             }
             
             // Set message
@@ -2044,6 +2082,13 @@ w2QjzsKE==" type="audio/wav">
                 document.getElementById('shipperLowest').textContent = '0';
                 document.getElementById('shipperHighest').textContent = '0';
             }
+            // Bulk labels reset karo jab shipper change ho
+            const ll = document.getElementById('lowestBulkLabel');
+            const hl = document.getElementById('highestBulkLabel');
+            if (ll) ll.textContent = '';
+            if (hl) hl.textContent = '';
+            const dl = document.getElementById('diffBulkLabel');
+            if (dl) dl.textContent = '';
         }
 
         function calculateFromPouch() {
@@ -2070,6 +2115,7 @@ w2QjzsKE==" type="audio/wav">
                     document.getElementById('extraShipper').textContent = `+ 0 Shipper`;
                     updateResults(0, 0, 0);
                     updateShipperRange(0);
+                    return; // Bug Fix: empty input pe aage mat jao
                 }
                 
                 const pouchCount = parseFloat(pouchInput) || 0;
@@ -2209,6 +2255,7 @@ w2QjzsKE==" type="audio/wav">
             // Bulk KG auto update — sirf tab jab user bulk box mein type nahi kar raha
             if (!document.getElementById('bulkKgInput').matches(':focus')) {
                 const formula = getCurrentFormula();
+                if (!formula) return;
                 const targetWeight = parseFloat(formula.targetWeight) || 2.1;
                 const bulkKg = (Math.floor(pouch) * targetWeight).toFixed(2);
                 document.getElementById('bulkKgResult').textContent = parseFloat(bulkKg).toLocaleString();
@@ -2222,9 +2269,22 @@ w2QjzsKE==" type="audio/wav">
                     const timeStr = hrs > 0 ? `${hrs}h ${mins}m` : `${mins}m`;
                     document.getElementById('bulkTimeLabel').textContent = `⏱️ ~${timeStr}`;
                     document.getElementById('bulkTimeResult').textContent = `⏱️ Time to complete: ${timeStr}`;
+                    // HAMESHA auto fill — instant update
+                    const tH = document.getElementById('timeHours');
+                    const tM = document.getElementById('timeMinutes');
+                    if (tH && tM && !window._timeUserTyping) {
+                        tH.value = hrs > 0 ? hrs : 0;
+                        tM.value = mins;
+                    }
                 } else {
                     document.getElementById('bulkTimeLabel').textContent = '';
                     document.getElementById('bulkTimeResult').textContent = '⏱️ Time: —';
+                    const tH = document.getElementById('timeHours');
+                    const tM = document.getElementById('timeMinutes');
+                    if (tH && tM && !window._timeUserTyping) {
+                        tH.value = '';
+                        tM.value = '';
+                    }
                 }
             }
             // Auto-calculate target if target is set
@@ -2250,7 +2310,7 @@ w2QjzsKE==" type="audio/wav">
             const formula = getCurrentFormula();
             const bulk = parseFloat(document.getElementById('bulkKgInput').value) || 0;
             const targetWeight = parseFloat(formula.targetWeight) || 2.1;
-            const pouchPerShipper = formula.pouchPerShipper || 6;
+            const pouchPerShipper = formula.pouchToShipper || 6;
             if (bulk <= 0) {
                 document.getElementById('pouchCount').value = '';
                 document.getElementById('pouchResult').textContent = '0';
@@ -2266,6 +2326,12 @@ w2QjzsKE==" type="audio/wav">
         }
 
         function calcBulk() { calcBulkFromBulk(); }
+
+        let _targetAlertTimeout = null;
+        function showTargetAlert(msg, type, duration) {
+            if (_targetAlertTimeout) clearTimeout(_targetAlertTimeout);
+            _targetAlertTimeout = setTimeout(function() { showCornerAlert(msg, type, duration); }, 500);
+        }
 
         // Target calculator Function
         function calculateTarget() {
@@ -2341,7 +2407,7 @@ w2QjzsKE==" type="audio/wav">
                 valueElement.textContent = '✅ Done';
                 timeElement.textContent = '';
                 resultBox.classList.add('target-done');
-                showCornerAlert('🎯 Target Achieved!', 'target-alert', 2500);
+                showTargetAlert('🎯 Target Achieved!', 'target-alert', 2500);
             } else if (difference > 0) {
                 // Check if excess is more than 10%
                 if (percentDiff > 10) {
@@ -2350,32 +2416,186 @@ w2QjzsKE==" type="audio/wav">
                     timeElement.textContent = timeText;
                     resultBox.classList.add('target-excess-high');
                     playTargetWarning();
-                    showCornerAlert(`⚠️ +${Math.floor(difference)} (Over 10%)`, 'target-alert excess', 2500);
+                    showTargetAlert(`⚠️ +${Math.floor(difference)} (Over 10%)`, 'target-alert excess', 2500);
                 } else {
                     // Within 10% excess - WHITE background, RED text (NO DOT)
                     valueElement.textContent = `+${Math.floor(difference)}`;
                     timeElement.textContent = timeText;
                     resultBox.classList.add('target-excess');
-                    showCornerAlert(`  +${Math.floor(difference)} Over Target`, 'target-alert excess', 2500);
+                    showTargetAlert(`  +${Math.floor(difference)} Over Target`, 'target-alert excess', 2500);
                 }
             } else if (percentDiff <= 10) {
                 // Within 10% less (GREEN - acceptable)
                 valueElement.textContent = `${Math.floor(difference)}`;
                 timeElement.textContent = timeText;
                 resultBox.classList.add('target-acceptable');
-                showCornerAlert(`📊 ${Math.floor(difference)} (10% Range)`, 'target-alert', 2500);
+                showTargetAlert(`📊 ${Math.floor(difference)} (10% Range)`, 'target-alert', 2500);
             } else {
                 // More than 10% less (BLUE - too low)
                 valueElement.textContent = `${Math.floor(difference)}`;
                 timeElement.textContent = timeText;
                 resultBox.classList.add('target-low');
-                showCornerAlert(`📉 ${Math.floor(difference)} Below Target`, 'target-alert low', 2500);
+                showTargetAlert(`📉 ${Math.floor(difference)} Below Target`, 'target-alert low', 2500);
             }
         }
 
-        // Add input event listeners for all fields
+
+        // Bulk KG calculate karo shipper count se
+        function shipperToBulk(shipperCount) {
+            const formula = getCurrentFormula();
+            if (!formula) return 0;
+            const pouch = shipperCount * formula.pouchToShipper;
+            return (pouch * (parseFloat(formula.targetWeight) || 2.1)).toFixed(1);
+        }
+
+        // 10%- ya 10%+ box tap karne par Bulk KG dikhao
+        function showRangeBulk(type) {
+            const formula = getCurrentFormula();
+            if (!formula) return;
+            const lowestEl = document.getElementById('shipperLowest');
+            const highestEl = document.getElementById('shipperHighest');
+            const lowestLabel = document.getElementById('lowestBulkLabel');
+            const highestLabel = document.getElementById('highestBulkLabel');
+
+            if (type === 'lowest') {
+                const s = parseFloat(lowestEl.textContent.replace(/[^\d.]/g, '')) || 0;
+                if (s <= 0) return;
+                const bulk = shipperToBulk(s);
+                if (lowestLabel.textContent === '') {
+                    lowestLabel.textContent = bulk + ' kg';
+                } else {
+                    lowestLabel.textContent = '';
+                }
+            } else {
+                const s = parseFloat(highestEl.textContent.replace(/[^\d.]/g, '')) || 0;
+                if (s <= 0) return;
+                const bulk = shipperToBulk(s);
+                if (highestLabel.textContent === '') {
+                    highestLabel.textContent = bulk + ' kg';
+                } else {
+                    highestLabel.textContent = '';
+                }
+            }
+        }
+
+        // Difference box tap karne par Bulk KG dikhao
+        function showDiffBulk() {
+            const formula = getCurrentFormula();
+            if (!formula) return;
+            const diffBulkLabel = document.getElementById('diffBulkLabel');
+            if (!diffBulkLabel) return;
+            // Current shipper se bulk nikalo
+            const currentShipper = parseFloat(document.getElementById('shipperResult').textContent.replace(/,/g,'')) || 0;
+            const targetShipper = parseFloat(document.getElementById('targetShipper').value) || 0;
+            if (currentShipper <= 0 && targetShipper <= 0) return;
+            // Difference shipper
+            const diffShipper = Math.abs(currentShipper - targetShipper);
+            const bulk = shipperToBulk(diffShipper);
+            if (diffBulkLabel.textContent === '') {
+                diffBulkLabel.textContent = '⚗️ ' + bulk + ' kg';
+            } else {
+                diffBulkLabel.textContent = '';
+            }
+        }
+
+        // ⏱️ TIME SE CALCULATE — Ghanta + Minute se Pouch/Shipper/BulkKG nikalo
+        function calculateFromTime() {
+            if (!requireWeightSelected()) return;
+            const hVal = document.getElementById('timeHours').value;
+            const mVal = document.getElementById('timeMinutes').value;
+
+            // Dono empty ho toh kuch mat karo
+            if (hVal === '' && mVal === '') return;
+
+            let hours = Math.max(0, parseFloat(hVal) || 0);
+            let mins = Math.max(0, parseFloat(mVal) || 0);
+
+            // Minutes 59 se zyada ho toh clamp karo
+            if (mins > 59) {
+                mins = 59;
+                document.getElementById('timeMinutes').value = 59;
+            }
+
+            const totalMins = (hours * 60) + mins;
+
+            if (totalMins <= 0) return;
+
+            const formula = getCurrentFormula();
+            if (!formula || !formula.speed || formula.speed <= 0) {
+                showCornerAlert('⚠️ Speed formula mein set nahi hai!', 'weight-alert', 2500);
+                return;
+            }
+
+            const unit = getFormulaUnit(formula);
+            const speed = formula.speed;
+            const totalPouch = Math.floor(speed * totalMins);
+            const totalShipper = Math.floor(totalPouch / formula.pouchToShipper);
+            const extraPouch = totalPouch - (totalShipper * formula.pouchToShipper);
+            const totalPallet = Math.floor(totalShipper / formula.shipperToPallet);
+            const extraShipper = totalShipper - (totalPallet * formula.shipperToPallet);
+            const bulkKg = (totalPouch * (parseFloat(formula.targetWeight) || 2.1)).toFixed(2);
+
+            // Flag: time user type kar raha hai — updateResults mein time boxes update na ho
+            window._timeUserTyping = true;
+
+            document.getElementById('pouchCount').value = totalPouch;
+            document.getElementById('shipperCount').value = totalShipper;
+            document.getElementById('palletCount').value = totalPallet;
+            document.getElementById('extraPouch').textContent = `+ ${extraPouch} ${unit}`;
+            document.getElementById('extraShipper').textContent = `+ ${extraShipper} Shipper`;
+            document.getElementById('bulkKgInput').value = bulkKg;
+            document.getElementById('bulkKgResult').textContent = parseFloat(bulkKg).toLocaleString();
+            document.getElementById('pouchResult').textContent = totalPouch.toLocaleString();
+            document.getElementById('shipperResult').textContent = totalShipper.toLocaleString();
+            document.getElementById('palletResult').textContent = totalPallet.toLocaleString();
+
+            updateShipperRange(totalShipper);
+            calculateTarget();
+
+            const timeStr = hours > 0 ? `${hours}h ${Math.floor(mins)}m` : `${Math.floor(mins)}m`;
+            document.getElementById('bulkTimeResult').textContent = `⏱️ Time to complete: ${timeStr}`;
+            document.getElementById('bulkTimeLabel').textContent = `⏱️ ~${timeStr}`;
+
+            // Reset flag after all rendering is done
+            requestAnimationFrame(function() { window._timeUserTyping = false; });
+        }
+
+        function clearTimeInputs() {
+            window._timeUserTyping = true;
+            document.getElementById('timeHours').value = '';
+            document.getElementById('timeMinutes').value = '';
+            document.getElementById('pouchCount').value = '';
+            document.getElementById('shipperCount').value = '';
+            document.getElementById('palletCount').value = '';
+            const unit = getCurrentUnit() || 'Pouch';
+            document.getElementById('extraPouch').textContent = `+ 0 ${unit}`;
+            document.getElementById('extraShipper').textContent = '+ 0 Shipper';
+            document.getElementById('bulkKgInput').value = '';
+            document.getElementById('bulkKgResult').textContent = '0';
+            document.getElementById('bulkTimeLabel').textContent = '';
+            document.getElementById('bulkTimeResult').textContent = '⏱️ Time: —';
+            document.getElementById('pouchResult').textContent = '0';
+            document.getElementById('shipperResult').textContent = '0';
+            document.getElementById('palletResult').textContent = '0';
+            document.getElementById('shipperLowest').textContent = '0';
+            document.getElementById('shipperHighest').textContent = '0';
+            const tr = document.getElementById('targetResult');
+            if (tr) { tr.className = 'target-result-box'; const tv = tr.querySelector('.target-value'); if (tv) tv.textContent = '--'; }
+            window._timeUserTyping = false;
+        }
+
+        // Block decimal point (.) on all number inputs
         document.querySelectorAll('input[type="number"]').forEach(input => {
-            input.addEventListener('input', () => {
+            input.addEventListener('keydown', function(e) {
+                if (e.key === '.' || e.key === ',' || e.key === 'e' || e.key === 'E' || e.key === '+' || e.key === '-') {
+                    e.preventDefault();
+                }
+            });
+            input.addEventListener('input', function() {
+                // Extra safety: agar kisi bhi tarah decimal aa jaye to hata do
+                if (this.value.includes('.')) {
+                    this.value = this.value.split('.')[0];
+                }
                 playSound();
             });
             input.addEventListener('keydown', () => {
@@ -2385,7 +2605,9 @@ w2QjzsKE==" type="audio/wav">
 
         function getCleanTimeText() {
             const raw = (document.getElementById('bulkTimeResult')?.textContent || '').trim();
-            return raw.replace(/^⏱️\s*/, '').replace(/^Time to complete:\s*/i, '').replace(/^Time:\s*/i, '').trim() || '—';
+            // "⏱️ Time to complete: 2h 30m" se sirf "2h 30m" nikalo
+            const cleaned = raw.replace(/^⏱️\s*/,'').replace(/^Time to complete:\s*/i,'').replace(/^Time:\s*/i,'').trim();
+            return (cleaned && cleaned !== '—') ? cleaned : '—';
         }
 
         function getReportText() {
@@ -2470,11 +2692,36 @@ w2QjzsKE==" type="audio/wav">
 
         // Refresh All - Clear all boxes
         function refreshAll() {
+            // Reset weight selection
+            currentWeightIndex = -1;
+            document.getElementById('currentWeight').textContent = 'Select';
+            document.getElementById('formulaWeight').textContent = 'Select Weight';
+            const inputSection = document.getElementById('calcInputSection');
+            if (inputSection) inputSection.style.display = 'none';
+
             // Clear all input fields
             document.getElementById('pouchCount').value = '';
             document.getElementById('shipperCount').value = '';
             document.getElementById('palletCount').value = '';
             document.getElementById('targetShipper').value = '';
+
+            // Time inputs bhi clear karo
+            const tH = document.getElementById('timeHours');
+            const tM = document.getElementById('timeMinutes');
+            if (tH) tH.value = '';
+            if (tM) tM.value = '';
+            const tInfo = document.getElementById('timeCalcInfo');
+            if (tInfo) tInfo.style.display = 'none';
+            
+            // Bug Fix: Bulk KG fields bhi reset karo
+            const bulkKgInput = document.getElementById('bulkKgInput');
+            const bulkKgResult = document.getElementById('bulkKgResult');
+            const bulkTimeLabel = document.getElementById('bulkTimeLabel');
+            const bulkTimeResult = document.getElementById('bulkTimeResult');
+            if (bulkKgInput) bulkKgInput.value = '';
+            if (bulkKgResult) bulkKgResult.textContent = '0';
+            if (bulkTimeLabel) bulkTimeLabel.textContent = '';
+            if (bulkTimeResult) bulkTimeResult.textContent = '⏱️ Time: —';
             
             // Reset extra boxes
             const formula = getCurrentFormula();
@@ -2725,7 +2972,16 @@ w2QjzsKE==" type="audio/wav">
         }
         // Load dark mode preference
         window.onload = function() {
-            // Fetch customFormulas from server first, then init
+            // Smart Cache: agar index2 ne 30 min ke andar data load kiya hai
+            const CACHE_DURATION_MS = 30 * 60 * 1000;
+            const cacheTs = parseInt(localStorage.getItem('server_cache_ts') || '0', 10);
+            const isCacheFresh = cacheTs > 0 && (Date.now() - cacheTs) < CACHE_DURATION_MS;
+
+            if (isCacheFresh) {
+                initCalcFormulas();
+                return;
+            }
+
             const binId = localStorage.getItem('jb_bin_id') || localStorage.getItem('jb_public_bin_id') || '69be6b9cb7ec241ddc8b64c7';
             const apiKey = localStorage.getItem('jb_api_key') || '$2a$10$7yKDK4eU8xJnFHJDzssaBuJvnDVw4iulb2F0faX2fJBFaziBWXiTG';
             if (binId) {

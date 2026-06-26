@@ -9578,8 +9578,35 @@ function applyJsonBinRecord(rec, sourceLabel) {
     return serverData;
 }
 
+// Cache duration: 30 minutes (in milliseconds)
+const CACHE_DURATION_MS = 30 * 60 * 1000;
+
+// Check if cached data is still fresh (within 30 min)
+function isCacheFresh() {
+    const ts = parseInt(localStorage.getItem('server_cache_ts') || '0', 10);
+    return ts > 0 && (Date.now() - ts) < CACHE_DURATION_MS;
+}
+
+// Mark cache as fresh now
+function markCacheFresh() {
+    localStorage.setItem('server_cache_ts', String(Date.now()));
+}
+
+// Force refresh from server (ignore cache) — call this from manual refresh button
+async function syncFromServerForce() {
+    localStorage.removeItem('server_cache_ts');
+    return syncFromServer();
+}
+
 // Fetch data from server — tries Primary API, then Second API
+// Auto skips server call if cache is fresh (within 30 min)
 async function syncFromServer() {
+    // If cache is fresh, skip server call and use localStorage data
+    if (isCacheFresh()) {
+        showSyncToast('✅ Data from cache', '#4CAF50');
+        return;
+    }
+
     const targets = getJsonBinTargets(false);
     if (!targets.length) return;
     let lastErr = null;
@@ -9594,6 +9621,7 @@ async function syncFromServer() {
                 throw new Error(target.label + ': HTTP ' + res.status);
             }
             const json = await res.json();
+            markCacheFresh(); // Save timestamp after successful fetch
             return applyJsonBinRecord(json.record || json || {}, target.label);
         } catch (err) {
             lastErr = err;

@@ -879,7 +879,19 @@
         }
 
         #bulkKgResult {
-            font-size: 25px !important;
+            font-size: 22px !important;
+        }
+
+        #pouchResult {
+            font-size: 20px !important;
+        }
+
+        #shipperResult {
+            font-size: 20px !important;
+        }
+
+        #palletResult {
+            font-size: 18px !important;
         }
 
         .result-actions {
@@ -1422,7 +1434,7 @@
             </div>
             <div class="result-item result-card" style="padding:8px 12px;">
                 <span class="result-label" style="font-size:13px;">🚛 Total Pallets</span>
-                <span class="result-value" id="palletResult" style="font-size:18px;">0</span>
+                <span class="result-value" id="palletResult">0</span>
             </div>
             <!-- bulkTimeResult hidden — time input box mein dikhta hai -->
             <span id="bulkTimeResult" style="display:none;">⏱️ Time: —</span>
@@ -2209,8 +2221,8 @@ w2QjzsKE==" type="audio/wav">
                 const fullPallets = Math.floor(palletCount);
                 const extraShipper = Math.floor(shipperCount) - (fullPallets * formula.shipperToPallet);
 
-                document.getElementById('shipperCount').value = fullShippers;
-                document.getElementById('palletCount').value = fullPallets;
+                document.getElementById('shipperCount').value = Math.floor(fullShippers);
+                document.getElementById('palletCount').value = Math.floor(fullPallets);
                 // Update extra boxes with correct unit
                 document.getElementById('extraPouch').textContent = `+ ${extraPouch} ${unit}`;
                 document.getElementById('extraShipper').textContent = `+ ${extraShipper} Shipper`;
@@ -2265,7 +2277,7 @@ w2QjzsKE==" type="audio/wav">
                 // Extra pouch is 0 when entering shipper directly
                 document.getElementById('extraPouch').textContent = `+ 0 ${unit}`;
 
-                document.getElementById('pouchCount').value = pouchCount;
+                document.getElementById('pouchCount').value = Math.floor(pouchCount);
                 document.getElementById('palletCount').value = fullPallets;
                 
                 // Update extra shipper box
@@ -2310,8 +2322,8 @@ w2QjzsKE==" type="audio/wav">
                 const pouchCount = palletCount * formula.pouchToPallet;
                 const shipperCount = palletCount * formula.shipperToPallet;
 
-                document.getElementById('pouchCount').value = pouchCount;
-                document.getElementById('shipperCount').value = shipperCount;
+                document.getElementById('pouchCount').value = Math.floor(pouchCount);
+                document.getElementById('shipperCount').value = Math.floor(shipperCount);
                 
                 // Extra boxes are 0 when entering pallet directly
                 document.getElementById('extraPouch').textContent = `+ 0 ${unit}`;
@@ -2326,9 +2338,44 @@ w2QjzsKE==" type="audio/wav">
 
         function updateResults(pouch, shipper, pallet) {
             if (!hasWeightSelected()) return;
-            document.getElementById('pouchResult').textContent = pouch.toLocaleString();
-            document.getElementById('shipperResult').textContent = shipper.toLocaleString();
-            document.getElementById('palletResult').textContent = pallet.toLocaleString();
+
+            // Whole number only — no decimal
+            const pouchInt   = Math.floor(pouch);
+            const shipperInt = Math.floor(shipper);
+            const palletInt  = Math.floor(pallet);
+
+            // Extra shipper (remainder)
+            const formula = getCurrentFormula();
+            let extraShipperCount = 0;
+            if (formula) {
+                extraShipperCount = shipperInt - (palletInt * formula.shipperToPallet);
+                if (extraShipperCount < 0) extraShipperCount = 0;
+            }
+
+            // Extra pouch (remainder after full shippers)
+            let extraPouchCount = 0;
+            if (formula) {
+                extraPouchCount = pouchInt - (shipperInt * formula.pouchToShipper);
+                if (extraPouchCount < 0) extraPouchCount = 0;
+            }
+
+            document.getElementById('pouchResult').textContent = pouchInt.toLocaleString();
+
+            // Shipper result mein extra pouch bhi dikhao
+            const shipperEl = document.getElementById('shipperResult');
+            if (extraPouchCount > 0) {
+                shipperEl.innerHTML = shipperInt.toLocaleString() + ' <span style="font-size:14px;font-weight:400;color:#888;">+ <strong>' + extraPouchCount + '</strong> Pouch</span>';
+            } else {
+                shipperEl.textContent = shipperInt.toLocaleString();
+            }
+
+            // Pallet result mein extra shipper bhi dikhao jaise print mein
+            const palletEl = document.getElementById('palletResult');
+            if (extraShipperCount > 0) {
+                palletEl.innerHTML = palletInt.toLocaleString() + ' <span style="font-size:14px;font-weight:400;color:#888;">+ <strong>' + extraShipperCount + '</strong> Shipper</span>';
+            } else {
+                palletEl.textContent = palletInt.toLocaleString();
+            }
             // Bulk KG auto update — sirf tab jab user bulk box mein type nahi kar raha
             if (!document.getElementById('bulkKgInput').matches(':focus')) {
                 const formula = getCurrentFormula();

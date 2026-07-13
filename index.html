@@ -15,7 +15,7 @@
     <script>
     // JSONBin API Config
     const JSONBIN_CONFIG = {
-        apiKey: '$2a$10$TK8oCU.0rQaU8UXPTE4BUej17TV7OuWTBl0nrcmW1wWTf1Beq/X2q',
+        apiKey: '$2a$10$7yKDK4eU8xJnFHJDzssaBuJvnDVw4iulb2F0faX2fJBFaziBWXiTG',
         binId:   '69be6b9cb7ec241ddc8b64c7'
     };
     </script>
@@ -1608,10 +1608,37 @@ body { -webkit-user-select: none; -moz-user-select: none; user-select: none; }
         gap: 7px !important;
     }
 
+    /* Global Back Button */
+    #globalBackBtn {
+        position: fixed;
+        top: 14px;
+        left: 14px;
+        z-index: 999999;
+        background: rgba(30,30,50,0.92);
+        color: white;
+        border: none;
+        border-radius: 22px;
+        padding: 8px 18px 8px 12px;
+        font-size: 14px;
+        font-weight: 800;
+        cursor: pointer;
+        box-shadow: 0 3px 14px rgba(0,0,0,0.28);
+        display: none;
+        align-items: center;
+        gap: 6px;
+        letter-spacing: 0.3px;
+        backdrop-filter: blur(6px);
+        transition: opacity 0.15s;
+    }
+    #globalBackBtn:active { opacity: 0.7; transform: scale(0.97); }
+
 </style>
 </head>
 
 <body>
+    <!-- Global Back Button -->
+    <button id="globalBackBtn" onclick="closeTopModal()">&#8592; Back</button>
+
     <!-- Password Screen -->
     <div id="passwordScreen" class="password-screen" style="display: none;">
         <div class="password-box" style="border: 3px solid rgb(76, 175, 80); box-shadow: rgba(76, 175, 80, 0.5) 0px 0px 30px;">
@@ -1646,6 +1673,17 @@ body { -webkit-user-select: none; -moz-user-select: none; user-select: none; }
             <span class="close-btn" onclick="toggleMenu()" data-manus_clickable="true" data-manus_click_id="5">×</span>
         </div>
         <div class="menu-content">
+            <!-- Settings Search Bar -->
+            <div style="padding:10px 12px 6px 12px;position:sticky;top:0;background:inherit;z-index:10;">
+                <div style="position:relative;">
+                    <input type="text" id="settingsSearchInput" placeholder="🔍 Settings search ..." 
+                        oninput="filterMenuItems(this.value)"
+                        style="width:100%;padding:9px 32px 9px 12px;border:2px solid rgba(102,126,234,0.3);border-radius:20px;font-size:13px;background:rgba(255,255,255,0.1);color:inherit;outline:none;box-sizing:border-box;">
+                    <button onclick="document.getElementById('settingsSearchInput').value='';filterMenuItems('')" 
+                        style="position:absolute;right:8px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;font-size:14px;color:#999;padding:0;line-height:1;" id="settingsSearchClear">✕</button>
+                </div>
+                <div id="settingsNoResult" style="display:none;text-align:center;color:#999;font-size:12px;padding:6px 0;">कोई नतीजा नहीं</div>
+            </div>
                         <div class="menu-item admin-only" onclick="openUsageDashboard();toggleMenu()" style="display: none;">
                 <span>📊 Dashboard</span>
             </div>
@@ -5680,21 +5718,62 @@ function _secondaryIftCurrentRecord() {
         savedAt: new Date().toISOString()
     };
 }
+
+// ============================================================
+// IFT — Auto check LSL/USL based on current WT value
+// ============================================================
+function autoCheckIftLslUsl() {
+    const lslVal = parseFloat(document.getElementById('secondaryIftLclAuto')?.value || document.getElementById('secondaryIftLclAutoText')?.textContent || '');
+    const uslVal = parseFloat(document.getElementById('secondaryIftUslAuto')?.value || document.getElementById('secondaryIftUslAutoText')?.textContent || '');
+    const lslCurrent = parseFloat(document.getElementById('secondaryIftLclCurrent')?.value || '');
+    const uslCurrent = parseFloat(document.getElementById('secondaryIftUslCurrent')?.value || '');
+
+    const lslCheck = document.getElementById('secondaryIftLclCheck');
+    const uslCheck = document.getElementById('secondaryIftUslCheck');
+
+    // LSL: current < lsl ho toh PASS (kam hona chahiye)
+    if (lslCheck && !isNaN(lslVal) && !isNaN(lslCurrent)) {
+        lslCheck.checked = lslCurrent < lslVal;
+        lslCheck.closest('label').style.background = lslCheck.checked ? '#e8f5e9' : '#ffebee';
+    }
+
+    // USL: current > usl ho toh PASS (zyada hona chahiye)
+    if (uslCheck && !isNaN(uslVal) && !isNaN(uslCurrent)) {
+        uslCheck.checked = uslCurrent > uslVal;
+        uslCheck.closest('label').style.background = uslCheck.checked ? '#e8f5e9' : '#ffebee';
+    }
+}
+
+// IFT — GCase / PCode manual toggle
+function toggleIftManualField(textId, inputId) {
+    const textEl = document.getElementById(textId);
+    const inputEl = document.getElementById(inputId);
+    if (!textEl || !inputEl) return;
+    const isManual = inputEl.style.display !== 'none';
+    if (isManual) {
+        // Manual se auto par wapas jao — input ka value text mein copy karo
+        const val = inputEl.value.trim();
+        if (val) textEl.textContent = val;
+        inputEl.style.display = 'none';
+        textEl.style.display = 'block';
+    } else {
+        // Auto se manual par jao — text ka value input mein copy karo
+        const currentVal = textEl.textContent.trim();
+        inputEl.value = currentVal === '-' ? '' : currentVal;
+        inputEl.style.display = 'block';
+        textEl.style.display = 'none';
+        inputEl.focus();
+    }
+}
+
 function saveSecondaryIftRecord() {
     const rec = _secondaryIftCurrentRecord();
     if (!rec.hdl) { showIftRightAlert('Select HDL first'); return; }
     if (!rec.testName) { showSyncToast('Test Done By required', '#f44336'); return; }
     if (!rec.gcase) { showSyncToast('GCase missing', '#f44336'); return; }
-    if (rec.customMode && (!rec.pcode || !rec.lclAuto || !rec.uslAuto || !rec.lclCurrent || !rec.uslCurrent)) {
-        showSyncToast('For CUSTOM, PCode, GCase, LSL, USL, and current WT are required', '#f44336');
-        return;
-    }
+    // Admin aur User dono save kar sakte hain — koi role restriction nahi
     const records = getSecondaryIftRecords();
     const idx = records.findIndex(r => r.gcase === rec.gcase && (r.julianCode || r.julian) === rec.julianCode);
-    if (idx >= 0 && window._userRole !== 'admin' && !_iftIsToday(records[idx])) {
-        showSyncToast('Old date IFT edit admin only', '#f44336');
-        return;
-    }
     if (idx >= 0) {
         rec.createdAt = records[idx].createdAt || records[idx].savedAt || rec.savedAt;
         rec.approvalStatus = rec.pass ? 'Approved' : 'Pending';
@@ -5704,10 +5783,24 @@ function saveSecondaryIftRecord() {
         records.unshift(rec);
     }
     saveSecondaryIftRecords(records);
+    localStorage.removeItem('server_cache_ts');
     syncToServer();
     renderSecondaryIftCards();
     renderOfflinePendingSyncBadge();
-    showSyncToast((rec.pass ? 'PASS saved: ' : 'Fail pending admin approval: ') + rec.gcase, rec.pass ? '#4CAF50' : '#ff9800');
+    showSyncToast((rec.pass ? '✅ PASS saved: ' : '⚠️ Saved: ') + rec.gcase, rec.pass ? '#4CAF50' : '#ff9800');
+    return true;
+}
+
+// Save IFT — admin + user dono ke liye
+function saveSecondaryIft() {
+    const saved = saveSecondaryIftRecord();
+    if (saved) clearSecondaryIftBoxes();
+}
+
+// Save & New — save karke clear karo
+function saveSecondaryIftAndNew() {
+    const saved = saveSecondaryIftRecord();
+    if (saved) clearSecondaryIftBoxes();
 }
 function _secondaryIftCardHtml(r, options = {}) {
     const approval = _secondaryIftApprovalStatus(r);
@@ -5905,7 +5998,7 @@ function openDailyActive() {
     renderDailyActiveModal(existing || _daNewRecord(date, shift));
 }
 function renderDailyActiveModal(data) {
-    document.getElementById('dailyActiveModal')?.remove();
+    document.getElementById('dailyActivePage')?.remove();
     const isAdmin = window._userRole === 'admin';
     const isNew = !data.id;
     const isLocked = !isAdmin && !isNew && !_daIsCurrentShift(data);
@@ -5918,37 +6011,66 @@ function renderDailyActiveModal(data) {
         const val = Object.prototype.hasOwnProperty.call(items, item.id) ? items[item.id] : false;
         const checked = val === true;
         const na = val === 'NA';
+        const no = val === 'NO';
         const disabled = isLocked;
-        return '<div class="da-item ' + (na ? 'na' : '') + '" id="da_row_' + item.id + '">' +
+        return '<div class="da-item ' + (na ? 'na' : no ? 'da-no' : '') + '" id="da_row_' + item.id + '" style="' + (no ? 'background:#fff3f3;border-left:3px solid #f44336;' : '') + '">' +
             '<div class="da-item-info"><div class="da-item-title">' + _daEscape(item.label) + '</div>' +
             (item.sub ? '<div class="da-item-sub">' + _daEscape(item.sub) + '</div>' : '') +
+            (no && items[item.id + '_noReason'] ? '<div style="font-size:11px;color:#f44336;margin-top:3px;">❌ ' + _daEscape(items[item.id + '_noReason']) + '</div>' : '') +
             '</div><div class="da-actions">' +
-            '<label class="da-check-label"><input type="checkbox" class="da-checkbox" data-id="' + item.id + '" ' + (checked ? 'checked' : '') + ' ' + (disabled || na ? 'disabled' : '') + ' onchange="handleDaInteraction(\'' + item.id + '\')"><span>Done</span></label>' +
-            '<button class="da-na-btn ' + (na ? 'active' : '') + '" onclick="toggleDaNA(\'' + item.id + '\')" style="' + (checked ? 'display:none;' : '') + '" ' + (disabled ? 'disabled' : '') + '>NA</button>' +
+            '<label class="da-check-label"><input type="checkbox" class="da-checkbox" data-id="' + item.id + '" ' + (checked ? 'checked' : '') + ' ' + (disabled || na || no ? 'disabled' : '') + ' onchange="handleDaInteraction(\'' + item.id + '\')"><span>Done</span></label>' +
+            '<button class="da-na-btn ' + (na ? 'active' : '') + '" onclick="toggleDaNA(\'' + item.id + '\')" style="' + (checked || no ? 'display:none;' : '') + '" ' + (disabled ? 'disabled' : '') + '>NA</button>' +
+            '<button class="da-na-btn" onclick="openDaNoComment(\'' + item.id + '\',\'' + _daEscape(item.label) + '\')" style="background:#f44336;color:white;' + (checked || na ? 'display:none;' : '') + (no ? 'background:#c62828;' : '') + '" ' + (disabled ? 'disabled' : '') + '>' + (no ? 'NO ✎' : 'NO') + '</button>' +
             '</div></div>';
     }).join('');
 
-    const modal = document.createElement('div');
-    modal.id = 'dailyActiveModal';
-    modal.className = 'modal active';
-    modal.innerHTML =
-        '<div class="modal-content daily-active-modal">' +
-        '<span class="close" onclick="this.closest(\'.modal\').remove()">&times;</span>' +
-        '<div class="da-header"><div><h2>Daily Activity</h2><div style="font-size:12px;color:#667;">Date: ' + _daEscape(data.date) + ' | Shift: ' + _daEscape(data.shift) + (isLocked ? ' | Preview only' : '') + '</div></div>' +
-        '<div class="da-controls"><span class="da-shift-badge">' + _daEscape(data.shift) + '</span></div></div>' +
+    const page = document.createElement('div');
+    page.id = 'dailyActivePage';
+    page.style.cssText = 'position:fixed;inset:0;background:#f5f7fb;z-index:9990;display:flex;flex-direction:column;overflow:hidden;animation:slideInRight 0.22s ease;';
+    // Last shift summary
+    const _allDaRecs = getDailyActiveRecords().filter(r => !(r.date === data.date && r.shift === data.shift)).sort((a,b) => new Date(b.savedAt||0)-new Date(a.savedAt||0));
+    const _lastShift = _allDaRecs[0] || null;
+    let _lastShiftHtml = '';
+    if (_lastShift) {
+        const _lItems = _daChecklist();
+        const _lDone = _lItems.filter(i => _lastShift.items && _lastShift.items[i.id] === true).length;
+        const _lNA = _lItems.filter(i => _lastShift.items && _lastShift.items[i.id] === 'NA').length;
+        const _lNO = _lItems.filter(i => _lastShift.items && _lastShift.items[i.id] === 'NO').length;
+        const _lTotal = _lItems.length - _lNA;
+        const _lPct = _lTotal > 0 ? Math.round((_lDone/_lTotal)*100) : 0;
+        const _lColor = _lPct === 100 ? '#4caf50' : _lNO > 0 ? '#f44336' : '#ff9800';
+        _lastShiftHtml = '<div style="background:rgba(0,0,0,0.25);border-radius:8px;padding:7px 12px;margin:0 14px 10px;font-size:12px;">' +
+            '<div style="color:#c9d2df;font-weight:700;margin-bottom:4px;">\u23ee Last: ' + _daEscape(_lastShift.date) + ' | ' + _daEscape(_lastShift.shift) + '</div>' +
+            '<div style="display:flex;gap:10px;align-items:center;">' +
+            '<div style="flex:1;height:6px;background:rgba(255,255,255,0.15);border-radius:3px;overflow:hidden;"><div style="height:100%;width:' + _lPct + '%;background:' + _lColor + ';border-radius:3px;"></div></div>' +
+            '<span style="color:' + _lColor + ';font-weight:900;font-size:13px;">' + _lPct + '%</span>' +
+            '<span style="color:#c9d2df;">\u2705' + _lDone + ' NA' + _lNA + (_lNO > 0 ? ' \u274c' + _lNO : '') + '</span>' +
+            '</div></div>';
+    }
+
+    page.innerHTML =
+        '<style>@keyframes slideInRight{from{transform:translateX(100%)}to{transform:translateX(0)}}.da-no{opacity:0.85;}</style>' +
+        '<div style="background:#17202f;color:white;padding:12px 14px;display:flex;align-items:center;gap:10px;flex-shrink:0;">' +
+        '<button onclick="document.getElementById(\'dailyActivePage\').remove()" style="background:rgba(255,255,255,0.18);border:none;color:white;font-size:18px;width:34px;height:34px;border-radius:50%;cursor:pointer;">←</button>' +
+        '<div style="flex:1;"><div style="font-size:18px;font-weight:900;">Daily Activity</div>' +
+        '<div style="font-size:11px;color:#c9d2df;">Date: ' + _daEscape(data.date) + ' | Shift: ' + _daEscape(data.shift) + (isLocked ? ' | Preview only' : '') + '</div></div>' +
+        '<span class="da-shift-badge" style="background:#f0a429;color:#17202f;padding:4px 10px;border-radius:12px;font-weight:900;font-size:12px;">' + _daEscape(data.shift) + '</span>' +
+        '</div>' +
+        '<div style="flex:1;overflow-y:auto;padding:10px;">' +
         '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px;">' +
         '<div><label style="font-size:11px;font-weight:900;color:#38506b;">MODE</label><select id="da_mode" onchange="changeDaMode()" style="width:100%;padding:8px;border:1px solid #d7dce5;border-radius:7px;" ' + (isLocked ? 'disabled' : '') + '><option value="auto" ' + (mode === 'auto' ? 'selected' : '') + '>Auto</option><option value="manual" ' + (mode === 'manual' ? 'selected' : '') + '>Manual</option></select></div>' +
         '<div><label style="font-size:11px;font-weight:900;color:#38506b;">DATE</label><input id="da_date" type="date" value="' + _daEscape(_daDisplayToDateInput(data.date)) + '" onchange="changeDaDateShift()" style="width:100%;padding:8px;border:1px solid #d7dce5;border-radius:7px;" ' + (mode === 'auto' || isLocked ? 'disabled' : '') + '></div>' +
         '<div><label style="font-size:11px;font-weight:900;color:#38506b;">SHIFT AUTO</label><input value="' + _daEscape(data.shift) + '" readonly style="width:100%;padding:8px;border:1px solid #d7dce5;border-radius:7px;background:#f7f9fc;"></div>' +
         '<div><label style="font-size:11px;font-weight:900;color:#38506b;">PREVIOUS</label><button onclick="openDailyActiveHistory()" style="width:100%;padding:8px;background:#4CAF50;color:white;border:none;border-radius:7px;font-weight:900;">Preview</button></div>' +
         '</div>' +
+        _lastShiftHtml +
         '<div class="da-list">' + rows + '</div>' +
-        '<div class="da-comment-box"><div class="da-item-title" style="margin-bottom:5px;">Comment / Note</div><textarea id="da_comment" placeholder="Write comment or note..." ' + (isLocked ? 'disabled' : '') + '>' + _daEscape(data.comment || '') + '</textarea></div>' +
-        '<div class="da-footer">' +
-        (!isLocked ? '<button onclick="saveDailyActive()" style="flex:2;background:#667eea;color:white;border:none;padding:12px;border-radius:8px;font-weight:700;cursor:pointer;">Save</button>' : '') +
-        '<button onclick="this.closest(\'.modal\').remove()" style="flex:1;background:#eee;color:#333;border:none;padding:12px;border-radius:8px;cursor:pointer;">Close</button>' +
+        '<div class="da-comment-box" style="margin-top:10px;"><div class="da-item-title" style="margin-bottom:5px;">Comment / Note</div><textarea id="da_comment" rows="3" placeholder="Write comment or note..." style="width:100%;padding:8px;border:1px solid #d7dce5;border-radius:7px;resize:vertical;box-sizing:border-box;" ' + (isLocked ? 'disabled' : '') + '>' + _daEscape(data.comment || '') + '</textarea></div>' +
+        '<div style="display:flex;gap:8px;margin-top:10px;padding-bottom:16px;">' +
+        (!isLocked ? '<button onclick="saveDailyActive()" style="flex:2;background:#667eea;color:white;border:none;padding:12px;border-radius:8px;font-weight:700;cursor:pointer;font-size:15px;">💾 Save</button>' : '') +
+        '<button onclick="document.getElementById(\'dailyActivePage\').remove()" style="flex:1;background:#eee;color:#333;border:none;padding:12px;border-radius:8px;cursor:pointer;">← Back</button>' +
         '</div></div>';
-    document.body.appendChild(modal);
+    document.body.appendChild(page);
     window._currentDaData = data;
 }
 function changeDaMode() {
@@ -5969,6 +6091,42 @@ function changeDaDateShift() {
     const existing = _daFindRecord(data.date, data.shift);
     renderDailyActiveModal(existing || data);
 }
+function openDaNoComment(itemId, itemLabel) {
+    document.getElementById('daNoCommentModal')?.remove();
+    const modal = document.createElement('div');
+    modal.id = 'daNoCommentModal';
+    modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:10000;display:flex;align-items:center;justify-content:center;padding:16px;';
+    const data = window._currentDaData;
+    const existing = data?.items?.[itemId + '_noReason'] || '';
+    modal.innerHTML = `
+    <div style="background:white;border-radius:14px;width:100%;max-width:360px;overflow:hidden;box-shadow:0 8px 32px rgba(0,0,0,0.25);">
+        <div style="background:#f44336;color:white;padding:12px 16px;display:flex;justify-content:space-between;align-items:center;">
+            <div style="font-weight:900;font-size:15px;">❌ NO — Reason</div>
+            <button onclick="document.getElementById('daNoCommentModal').remove()" style="background:rgba(255,255,255,0.2);border:none;color:white;font-size:20px;width:30px;height:30px;border-radius:50%;cursor:pointer;">×</button>
+        </div>
+        <div style="padding:14px;">
+            <div style="font-size:13px;font-weight:700;color:#333;margin-bottom:8px;">${itemLabel}</div>
+            <textarea id="daNoReasonText" rows="3" placeholder="NO karne ka reason likhein..." style="width:100%;padding:8px;border:1.5px solid #f44336;border-radius:8px;resize:vertical;box-sizing:border-box;font-size:14px;">${existing}</textarea>
+            <div style="display:flex;gap:8px;margin-top:10px;">
+                <button onclick="saveDaNoComment('${itemId}')" style="flex:1;padding:11px;background:#f44336;color:white;border:none;border-radius:9px;font-weight:900;cursor:pointer;">✅ Confirm NO</button>
+                <button onclick="document.getElementById('daNoCommentModal').remove()" style="flex:1;padding:11px;background:#eee;color:#333;border:none;border-radius:9px;cursor:pointer;">Cancel</button>
+            </div>
+        </div>
+    </div>`;
+    document.body.appendChild(modal);
+    setTimeout(() => document.getElementById('daNoReasonText')?.focus(), 100);
+}
+
+function saveDaNoComment(itemId) {
+    const reason = document.getElementById('daNoReasonText')?.value?.trim() || '';
+    const data = window._currentDaData;
+    if (!data) return;
+    data.items[itemId] = 'NO';
+    data.items[itemId + '_noReason'] = reason;
+    document.getElementById('daNoCommentModal').remove();
+    renderDailyActiveModal(data);
+}
+
 function toggleDaNA(itemId) {
     const data = window._currentDaData;
     if (!data) return;
@@ -6033,7 +6191,7 @@ function saveDailyActive() {
     if (idx >= 0) records[idx] = data; else records.unshift(data);
     saveDailyActiveRecords(records);
     syncToServer();
-    document.getElementById('dailyActiveModal')?.remove();
+    document.getElementById('dailyActivePage')?.remove();
     showSuccessPopup('Daily Activity saved!');
 }
 function openDailyActiveHistory() {
@@ -6222,87 +6380,81 @@ function clearSecondaryIftFind() {
 }
 function openSecondaryIft() {
     trackUsage('feature', 'Secondary IFT', 'IFT form opened');
-    const existing = document.getElementById('secondaryIftModal');
-    if (existing) existing.remove();
-    const modal = document.createElement('div');
-    modal.id = 'secondaryIftModal';
-    modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.72);z-index:9999;display:flex;align-items:flex-start;justify-content:center;padding:14px;overflow:auto;';
-    modal.innerHTML = `
-    <div style="width:100%;max-width:540px;background:#f3f5f8;border-radius:10px;overflow:hidden;box-shadow:0 18px 50px rgba(0,0,0,0.35);">
-        <div style="background:#17202f;color:white;padding:12px 14px;display:flex;align-items:center;justify-content:space-between;gap:10px;border-bottom:4px solid #f0a429;position:relative;">
+    document.getElementById('secondaryIftPage')?.remove();
+    const page = document.createElement('div');
+    page.id = 'secondaryIftPage';
+    page.style.cssText = 'position:fixed;inset:0;background:#f3f5f8;z-index:9990;display:flex;flex-direction:column;overflow:hidden;animation:slideInRight 0.22s ease;';
+    page.innerHTML = `
+    <style>@keyframes slideInRight{from{transform:translateX(100%)}to{transform:translateX(0)}}</style>
+    <div style="background:#17202f;color:white;padding:12px 14px;display:flex;align-items:center;justify-content:space-between;gap:10px;border-bottom:4px solid #f0a429;flex-shrink:0;">
+        <div style="display:flex;align-items:center;gap:10px;">
+            <button onclick="document.getElementById('secondaryIftPage').remove()" style="background:rgba(255,255,255,0.18);border:none;color:white;font-size:18px;width:34px;height:34px;border-radius:50%;cursor:pointer;">←</button>
             <div>
                 <div style="font-size:18px;font-weight:900;">Secondary IFT</div>
                 <div style="font-size:11px;color:#c9d2df;">Auto date/time, Julian, card data, and IFT FIND</div>
             </div>
-            <div style="display:flex;gap:7px;align-items:center;"><button onclick="clearSecondaryIftBoxes()" style="background:#f0a429;border:none;color:#17202f;font-size:12px;padding:8px 10px;border-radius:7px;cursor:pointer;font-weight:900;line-height:1;">Clear</button><button onclick="toggleSecondaryIftMenu(event)" style="background:rgba(255,255,255,0.18);border:none;color:white;font-size:20px;width:34px;height:34px;border-radius:50%;cursor:pointer;font-weight:900;">⋮</button><button onclick="document.getElementById('secondaryIftModal').remove()" style="background:rgba(255,255,255,0.18);border:none;color:white;font-size:22px;width:34px;height:34px;border-radius:50%;cursor:pointer;">&times;</button></div>
         </div>
-        <div style="padding:10px;">
-            <div style="border:2px solid #d7dce5;border-radius:8px;padding:10px;background:white;">
-                <div style="font-size:18px;font-weight:900;color:#17202f;margin-bottom:8px;">IFT</div>
-                <div style="display:grid;grid-template-columns:1.15fr .75fr .75fr;gap:6px;">
-                    <div><label style="font-size:10px;font-weight:900;color:#38506b;">VARIANT</label><select id="secondaryIftVariant" onfocus="requireSecondaryIftHdlFirst()" onchange="updateSecondaryIftAuto()" style="width:100%;padding:7px;border:1px solid #d7dce5;border-radius:6px;"><option>ARIEL TL</option><option>ARIEL FL</option><option>TIDE ALL</option><option>CUSTOM</option></select></div>
-                    <div><label style="font-size:10px;font-weight:900;color:#38506b;">SKU</label><select id="secondaryIftSku" onfocus="requireSecondaryIftHdlFirst()" onchange="updateSecondaryIftAuto()" style="width:100%;padding:7px;border:1px solid #d7dce5;border-radius:6px;">${getSecondaryIftSkuOptionsHtml()}</select></div>
-                    <div><label style="font-size:10px;font-weight:900;color:#38506b;">HDL</label><select id="secondaryIftHdl" onchange="updateSecondaryIftHdlCustom()" style="width:100%;padding:7px;border:1px solid #d7dce5;border-radius:6px;"><option value="">Select HDL</option><option>HDL1</option><option>HDL2</option><option>HDL3</option><option>HDL4</option><option>HDL5</option><option>HDL6</option><option>HDL7</option><option>HDL8</option><option>CUSTOM</option></select><div id="secondaryIftCustomHdlRow" style="display:none;margin-top:5px;"><input id="secondaryIftCustomHdl" oninput="updateSecondaryIftClock()" placeholder="CUSTOM HDL" style="width:100%;padding:7px;border:1px solid #d7dce5;border-radius:6px;"></div></div>
-                </div>
-                <div id="secondaryIftCustomRow" style="display:none;grid-template-columns:1fr 1fr;gap:6px;margin-top:6px;">
-                    <div><label style="font-size:10px;font-weight:900;color:#38506b;">CUSTOM SKU</label><input id="secondaryIftCustomSku" oninput="updateSecondaryIftAuto()" placeholder="SKU" style="width:100%;padding:7px;border:1px solid #d7dce5;border-radius:6px;"></div>
-                    <div><label style="font-size:10px;font-weight:900;color:#38506b;">CUSTOM VARIANT</label><input id="secondaryIftCustomVariant" oninput="updateSecondaryIftAuto()" placeholder="Variant" style="width:100%;padding:7px;border:1px solid #d7dce5;border-radius:6px;"></div>
-                </div>
-                <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px;">
-                    <div>
-                        <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;">
-                            <div><label style="font-size:10px;font-weight:900;color:#38506b;">LSL AUTO</label><div id="secondaryIftLclAutoText" style="padding:2px 0;color:#17202f;font-size:12px;font-weight:400;min-height:18px;">-</div><input id="secondaryIftLclAuto" type="number" step="0.01" placeholder="LSL" style="display:none;width:100%;padding:7px;border:1px solid #d7dce5;border-radius:6px;"></div>
-                            <div><label style="font-size:10px;font-weight:900;color:#38506b;">LSL CURRENT</label><input id="secondaryIftLclCurrent" type="number" step="0.01" placeholder="WT" style="width:100%;padding:7px;border:1px solid #d7dce5;border-radius:6px;"></div>
-                            <div><label style="font-size:10px;font-weight:900;color:#38506b;">USL AUTO</label><div id="secondaryIftUslAutoText" style="padding:2px 0;color:#17202f;font-size:12px;font-weight:400;min-height:18px;">-</div><input id="secondaryIftUslAuto" type="number" step="0.01" placeholder="USL" style="display:none;width:100%;padding:7px;border:1px solid #d7dce5;border-radius:6px;"></div>
-                            <div><label style="font-size:10px;font-weight:900;color:#38506b;">USL CURRENT</label><input id="secondaryIftUslCurrent" type="number" step="0.01" placeholder="WT" style="width:100%;padding:7px;border:1px solid #d7dce5;border-radius:6px;"></div>
-                        </div>
-                        <div style="display:grid;gap:5px;margin-top:6px;">
-                            <label style="display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center;padding:6px 8px;border:1px solid #d7dce5;border-radius:7px;background:#fafbfc;font-weight:900;font-size:12px;">LSL WT Pass <input id="secondaryIftLclCheck" type="checkbox" style="width:18px;height:18px;"></label>
-                            <label style="display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center;padding:6px 8px;border:1px solid #d7dce5;border-radius:7px;background:#fafbfc;font-weight:900;font-size:12px;">USL WT Pass <input id="secondaryIftUslCheck" type="checkbox" style="width:18px;height:18px;"></label>
-                            <label style="display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center;padding:6px 8px;border:1px solid #d7dce5;border-radius:7px;background:#fafbfc;font-weight:900;font-size:12px;">OCR Camera <input id="secondaryIftOcrCheck" type="checkbox" style="width:18px;height:18px;"></label>
-                            <label style="display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center;padding:6px 8px;border:1px solid #d7dce5;border-radius:7px;background:#fafbfc;font-weight:900;font-size:12px;">2D Check <input id="secondaryIft2dCheck" type="checkbox" style="width:18px;height:18px;"></label>
-                        </div>
+        <div style="display:flex;gap:7px;align-items:center;">
+            <button onclick="clearSecondaryIftBoxes()" style="background:#f0a429;border:none;color:#17202f;font-size:12px;padding:8px 10px;border-radius:7px;cursor:pointer;font-weight:900;">Clear</button>
+            <button onclick="toggleSecondaryIftMenu(event)" style="background:rgba(255,255,255,0.18);border:none;color:white;font-size:20px;width:34px;height:34px;border-radius:50%;cursor:pointer;font-weight:900;">⋮</button>
+        </div>
+    </div>
+    <div style="flex:1;overflow-y:auto;padding:10px;">
+        <div style="border:2px solid #d7dce5;border-radius:8px;padding:10px;background:white;">
+            <div style="font-size:18px;font-weight:900;color:#17202f;margin-bottom:8px;">IFT</div>
+            <div style="display:grid;grid-template-columns:1.15fr .75fr .75fr;gap:6px;">
+                <div><label style="font-size:10px;font-weight:900;color:#38506b;">VARIANT</label><select id="secondaryIftVariant" onfocus="requireSecondaryIftHdlFirst()" onchange="updateSecondaryIftAuto()" style="width:100%;padding:7px;border:1px solid #d7dce5;border-radius:6px;"><option value="">-- Select --</option><option>ARIEL TL</option><option>ARIEL FL</option><option>TIDE ALL</option><option>CUSTOM</option></select></div>
+                <div><label style="font-size:10px;font-weight:900;color:#38506b;">SKU</label><select id="secondaryIftSku" onfocus="requireSecondaryIftHdlFirst()" onchange="updateSecondaryIftAuto()" style="width:100%;padding:7px;border:1px solid #d7dce5;border-radius:6px;"><option value="">-- Select --</option>${getSecondaryIftSkuOptionsHtml()}</select></div>
+                <div><label style="font-size:10px;font-weight:900;color:#38506b;">HDL</label><select id="secondaryIftHdl" onchange="updateSecondaryIftHdlCustom()" style="width:100%;padding:7px;border:1px solid #d7dce5;border-radius:6px;"><option value="">Select HDL</option><option>HDL1</option><option>HDL2</option><option>HDL3</option><option>HDL4</option><option>HDL5</option><option>HDL6</option><option>HDL7</option><option>HDL8</option><option>CUSTOM</option></select><div id="secondaryIftCustomHdlRow" style="display:none;margin-top:5px;"><input id="secondaryIftCustomHdl" oninput="updateSecondaryIftClock()" placeholder="CUSTOM HDL" style="width:100%;padding:7px;border:1px solid #d7dce5;border-radius:6px;"></div></div>
+            </div>
+            <div id="secondaryIftCustomRow" style="display:none;grid-template-columns:1fr 1fr;gap:6px;margin-top:6px;">
+                <div><label style="font-size:10px;font-weight:900;color:#38506b;">CUSTOM SKU</label><input id="secondaryIftCustomSku" oninput="updateSecondaryIftAuto()" placeholder="SKU" style="width:100%;padding:7px;border:1px solid #d7dce5;border-radius:6px;"></div>
+                <div><label style="font-size:10px;font-weight:900;color:#38506b;">CUSTOM VARIANT</label><input id="secondaryIftCustomVariant" oninput="updateSecondaryIftAuto()" placeholder="Variant" style="width:100%;padding:7px;border:1px solid #d7dce5;border-radius:6px;"></div>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px;">
+                <div>
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;">
+                        <div><label style="font-size:10px;font-weight:900;color:#38506b;">LSL AUTO</label><div id="secondaryIftLclAutoText" style="padding:2px 0;color:#17202f;font-size:12px;font-weight:400;min-height:18px;">-</div><input id="secondaryIftLclAuto" type="number" step="0.01" placeholder="LSL" style="display:none;width:100%;padding:7px;border:1px solid #d7dce5;border-radius:6px;"></div>
+                        <div><label style="font-size:10px;font-weight:900;color:#38506b;">LSL CURRENT (kg)</label><input id="secondaryIftLclCurrent" type="number" step="0.001" placeholder="0.000 kg" oninput="autoCheckIftLslUsl()" style="width:100%;padding:7px;border:1px solid #d7dce5;border-radius:6px;"></div>
+                        <div><label style="font-size:10px;font-weight:900;color:#38506b;">USL AUTO</label><div id="secondaryIftUslAutoText" style="padding:2px 0;color:#17202f;font-size:12px;font-weight:400;min-height:18px;">-</div><input id="secondaryIftUslAuto" type="number" step="0.01" placeholder="USL" style="display:none;width:100%;padding:7px;border:1px solid #d7dce5;border-radius:6px;"></div>
+                        <div><label style="font-size:10px;font-weight:900;color:#38506b;">USL CURRENT (kg)</label><input id="secondaryIftUslCurrent" type="number" step="0.001" placeholder="0.000 kg" oninput="autoCheckIftLslUsl()" style="width:100%;padding:7px;border:1px solid #d7dce5;border-radius:6px;"></div>
                     </div>
-                    <div>
-                        <label style="font-size:10px;font-weight:900;color:#38506b;">DATE TIME</label><input id="secondaryIftDateTime" readonly style="width:100%;padding:7px;border:1px solid #d7dce5;border-radius:6px;"><input id="secondaryIftDate" type="hidden"><input id="secondaryIftTime" type="hidden">
-                        <label style="font-size:10px;font-weight:900;color:#38506b;margin-top:4px;display:block;">SHIFT AUTO</label><div id="secondaryIftShiftText" style="padding:6px 7px;border:1px solid #d7dce5;border-radius:6px;background:#f8fafc;color:#17202f;font-size:12px;font-weight:900;">-</div><input id="secondaryIftShift" type="hidden">
-                        <input id="secondaryIftJulian" type="hidden"><div id="secondaryIftJulianCode" style="margin-top:6px;padding:8px;border-radius:7px;background:#17202f;color:white;font-size:16px;font-weight:900;text-align:center;">----</div>
-                        <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:6px;">
-                            <div><label style="font-size:10px;font-weight:900;color:#38506b;display:flex;align-items:center;justify-content:space-between;gap:5px;">GCASE AUTO <button onclick="openSecondaryIftGcaseScanner()" title="Scan barcode" style="border:none;background:#17202f;color:white;border-radius:5px;width:25px;height:22px;font-size:12px;cursor:pointer;line-height:1;">📷</button></label><div id="secondaryIftGcaseText" style="padding:6px 7px;border:1px solid #d7dce5;border-radius:6px;background:#f8fafc;color:#526173;font-size:11px;font-weight:900;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">-</div><input id="secondaryIftGcase" placeholder="GCase" style="display:none;width:100%;padding:7px;border:1px solid #d7dce5;border-radius:6px;"></div>
-                            <div><label style="font-size:10px;font-weight:900;color:#38506b;">PCODE AUTO</label><div id="secondaryIftPcodeText" style="padding:6px 7px;border:1px solid #d7dce5;border-radius:6px;background:#f8fafc;color:#526173;font-size:11px;font-weight:900;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">-</div><input id="secondaryIftPcode" placeholder="PCode" style="display:none;width:100%;padding:7px;border:1px solid #d7dce5;border-radius:6px;"></div>
-                        </div>
-                        <label style="font-size:10px;font-weight:900;color:#38506b;margin-top:4px;display:block;">TEST DONE BY</label><input id="secondaryIftTestName" placeholder="Name" style="width:100%;padding:7px;border:1px solid #d7dce5;border-radius:6px;">
-                        <label style="font-size:10px;font-weight:900;color:#38506b;margin-top:4px;display:block;">COMMENT</label><textarea id="secondaryIftComment" placeholder="Comment" rows="2" style="width:100%;padding:7px;border:1px solid #d7dce5;border-radius:6px;resize:vertical;box-sizing:border-box;"></textarea>
+                    <div style="display:grid;gap:5px;margin-top:6px;">
+                        <label style="display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center;padding:6px 8px;border:1px solid #d7dce5;border-radius:7px;background:#fafbfc;font-weight:900;font-size:12px;">LSL WT Pass <input id="secondaryIftLclCheck" type="checkbox" style="width:18px;height:18px;"></label>
+                        <label style="display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center;padding:6px 8px;border:1px solid #d7dce5;border-radius:7px;background:#fafbfc;font-weight:900;font-size:12px;">USL WT Pass <input id="secondaryIftUslCheck" type="checkbox" style="width:18px;height:18px;"></label>
+                        <label style="display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center;padding:6px 8px;border:1px solid #d7dce5;border-radius:7px;background:#fafbfc;font-weight:900;font-size:12px;">OCR Camera <input id="secondaryIftOcrCheck" type="checkbox" style="width:18px;height:18px;"></label>
+                        <label style="display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center;padding:6px 8px;border:1px solid #d7dce5;border-radius:7px;background:#fafbfc;font-weight:900;font-size:12px;">2D Check <input id="secondaryIft2dCheck" type="checkbox" style="width:18px;height:18px;"></label>
                     </div>
                 </div>
-            </div>
-            <div id="offlinePendingSyncBadge" style="display:none;margin-top:10px;padding:8px 10px;background:#fff8e1;color:#8a5b00;border:1px solid #ffe08a;border-radius:7px;font-size:12px;font-weight:900;"></div>
-            <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;">
-                <button onclick="saveSecondaryIftRecord()" style="flex:1;min-width:145px;padding:10px;background:#2e8b57;color:white;border:none;border-radius:7px;font-weight:900;">Save / Update IFT</button>
-                <button onclick="openSecondaryIftFind()" style="flex:1;min-width:110px;padding:10px;background:#657386;color:white;border:none;border-radius:7px;font-weight:900;">IFT FIND</button>
-                            <button class="admin-only" onclick="openSecondaryIftRecycleBin()" style="flex:1;min-width:135px;padding:10px;background:#bd3d3d;color:white;border:none;border-radius:7px;font-weight:900;">IFT Recycle Bin</button>
-            </div>
-            <div id="secondaryIftLastCard"></div>
-            <details id="secondaryIftFindBox" style="margin-top:12px;border:1px solid #d7dce5;border-radius:8px;background:#fff;overflow:hidden;">
-                <summary style="padding:10px 12px;cursor:pointer;font-weight:900;color:#17202f;background:#eef3f9;">IFT FIND</summary>
-                <div style="padding:10px;">
-                    <input id="secondaryIftFindInput" placeholder="Search GCase, date, Julian, time, SKU" oninput="renderSecondaryIftCards()" style="width:100%;padding:9px;border:2px solid #d7dce5;border-radius:7px;">
-                    <button onclick="clearSecondaryIftFind()" style="margin-top:8px;padding:8px 10px;background:#bd3d3d;color:white;border:none;border-radius:7px;font-weight:900;">Clear Find</button>
-                    <div id="secondaryIftCards"></div>
+                <div>
+                    <label style="font-size:10px;font-weight:900;color:#38506b;">DATE TIME</label><input id="secondaryIftDateTime" readonly style="width:100%;padding:7px;border:1px solid #d7dce5;border-radius:6px;"><input id="secondaryIftDate" type="hidden"><input id="secondaryIftTime" type="hidden">
+                    <label style="font-size:10px;font-weight:900;color:#38506b;margin-top:4px;display:block;">SHIFT AUTO</label><div id="secondaryIftShiftText" style="padding:6px 7px;border:1px solid #d7dce5;border-radius:6px;background:#f8fafc;color:#17202f;font-size:12px;font-weight:900;">-</div><input id="secondaryIftShift" type="hidden">
+                    <input id="secondaryIftJulian" type="hidden"><div id="secondaryIftJulianCode" style="margin-top:6px;padding:8px;border-radius:7px;background:#17202f;color:white;font-size:16px;font-weight:900;text-align:center;">----</div>
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:6px;">
+                        <div><label style="font-size:10px;font-weight:900;color:#38506b;display:flex;align-items:center;justify-content:space-between;gap:4px;">GCASE <button onclick="openSecondaryIftGcaseScanner()" title="Scan barcode" style="border:none;background:#17202f;color:white;border-radius:5px;width:24px;height:20px;font-size:11px;cursor:pointer;line-height:1;">📷</button><button onclick="toggleIftManualField('secondaryIftGcaseText','secondaryIftGcase')" title="Manual edit" style="border:none;background:#667eea;color:white;border-radius:5px;padding:0 5px;height:20px;font-size:10px;cursor:pointer;line-height:1;">✎</button></label><div id="secondaryIftGcaseText" style="padding:6px 7px;border:1px solid #d7dce5;border-radius:6px;background:#f8fafc;color:#526173;font-size:11px;font-weight:900;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">-</div><input id="secondaryIftGcase" placeholder="GCase manual" style="display:none;width:100%;padding:7px;border:1px solid #d7dce5;border-radius:6px;box-sizing:border-box;"></div>
+                        <div><label style="font-size:10px;font-weight:900;color:#38506b;display:flex;align-items:center;justify-content:space-between;gap:4px;">PCODE <button onclick="toggleIftManualField('secondaryIftPcodeText','secondaryIftPcode')" title="Manual edit" style="border:none;background:#667eea;color:white;border-radius:5px;padding:0 5px;height:20px;font-size:10px;cursor:pointer;line-height:1;">✎</button></label><div id="secondaryIftPcodeText" style="padding:6px 7px;border:1px solid #d7dce5;border-radius:6px;background:#f8fafc;color:#526173;font-size:11px;font-weight:900;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">-</div><input id="secondaryIftPcode" placeholder="PCode manual" style="display:none;width:100%;padding:7px;border:1px solid #d7dce5;border-radius:6px;box-sizing:border-box;"></div>
+                    </div>
+                    <label style="font-size:10px;font-weight:900;color:#38506b;margin-top:4px;display:block;">TEST DONE BY</label><input id="secondaryIftTestName" placeholder="Name" style="width:100%;padding:7px;border:1px solid #d7dce5;border-radius:6px;">
+                    <label style="font-size:10px;font-weight:900;color:#38506b;margin-top:4px;display:block;">COMMENT</label><textarea id="secondaryIftComment" placeholder="Comment" rows="2" style="width:100%;padding:7px;border:1px solid #d7dce5;border-radius:6px;resize:vertical;box-sizing:border-box;"></textarea>
                 </div>
-            </details>
+            </div>
         </div>
+        <div id="offlinePendingSyncBadge" style="display:none;margin-top:10px;padding:8px 10px;background:#fff8e1;color:#8a5b00;border:1px solid #ffe08a;border-radius:7px;font-size:12px;font-weight:900;"></div>
+        <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;">
+            <button onclick="saveSecondaryIft()" style="flex:2;min-width:120px;padding:11px;background:#17202f;color:white;border:none;border-radius:8px;font-weight:900;cursor:pointer;font-size:15px;">Save IFT</button>
+            <button onclick="saveSecondaryIftAndNew()" style="flex:1;min-width:80px;padding:11px;background:#4CAF50;color:white;border:none;border-radius:8px;font-weight:900;cursor:pointer;">Save & New</button>
+        </div>
+        <div id="secondaryIftLastCard" style="margin-top:8px;"></div>
+        <details id="secondaryIftFindBox" style="margin-top:10px;border:1.5px solid #d7dce5;border-radius:8px;background:white;padding:8px;">
+            <summary style="font-weight:900;color:#17202f;cursor:pointer;">🔍 IFT FIND</summary>
+            <input id="secondaryIftFindInput" placeholder="Search by GCase, PCode..." oninput="renderSecondaryIftCards()" style="width:100%;padding:7px;border:1px solid #d7dce5;border-radius:6px;margin-top:8px;box-sizing:border-box;">
+            <div id="secondaryIftCardList" style="margin-top:8px;max-height:340px;overflow-y:auto;"></div>
+        </details>
     </div>`;
-    document.body.appendChild(modal);
-    updateSecondaryIftAuto(true);
-    updateSecondaryIftHdlCustom();
+    document.body.appendChild(page);
+    updateSecondaryIftClock();
     renderSecondaryIftCards();
     renderOfflinePendingSyncBadge();
-    window._secondaryIftTimer = setInterval(() => {
-        if (!document.getElementById('secondaryIftModal')) { clearInterval(window._secondaryIftTimer); return; }
-        updateSecondaryIftClock();
-    }, 1000);
-    modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
 }
 
 // ============================================================
@@ -7770,15 +7922,7 @@ function saveNewFormula() {
     opencalculatorSettings();
 }
 
-async function deleteCalcFormula(name) {
-    if (!requireAdminAction('Delete formula')) return;
-    if (!await appConfirm('Delete "'+name+'" formula?')) return;
-    const custom = JSON.parse(localStorage.getItem('customFormulas')||'{}');
-    delete custom[name];
-    localStorage.setItem('customFormulas', JSON.stringify(custom));
-    document.getElementById('calculatorSettingsModal').remove();
-    opencalculatorSettings();
-}
+// deleteCalcFormula — newer version below
 
 async function syncCalcFormulas() {
     const pwd = await appPrompt('Enter admin password to sync to server:');
@@ -9579,6 +9723,126 @@ function applyJsonBinRecord(rec, sourceLabel) {
 }
 
 // Cache duration: 30 minutes (in milliseconds)
+
+// ============================================================
+// SETTINGS SEARCH — Menu items filter karo
+// ============================================================
+function filterMenuItems(query) {
+    const q = (query || '').toLowerCase().trim();
+    const items = document.querySelectorAll('#sideMenu .menu-item');
+    const clearBtn = document.getElementById('settingsSearchClear');
+    const noResult = document.getElementById('settingsNoResult');
+    let visibleCount = 0;
+
+    items.forEach(item => {
+        const text = item.textContent.toLowerCase();
+        const isVisible = item.style.display !== 'none' || q === '';
+        if (q === '') {
+            // Query empty — applyRoleAccess wali visibility restore karo
+            item.removeAttribute('data-search-hidden');
+        } else {
+            if (text.includes(q)) {
+                item.style.display = 'block';
+                item.removeAttribute('data-search-hidden');
+                visibleCount++;
+            } else {
+                item.style.display = 'none';
+                item.setAttribute('data-search-hidden', '1');
+            }
+        }
+    });
+
+    if (q === '') {
+        // Restore original role-based visibility
+        applyRoleAccess(window._userRole);
+        if (noResult) noResult.style.display = 'none';
+    } else {
+        if (noResult) noResult.style.display = visibleCount === 0 ? 'block' : 'none';
+    }
+
+    if (clearBtn) clearBtn.style.display = q ? 'block' : 'none';
+}
+
+// Menu close hone par search clear karo
+const _origToggleMenu = typeof toggleMenu === 'function' ? toggleMenu : null;
+
+
+// ============================================================
+// GLOBAL BACK BUTTON — Har modal/popup pe Back dikhao
+// ============================================================
+window._timeUserTyping = false;
+
+function closeTopModal() {
+    const modals = Array.from(document.querySelectorAll(
+        '.modal, [id$="Modal"], [id$="modal"], [id="sideMenu"], [id="filterPanel"]'
+    )).filter(el => {
+        const s = window.getComputedStyle(el);
+        return s.display !== 'none' && s.visibility !== 'hidden' && el.offsetParent !== null;
+    });
+    if (!modals.length) { hideGlobalBackBtn(); return; }
+    const top = modals[modals.length - 1];
+    // × ya close button dhundho
+    const closeBtn = top.querySelector(
+        '.close, .close-btn, [onclick*=".remove()"], [onclick*="close"], [aria-label="close"], button[onclick*="Close"], button[onclick*="close"]'
+    );
+    if (closeBtn) closeBtn.click();
+    else if (top.id === 'sideMenu') top.classList.remove('active');
+    else top.remove();
+    setTimeout(updateGlobalBackBtn, 120);
+}
+
+function updateGlobalBackBtn() {
+    const modals = Array.from(document.querySelectorAll(
+        '.modal, [id$="Modal"], [id$="modal"], [id="sideMenu"], [id="filterPanel"]'
+    )).filter(el => {
+        const s = window.getComputedStyle(el);
+        return s.display !== 'none' && s.visibility !== 'hidden' && el.offsetParent !== null;
+    });
+    const btn = document.getElementById('globalBackBtn');
+    if (!btn) return;
+    btn.style.display = modals.length > 0 ? 'flex' : 'none';
+}
+
+function hideGlobalBackBtn() {
+    const btn = document.getElementById('globalBackBtn');
+    if (btn) btn.style.display = 'none';
+}
+
+// MutationObserver — modal khule ya band ho toh auto update
+const _backBtnObserver = new MutationObserver(() => updateGlobalBackBtn());
+document.addEventListener('DOMContentLoaded', () => {
+    _backBtnObserver.observe(document.body, {
+        childList: true, subtree: true,
+        attributes: true, attributeFilter: ['style', 'class']
+    });
+    updateGlobalBackBtn();
+
+    // Menu close hone par search clear karo
+    const origToggle = window.toggleMenu;
+    if (origToggle) {
+        window.toggleMenu = function() {
+            origToggle();
+            const inp = document.getElementById('settingsSearchInput');
+            if (inp) { inp.value = ''; filterMenuItems(''); }
+        };
+    }
+});
+
+// Android/Browser back button support
+window.addEventListener('popstate', (e) => {
+    const modals = Array.from(document.querySelectorAll(
+        '.modal, [id$="Modal"], [id$="modal"]'
+    )).filter(el => {
+        const s = window.getComputedStyle(el);
+        return s.display !== 'none' && el.offsetParent !== null;
+    });
+    if (modals.length > 0) {
+        e.preventDefault();
+        closeTopModal();
+        history.pushState(null, '', window.location.href);
+    }
+});
+
 const CACHE_DURATION_MS = 30 * 60 * 1000;
 
 // Check if cached data is still fresh (within 30 min)

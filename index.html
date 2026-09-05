@@ -209,6 +209,83 @@ h1 {
     color: #333;
 }
 
+.menu-section-title {
+    padding: 14px 20px 7px;
+    color: #667eea;
+    font-size: 11px;
+    font-weight: 900;
+    letter-spacing: 0;
+    text-transform: uppercase;
+    background: #f6f7ff;
+    border-top: 1px solid #e8ebff;
+    border-bottom: 1px solid #eef0ff;
+}
+
+body.dark-mode .menu-section-title {
+    background: #24243a;
+    border-color: #3a3a58;
+    color: #aeb9ff;
+}
+
+.special-settings-field {
+    margin-bottom: 12px;
+}
+
+.special-settings-field label {
+    display: block;
+    color: #333;
+    font-size: 12px;
+    font-weight: 800;
+    margin-bottom: 5px;
+}
+
+.special-settings-field input,
+.special-settings-field textarea,
+.special-settings-field select {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 10px;
+    border: 1.5px solid #d9def8;
+    border-radius: 8px;
+    font-size: 13px;
+    outline: none;
+}
+
+.special-settings-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 10px;
+}
+
+.special-settings-checks {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 8px;
+}
+
+.special-settings-checks label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 9px 10px;
+    border: 1px solid #e6e8f5;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 700;
+}
+
+body.dark-mode .special-settings-field label {
+    color: #f1f1f1;
+}
+
+body.dark-mode .special-settings-field input,
+body.dark-mode .special-settings-field textarea,
+body.dark-mode .special-settings-field select {
+    background: #2f2f48;
+    border-color: #555574;
+    color: #f1f1f1;
+}
+
 .container {
     max-width: 1200px;
     margin: 20px auto;
@@ -250,6 +327,69 @@ h1 {
 
 .search-section button:hover {
     background: #5568d3;
+}
+
+.recent-search-history {
+    flex: 1 0 100%;
+    display: none;
+    background: #f8f9ff;
+    border: 1px solid rgba(102, 126, 234, 0.22);
+    border-radius: 8px;
+    padding: 10px;
+    margin-top: 2px;
+}
+
+.recent-search-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    margin-bottom: 8px;
+}
+
+.recent-search-title {
+    color: #667eea;
+    font-size: 13px;
+    font-weight: 700;
+}
+
+.recent-search-clear {
+    background: transparent !important;
+    color: #777 !important;
+    padding: 2px 6px !important;
+    font-size: 12px !important;
+}
+
+.recent-search-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.recent-search-item {
+    background: white !important;
+    color: #333 !important;
+    border: 1px solid rgba(102, 126, 234, 0.28) !important;
+    padding: 7px 10px !important;
+    font-size: 13px !important;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+body.dark-mode .recent-search-history {
+    background: #24243a;
+    border-color: #4a4a66;
+}
+
+body.dark-mode .recent-search-title {
+    color: #aeb9ff;
+}
+
+body.dark-mode .recent-search-item {
+    background: #2f2f48 !important;
+    color: #f1f1f1 !important;
+    border-color: #555574 !important;
 }
 
 .camera-btn {
@@ -1676,91 +1816,58 @@ body { -webkit-user-select: none; -moz-user-select: none; user-select: none; }
             <!-- Settings Search Bar -->
             <div style="padding:10px 12px 6px 12px;position:sticky;top:0;background:inherit;z-index:10;">
                 <div style="position:relative;">
-                    <input type="text" id="settingsSearchInput" placeholder="🔍 Settings search ..." 
-                        oninput="filterMenuItems(this.value)"
-                        style="width:100%;padding:9px 32px 9px 12px;border:2px solid rgba(102,126,234,0.3);border-radius:20px;font-size:13px;background:rgba(255,255,255,0.1);color:inherit;outline:none;box-sizing:border-box;">
-                    <button onclick="document.getElementById('settingsSearchInput').value='';filterMenuItems('')" 
-                        style="position:absolute;right:8px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;font-size:14px;color:#999;padding:0;line-height:1;" id="settingsSearchClear">✕</button>
+                    <input type="text" id="settingsSearchInput" placeholder="🔍 Search settings..." oninput="filterMenuItems(this.value)" style="width:100%;padding:9px 32px 9px 12px;border:2px solid rgba(102,126,234,0.3);border-radius:20px;font-size:13px;background:rgba(255,255,255,0.1);color:inherit;outline:none;box-sizing:border-box;">
+                    <button onclick="document.getElementById('settingsSearchInput').value='';filterMenuItems('')" style="position:absolute;right:8px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;font-size:14px;color:#999;padding:0;line-height:1;" id="settingsSearchClear">✕</button>
                 </div>
-                <div id="settingsNoResult" style="display:none;text-align:center;color:#999;font-size:12px;padding:6px 0;">कोई नतीजा नहीं</div>
+                <div id="settingsNoResult" style="display:none;text-align:center;color:#999;font-size:12px;padding:6px 0;">No matching settings found</div>
             </div>
-                        <div class="menu-item admin-only" onclick="openUsageDashboard();toggleMenu()" style="display: none;">
-                <span>📊 Dashboard</span>
-            </div>
-<div class="menu-item" onclick="openUploadModal()" style="display: none;">
-                <span>📁 Upload File (CSV/Excel)</span>
-            </div>
-            <div class="menu-item" onclick="downloadTemplate()" style="display: none;">
-                <span>📥 Download CSV Template</span>
-            </div>
-            <div class="menu-item user-visible" onclick="openMasterSearch();toggleMenu()" style="display: block;" data-manus_clickable="true" data-manus_click_id="6">
-                <span>🔎 Master Search</span>
-            </div>
-<div class="menu-item user-visible" onclick="openSecondaryIft();toggleMenu()" style="display: block;" data-manus_clickable="true" data-manus_click_id="7">
-                <span>✅ Secondary IFT</span>
-            </div>
-            <div class="menu-item user-visible" onclick="openDailyActive();toggleMenu()" style="display: block;" data-manus_clickable="true" data-manus_click_id="8">
-                <span>📅 Daily Activity</span>
-            </div>
-            <div class="menu-item admin-only" onclick="openBackupExport();toggleMenu()" style="display: none;">
-                <span>💾 Data Backup Export</span>
-            </div>
-            <div class="menu-item" onclick="openManualEntryModal()" style="display: none;">
-                <span>✏️ Add Manual Data</span>
-            </div>
-            <div class="menu-item user-visible" onclick="openCenterlineSearch();toggleMenu()" style="display: block;" data-manus_clickable="true" data-manus_click_id="9">
-                <span>🔍 Centerline Search</span>
-            </div>
-            <div class="menu-item user-visible" onclick="openCaseSpsPatternUpcoming();toggleMenu()" style="display: block;" data-manus_clickable="true" data-manus_click_id="10">
-                <span>📦 CASE SPS PATTERN</span>
-            </div>
-            <div class="menu-item admin-only" onclick="openStaticCenterline();toggleMenu()" style="display: none;">
-                <span>📌 Static Centerline</span>
-            </div>
-            <div class="menu-item" onclick="openPersonalAccess();toggleMenu()" style="background: linear-gradient(135deg, rgba(102, 126, 234, 0.082), rgba(118, 75, 162, 0.082)); border-left: 3px solid rgb(102, 126, 234); display: block;" data-manus_clickable="true" data-manus_click_id="11">
-                <span>👤 Personal Settings</span>
-            </div>
-            <div class="menu-item admin-only" onclick="openAutoLogoutSettings();toggleMenu()" style="display: none;">
-                <span>⏱️ Auto Logout Time</span>
-            </div>
-            <div class="menu-item admin-only" onclick="openActiveUsers();toggleMenu()" style="display: none;">
-                <span>🟢 Active Users</span>
-            </div>
-<div class="menu-item" onclick="openFullGuide();toggleMenu()" style="display: block;" data-manus_clickable="true" data-manus_click_id="12">
-                <span>📖 Guide</span>
-            </div>
-            <div class="menu-item" onclick="downloadAPK()" style="display: none;"><span>📱 Download APK for Android</span></div>
-            <div class="menu-item" onclick="openQRShare();toggleMenu()" style="display: block;" data-manus_clickable="true" data-manus_click_id="13">
-                <span>📲 Share App (QR Code)</span>
-            </div>
-            <div class="menu-item admin-only" onclick="openHighlightNote()" style="display: block;" data-manus_clickable="true" data-manus_click_id="14">
-                <span>📢 Highlight Note</span>
-            </div>
-            <div class="menu-item admin-only" onclick="openCalcFormulaManager();toggleMenu()" style="display: none;">
-                <span>⚗️ calculator Formulas</span>
-            </div>
-            <div class="menu-item admin-only" onclick="openGuideEditor();toggleMenu()" style="display: block;" data-manus_clickable="true" data-manus_click_id="15">
-                <span>📝 Edit Guide</span>
-            </div>
-<div class="menu-item admin-only" onclick="openRecycleBin();toggleMenu()" style="display: none;">
-                <span>♻️ Recycle Bin</span>
-            </div>
-            <div class="menu-item admin-only" onclick="openUserFeedbackList();toggleMenu()" style="display: block;" data-manus_clickable="true" data-manus_click_id="16">
-                <span>⭐ User Feedback</span>
-            </div>
-            <div class="menu-item user-visible" onclick="openFeedbackModal();toggleMenu()" style="display: block;" data-manus_clickable="true" data-manus_click_id="17">
-                <span>💬 Feedback</span>
-            </div>
-            <div class="menu-item user-visible" onclick="openBugReportModal();toggleMenu()" style="display: block;" data-manus_clickable="true" data-manus_click_id="18">
-                <span>🐞 Bug Report</span>
-            </div>
-            <div class="menu-item admin-only" onclick="openBugReportList();toggleMenu()" style="display: block;" data-manus_clickable="true" data-manus_click_id="19">
-                <span>🧾 Bug Reports</span>
-            </div>
-            <div class="menu-item" onclick="logoutApp()" style="border-top: 2px solid rgb(244, 67, 54); display: none;">
-                <span style="color:#f44336;">🚪 Logout</span>
-            </div>
-        <div id="userChangePwdItem" class="menu-item user-visible" data-manus_clickable="true" data-manus_click_id="20"><span>🔑 Change My Password</span></div></div>
+
+            <div class="menu-section-title" data-section="normal">Normal Settings</div>
+            <div class="menu-item user-visible" onclick="openMasterSearch();toggleMenu()"><span>🔎 Master Search</span></div>
+            <div class="menu-item user-visible" onclick="openSecondaryIft();toggleMenu()"><span>✅ Secondary IFT</span></div>
+            <div class="menu-item user-visible" onclick="openDailyActive();toggleMenu()"><span>📅 Daily Activity</span></div>
+            <div class="menu-item user-visible" onclick="openCenterlineSearch();toggleMenu()"><span>🔍 Centerline Search</span></div>
+            <div class="menu-item user-visible" onclick="openCaseSpsPatternUpcoming();toggleMenu()"><span>📦 Case SPS Pattern</span></div>
+            <div class="menu-item user-visible" onclick="openFullGuide();toggleMenu()"><span>📖 Guide</span></div>
+            <div class="menu-item user-visible" onclick="openQRShare();toggleMenu()"><span>📲 Share App (QR Code)</span></div>
+            <div class="menu-item user-visible" onclick="openFeedbackModal();toggleMenu()"><span>💬 Feedback</span></div>
+            <div class="menu-item user-visible" onclick="openBugReportModal();toggleMenu()"><span>🐞 Bug Report</span></div>
+
+            <div class="menu-section-title" data-section="personal">Personal Settings</div>
+            <div class="menu-item user-visible personal-settings-item" onclick="openPersonalAccess();toggleMenu()"><span>👤 Personal Settings</span></div>
+            <div id="userChangePwdItem" class="menu-item user-visible" onclick="changeUserOwnPassword();toggleMenu()"><span>🔑 Change My Password</span></div>
+
+            <div class="menu-section-title admin-only" data-section="data">Admin Data Management</div>
+            <div class="menu-item admin-only" onclick="openUsageDashboard();toggleMenu()"><span>📊 Dashboard</span></div>
+            <div class="menu-item admin-only" onclick="openUploadModal();toggleMenu()"><span>📁 Upload File (CSV/Excel)</span></div>
+            <div class="menu-item admin-only" onclick="downloadTemplate();toggleMenu()"><span>📥 Download CSV Template</span></div>
+            <div class="menu-item admin-only" onclick="openManualEntryModal();toggleMenu()"><span>✏️ Add Manual Data</span></div>
+            <div class="menu-item admin-only" onclick="openBackupExport();toggleMenu()"><span>💾 Data Backup Export</span></div>
+            <div class="menu-item admin-only" onclick="openRecycleBin();toggleMenu()"><span>♻️ Recycle Bin</span></div>
+
+            <div class="menu-section-title admin-only" data-section="admin">Admin Settings</div>
+            <div class="menu-item admin-only" onclick="openStaticCenterline();toggleMenu()"><span>📌 Static Centerline</span></div>
+            <div class="menu-item admin-only" onclick="openAutoLogoutSettings();toggleMenu()"><span>⏱️ Auto Logout Time</span></div>
+            <div class="menu-item admin-only" onclick="openActiveUsers();toggleMenu()"><span>🟢 Active Users</span></div>
+            <div class="menu-item admin-only" onclick="openHighlightNote();toggleMenu()"><span>📢 Highlight Note</span></div>
+            <div class="menu-item admin-only" onclick="openCalcFormulaManager();toggleMenu()"><span>⚗️ Calculator Formulas</span></div>
+            <div class="menu-item admin-only" onclick="openGuideEditor();toggleMenu()"><span>📝 Edit Guide</span></div>
+            <div class="menu-item admin-only" onclick="openUserFeedbackList();toggleMenu()"><span>⭐ User Feedback</span></div>
+            <div class="menu-item admin-only" onclick="openBugReportList();toggleMenu()"><span>🧾 Bug Reports</span></div>
+            <div class="menu-item admin-only" onclick="openPrivacySettings();toggleMenu()"><span>🔐 Privacy Settings</span></div>
+            <div class="menu-item admin-only" onclick="openApiSettings();toggleMenu()"><span>🔗 API / Bin ID Settings</span></div>
+            <div class="menu-item admin-only" onclick="openLocationSettings();toggleMenu()"><span>📍 Location Settings</span></div>
+            <div class="menu-item admin-only" onclick="toggleDarkMode();toggleMenu()"><span>🌙 Dark Mode</span></div>
+            <div class="menu-item admin-only" onclick="openThemeSelector();toggleMenu()"><span>🎨 Change Theme</span></div>
+            <div class="menu-item admin-only" onclick="openLoginHistory();toggleMenu()"><span>📜 Login History</span></div>
+
+            <div class="menu-section-title admin-only" data-section="special">Special Settings</div>
+            <div class="menu-item admin-only special-settings-entry" onclick="openSpecialSettings();toggleMenu()"><span>🧩 Special Page Settings</span></div>
+            <div id="specialMenuLinks"></div>
+
+            <div class="menu-section-title" data-section="session">Session</div>
+            <div class="menu-item" onclick="logoutApp()" style="border-top:2px solid #f44336;"><span style="color:#f44336;">🚪 Logout</span></div>
+        </div>
     </div>
 
     <div class="container">
@@ -1771,10 +1878,18 @@ body { -webkit-user-select: none; -moz-user-select: none; user-select: none; }
             </div>
             <button class="camera-btn" onclick="openScanner()" data-manus_clickable="true" data-manus_click_id="22">📷</button>
             <button class="filter-toggle-btn" onclick="toggleFilters()" title="Toggle Filters" data-manus_clickable="true" data-manus_click_id="23">🔽</button>
+
             <!-- Location dot + Refresh — search row -->
             <div style="display:flex;align-items:center;gap:5px;padding:0 4px;">
                 <div id="mainLocationDot" class="" style="width: 12px; height: 12px; border-radius: 50%; background: rgb(204, 204, 204); flex-shrink: 0;" title="Location Status"></div>
                 <button onclick="refreshLocationAndSync()" title="Location &amp; Server Refresh" style="background:#667eea;border:none;cursor:pointer;font-size:16px;padding:8px 12px;border-radius:5px;color:white;line-height:1;" data-manus_clickable="true" data-manus_click_id="24">🔄</button>
+            </div>
+            <div id="recentSearchHistory" class="recent-search-history" aria-live="polite">
+                <div class="recent-search-header">
+                    <span class="recent-search-title">Recent Searches</span>
+                    <button type="button" class="recent-search-clear" onclick="clearRecentSearchHistory()">Clear</button>
+                </div>
+                <div id="recentSearchList" class="recent-search-list"></div>
             </div>
         </div>
 
@@ -2269,7 +2384,9 @@ async function addManualData() {
 }
 
 function searchData() {
-    const searchTerm = document.getElementById('searchInput').value.trim().toLowerCase();
+    const rawSearchTerm = document.getElementById('searchInput').value.trim();
+    const searchTerm = rawSearchTerm.toLowerCase();
+    renderRecentSearchHistory();
     if (!searchTerm) {
         showEmptyState();
         hideResultCount();
@@ -2293,6 +2410,7 @@ function searchData() {
         if (resultCount > 0) { playSearchSound(); vibrateDevice([100, 50, 100]); }
         else { playErrorSound(); vibrateDevice([200]); }
         displayResults(filtered, searchTerm);
+        scheduleRecentSearchSave(rawSearchTerm);
     };
     if (isJsonBinConfigured()) { doSearch(); }
     else { doSearch(); }
@@ -2660,7 +2778,74 @@ function clearSearch() {
     vibrateDevice([50]);
     hideResultCount();
     showEmptyState(); // Show empty state instead of all data
+    renderRecentSearchHistory();
 }
+const RECENT_SEARCH_KEY = 'mc_recent_searches_v1';
+let recentSearchSaveTimer = null;
+
+function getRecentSearches() {
+    try {
+        const searches = JSON.parse(localStorage.getItem(RECENT_SEARCH_KEY) || '[]');
+        return Array.isArray(searches) ? searches.filter(Boolean) : [];
+    } catch (error) {
+        return [];
+    }
+}
+
+function recentSearchEscapeHtml(value) {
+    const div = document.createElement('div');
+    div.textContent = String(value || '');
+    return div.innerHTML;
+}
+
+function saveRecentSearch(term) {
+    const cleanTerm = String(term || '').trim();
+    if (!cleanTerm) return;
+    const searches = getRecentSearches().filter(item => item.toLowerCase() !== cleanTerm.toLowerCase());
+    searches.unshift(cleanTerm);
+    localStorage.setItem(RECENT_SEARCH_KEY, JSON.stringify(searches.slice(0, 8)));
+    renderRecentSearchHistory();
+}
+
+function scheduleRecentSearchSave(term) {
+    clearTimeout(recentSearchSaveTimer);
+    recentSearchSaveTimer = setTimeout(() => {
+        const input = document.getElementById('searchInput');
+        if (input && input.value.trim() === String(term || '').trim()) {
+            saveRecentSearch(term);
+        }
+    }, 650);
+}
+
+function renderRecentSearchHistory() {
+    const input = document.getElementById('searchInput');
+    const wrapper = document.getElementById('recentSearchHistory');
+    const list = document.getElementById('recentSearchList');
+    if (!input || !wrapper || !list) return;
+    const searches = getRecentSearches();
+    if (input.value.trim() || searches.length === 0) {
+        wrapper.style.display = 'none';
+        list.innerHTML = '';
+        return;
+    }
+    list.innerHTML = searches.map(term => '<button type="button" class="recent-search-item" onclick="selectRecentSearch(' + JSON.stringify(term).replace(/"/g, '&quot;') + ')">' + recentSearchEscapeHtml(term) + '</button>').join('');
+    wrapper.style.display = 'block';
+}
+
+function selectRecentSearch(term) {
+    const input = document.getElementById('searchInput');
+    if (!input) return;
+    input.value = term;
+    toggleClearBtn();
+    searchData();
+}
+
+function clearRecentSearchHistory() {
+    localStorage.removeItem(RECENT_SEARCH_KEY);
+    renderRecentSearchHistory();
+}
+
+document.addEventListener('DOMContentLoaded', () => { applySpecialSettings(); renderRecentSearchHistory(); updateSettingsSectionVisibility(); });
 
 // Deleted records are kept here so accidental deletes can be restored.
 function getRecycleBin() {
@@ -3362,6 +3547,7 @@ function applyRoleAccess(role) {
             if (txt.includes('Secondary IFT'))    el.style.display = ac.secondary_ift !== false ? 'block' : 'none';
             if (txt.includes('Bug Report'))       el.style.display = ac.bug_report !== false ? 'block' : 'none';
             if (txt.includes('Feedback'))         el.style.display = ac.feedback !== false ? 'block' : 'none';
+            if (txt.includes('Change My Password')) el.style.display = ac.changepwd !== false ? 'block' : 'none';
             if (txt.includes('Centerline Search'))el.style.display = ac.centerline !== false ? 'block' : 'none';
             if (txt.includes('Add Manual Data'))  el.style.display = ac.manual_add !== false ? 'block' : 'none';
             if (txt.includes('Upload File'))      el.style.display = ac.upload_csv !== false ? 'block' : 'none';
@@ -3389,11 +3575,10 @@ function applyRoleAccess(role) {
         // Admin — show everything + restore Privacy Settings to original
         document.querySelectorAll('.menu-item').forEach(el => el.style.display = '');
         document.querySelectorAll('.admin-only').forEach(el => el.style.display = '');
-        // Restore Privacy Settings for admin
-        const privacyItemAdmin = document.querySelector('.menu-item[onclick*="openPersonalAccess"]');
-        if (privacyItemAdmin) {
-            privacyItemAdmin.setAttribute('onclick', 'openPrivacySettings()');
-            privacyItemAdmin.querySelector('span').innerHTML = '🔐 Privacy Settings';
+        const personalItemAdmin = document.querySelector('.personal-settings-item');
+        if (personalItemAdmin) {
+            personalItemAdmin.setAttribute('onclick', 'openPersonalAccess();toggleMenu()');
+            personalItemAdmin.querySelector('span').innerHTML = '👤 Personal Settings';
         }
     }
 }
@@ -3664,7 +3849,7 @@ function disableFingerprintFromModal(role) {
 // Show empty state message
 function showEmptyState() {
     const container = document.getElementById('resultsContainer');
-    container.innerHTML = '<p class="no-data">🔍 Use search or scan to find products</p>';
+    container.innerHTML = '<p class="no-data">' + getEmptySearchMessage() + '</p>';
 }
 
 // Print Product Card as PDF
@@ -4655,11 +4840,11 @@ function _guideContent(mode, lang) {
     };
     const hi = {
         quick: {
-            title: 'सुरक्षित कंपनी एक्सेस',
-            s1h: 'केवल अधिकृत यूज़र्स',
-            s1b: 'यह एप्लिकेशन केवल अधिकृत कंपनी यूज़र्स के लिए है।<br>केवल अपने निर्धारित लॉगिन क्रेडेंशियल्स का उपयोग करें। अपना पासवर्ड साझा न करें और किसी दूसरे व्यक्ति के अकाउंट से लॉगिन न करें।',
-            s2h: 'एक्सेस और लोकेशन सहायता',
-            s2b: 'यदि पासवर्ड सही है लेकिन एक्सेस नहीं मिल रहा है, तो कृपया सुनिश्चित करें कि आप स्वीकृत कंपनी लोकेशन से लॉगिन कर रहे हैं।<br>Location/GPS permission चालू रखें, इंटरनेट कनेक्शन सक्रिय रखें, और समस्या जारी रहने पर एडमिनिस्ट्रेटर से संपर्क करें।'
+            title: 'Secure Company Access',
+            s1h: 'Authorized Users Only',
+            s1b: 'This application is for authorized company users only.<br>Use only your assigned login credentials. Do not share your password or sign in with another person\'s account.',
+            s2h: 'Access and Location Help',
+            s2b: 'If your password is correct but access is still blocked, make sure you are signing in from an approved company location.<br>Keep Location/GPS permission enabled, keep your internet connection active, and contact the administrator if the issue continues.'
         },
         full: {
             title: 'User Guide',
@@ -4690,7 +4875,7 @@ function _buildGuideHTML(mode) {
     const lang = _guideLang;
     const d = _guideContent(mode, lang);
     const otherLang = lang === 'en' ? 'hi' : 'en';
-    const btnLabel = lang === 'en' ? 'Hindi' : 'English';
+    const btnLabel = 'English';
     const colors = ['#e8f0fe','#e8f5e9','#fff3e0','#fce4ec','#e8f0fe','#e8f5e9','#fff3e0','#fce4ec','#e8f0fe'];
     const hcolors = ['#667eea','#4CAF50','#FF9800','#e91e63','#667eea','#4CAF50','#FF9800','#e91e63','#667eea'];
 
@@ -5751,13 +5936,13 @@ function toggleIftManualField(textId, inputId) {
     if (!textEl || !inputEl) return;
     const isManual = inputEl.style.display !== 'none';
     if (isManual) {
-        // Manual se auto par wapas jao — input ka value text mein copy karo
+        // Return from manual to auto: copy the input value into text.
         const val = inputEl.value.trim();
         if (val) textEl.textContent = val;
         inputEl.style.display = 'none';
         textEl.style.display = 'block';
     } else {
-        // Auto se manual par jao — text ka value input mein copy karo
+        // Switch from auto to manual: copy the text value into the input.
         const currentVal = textEl.textContent.trim();
         inputEl.value = currentVal === '-' ? '' : currentVal;
         inputEl.style.display = 'block';
@@ -5771,7 +5956,7 @@ function saveSecondaryIftRecord() {
     if (!rec.hdl) { showIftRightAlert('Select HDL first'); return; }
     if (!rec.testName) { showSyncToast('Test Done By required', '#f44336'); return; }
     if (!rec.gcase) { showSyncToast('GCase missing', '#f44336'); return; }
-    // Admin aur User dono save kar sakte hain — koi role restriction nahi
+    // Both admins and users can save; there is no role restriction.
     const records = getSecondaryIftRecords();
     const idx = records.findIndex(r => r.gcase === rec.gcase && (r.julianCode || r.julian) === rec.julianCode);
     if (idx >= 0) {
@@ -5791,13 +5976,13 @@ function saveSecondaryIftRecord() {
     return true;
 }
 
-// Save IFT — admin + user dono ke liye
+// Save IFT for both admins and users.
 function saveSecondaryIft() {
     const saved = saveSecondaryIftRecord();
     if (saved) clearSecondaryIftBoxes();
 }
 
-// Save & New — save karke clear karo
+// Save and clear for a new entry.
 function saveSecondaryIftAndNew() {
     const saved = saveSecondaryIftRecord();
     if (saved) clearSecondaryIftBoxes();
@@ -6106,7 +6291,7 @@ function openDaNoComment(itemId, itemLabel) {
         </div>
         <div style="padding:14px;">
             <div style="font-size:13px;font-weight:700;color:#333;margin-bottom:8px;">${itemLabel}</div>
-            <textarea id="daNoReasonText" rows="3" placeholder="NO karne ka reason likhein..." style="width:100%;padding:8px;border:1.5px solid #f44336;border-radius:8px;resize:vertical;box-sizing:border-box;font-size:14px;">${existing}</textarea>
+            <textarea id="daNoReasonText" rows="3" placeholder="Enter the reason for marking this as NO..." style="width:100%;padding:8px;border:1.5px solid #f44336;border-radius:8px;resize:vertical;box-sizing:border-box;font-size:14px;">${existing}</textarea>
             <div style="display:flex;gap:8px;margin-top:10px;">
                 <button onclick="saveDaNoComment('${itemId}')" style="flex:1;padding:11px;background:#f44336;color:white;border:none;border-radius:9px;font-weight:900;cursor:pointer;">✅ Confirm NO</button>
                 <button onclick="document.getElementById('daNoCommentModal').remove()" style="flex:1;padding:11px;background:#eee;color:#333;border:none;border-radius:9px;cursor:pointer;">Cancel</button>
@@ -6819,7 +7004,7 @@ function openPalletPatternSettings(editSku = '') {
         return `<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:10px 0;border-bottom:1px solid #eee;">
             <div style="min-width:0;flex:1;">
                 <div style="font-weight:800;color:#333;font-size:14px;word-break:break-word;">${sku}</div>
-                <div style="font-size:11px;color:#777;">${(p.layers || []).length} layers â€¢ ${total} shippers</div>
+                <div style="font-size:11px;color:#777;">${(p.layers || []).length} layers • ${total} shippers</div>
             </div>
             <button onclick="document.getElementById('palletPatternModal').remove();openPalletPatternSettings('${sku.replace(/'/g, "\\'")}')" style="padding:7px 9px;background:#2196F3;color:white;border:none;border-radius:6px;font-weight:700;cursor:pointer;font-size:12px;">Edit</button>
             <button onclick="deletePalletPattern('${sku.replace(/'/g, "\\'")}')" style="padding:7px 9px;background:#f44336;color:white;border:none;border-radius:6px;font-weight:700;cursor:pointer;font-size:12px;">Delete</button>
@@ -6836,7 +7021,7 @@ function openPalletPatternSettings(editSku = '') {
                 <div style="font-size:17px;font-weight:800;">Pallet Pattern Settings</div>
                 <div style="font-size:11px;opacity:0.85;">Add SKU-wise layer count, shipper count, rows/columns, and direction</div>
             </div>
-            <button onclick="document.getElementById('palletPatternModal').remove()" style="background:rgba(255,255,255,0.2);border:none;color:white;font-size:22px;width:32px;height:32px;border-radius:50%;cursor:pointer;">Ã—</button>
+            <button onclick="document.getElementById('palletPatternModal').remove()" style="background:rgba(255,255,255,0.2);border:none;color:white;font-size:22px;width:32px;height:32px;border-radius:50%;cursor:pointer;">×</button>
         </div>
         <div style="display:grid;grid-template-columns:minmax(0,1fr) minmax(280px,360px);gap:0;max-height:calc(90vh - 62px);overflow:auto;">
             <div style="padding:14px;border-right:1px solid #eee;">
@@ -6969,7 +7154,7 @@ function openPallet3D() {
             <button id="pallet3DPlay" style="padding:8px 10px;background:#4CAF50;color:white;border:none;border-radius:6px;font-weight:700;cursor:pointer;">Pause</button>
             <button id="pallet3DReset" style="padding:8px 10px;background:#667eea;color:white;border:none;border-radius:6px;font-weight:700;cursor:pointer;">Reset</button>
             <label style="font-size:12px;color:#b8c3d9;display:flex;align-items:center;gap:6px;">Speed <input id="pallet3DSpeed" type="range" min="0.5" max="3" step="0.5" value="1" style="width:78px;"></label>
-            <button onclick="document.getElementById('pallet3DModal').remove()" style="width:34px;height:34px;border:none;border-radius:50%;background:rgba(255,255,255,0.12);color:white;font-size:22px;cursor:pointer;line-height:1;">Ã—</button>
+            <button onclick="document.getElementById('pallet3DModal').remove()" style="width:34px;height:34px;border:none;border-radius:50%;background:rgba(255,255,255,0.12);color:white;font-size:22px;cursor:pointer;line-height:1;">×</button>
         </div>
         <div style="display:flex;flex:1;min-height:0;">
             <div id="pallet3DCanvasWrap" style="position:relative;flex:1;min-width:0;background:linear-gradient(180deg,#182235 0%,#0e1118 100%);">
@@ -6977,7 +7162,7 @@ function openPallet3D() {
             </div>
             <div id="pallet3DSummary" style="width:220px;flex-shrink:0;background:#111827;border-left:1px solid rgba(255,255,255,0.1);padding:12px;overflow-y:auto;font-size:12px;color:#cbd5e1;">
                 <div style="font-weight:800;color:white;margin-bottom:8px;">${selectedSku}</div>
-                <div>${totalLayers} layers â€¢ ${totalShippers} total shippers</div>
+                <div>${totalLayers} layers • ${totalShippers} total shippers</div>
             </div>
         </div>
     </div>`;
@@ -7114,8 +7299,8 @@ function startPallet3DScene(pattern) {
     });
 
     const summary = document.getElementById('pallet3DSummary');
-    const layerHtml = (pattern.layers || []).map((l, i) => `<div style="padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.08);"><b style="color:white;">Layer ${i + 1}</b><br>${l.count} shippers â€¢ ${l.rows}x${l.cols}<br>${l.direction || 'lengthwise'}</div>`).join('');
-    summary.innerHTML = `<div style="font-weight:800;color:white;margin-bottom:8px;">${pattern.sku}</div><div style="margin-bottom:8px;">${pattern.layers.length} layers â€¢ ${shippers.length} total shippers</div>${pattern.note ? `<div style="background:rgba(255,255,255,0.08);padding:7px;border-radius:6px;margin-bottom:8px;">${pattern.note}</div>` : ''}${layerHtml}`;
+    const layerHtml = (pattern.layers || []).map((l, i) => `<div style="padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.08);"><b style="color:white;">Layer ${i + 1}</b><br>${l.count} shippers • ${l.rows}x${l.cols}<br>${l.direction || 'lengthwise'}</div>`).join('');
+    summary.innerHTML = `<div style="font-weight:800;color:white;margin-bottom:8px;">${pattern.sku}</div><div style="margin-bottom:8px;">${pattern.layers.length} layers • ${shippers.length} total shippers</div>${pattern.note ? `<div style="background:rgba(255,255,255,0.08);padding:7px;border-radius:6px;margin-bottom:8px;">${pattern.note}</div>` : ''}${layerHtml}`;
 
     let running = true;
     let elapsed = 0;
@@ -7160,7 +7345,7 @@ function startPallet3DScene(pattern) {
         camera.position.x = Math.cos(orbit) * 8.6;
         camera.position.z = Math.sin(orbit) * 8.6;
         camera.lookAt(0, 1.5 + Math.min(pattern.layers.length, 5) * 0.25, 0);
-        countEl.textContent = `${pattern.sku}: ${loaded} / ${shippers.length} shippers loaded â€¢ Layer ${Math.min(activeLayer, pattern.layers.length)}`;
+        countEl.textContent = `${pattern.sku}: ${loaded} / ${shippers.length} shippers loaded • Layer ${Math.min(activeLayer, pattern.layers.length)}`;
         renderer.render(scene, camera);
     }
     animate();
@@ -7203,7 +7388,7 @@ function openQRShare() {
             <div style="background:#f5f5f5;border-radius:8px;padding:10px;margin-bottom:12px;word-break:break-all;font-size:12px;color:#555;text-align:left;" id="qrUrlDisplay">${savedUrl}</div>
 
             ${isAdmin ? `
-            <!-- Admin: URL change kar sakta hai -->
+            <!-- Admin: can change the URL -->
             <div style="margin-bottom:12px;">
                 <input id="qrUrlInput" type="text" value="${savedUrl}" placeholder="Enter app URL (GitHub Pages link)"
                     style="width:100%;padding:9px;border:2px solid #667eea;border-radius:7px;font-size:13px;box-sizing:border-box;">
@@ -7835,12 +8020,12 @@ function opencalculatorSettings() {
 
         <!-- ALL FORMULAS -->
         <div style="margin-bottom:15px;">
-            <h3 style="color:#333;font-size:14px;margin-bottom:8px;">📋 Sabhi Formulas <span style="font-size:11px;color:#999;">(green = custom)</span></h3>
+            <h3 style="color:#333;font-size:14px;margin-bottom:8px;">📋 All Formulas <span style="font-size:11px;color:#999;">(green = custom)</span></h3>
             <div style="max-height:180px;overflow-y:auto;">${rows}</div>
         </div>
 
         <div style="display:flex;gap:10px;">
-            <button onclick="syncCalcFormulas()" style="flex:1;padding:12px;background:#4caf50;color:white;border:none;border-radius:8px;font-size:14px;cursor:pointer;font-weight:700;">☁️ Server pe Save</button>
+            <button onclick="syncCalcFormulas()" style="flex:1;padding:12px;background:#4caf50;color:white;border:none;border-radius:8px;font-size:14px;cursor:pointer;font-weight:700;">☁️ Save to Server</button>
             <button onclick="document.getElementById('calculatorSettingsModal').remove()" style="flex:1;padding:12px;background:#999;color:white;border:none;border-radius:8px;font-size:14px;cursor:pointer;font-weight:600;">✖ Close</button>
         </div>
     </div>`;
@@ -7960,10 +8145,10 @@ function openGuideEditor() {
 
             <!-- Tab selector -->
             <div style="display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap;">
-                <button onclick="switchGuideTab('mainEn')" id="gtab_mainEn" style="flex:1;padding:8px;background:#667eea;color:white;border:none;border-radius:7px;font-size:13px;cursor:pointer;font-weight:700;">📖 Main Guide (EN)</button>
-                <button onclick="switchGuideTab('mainHi')" id="gtab_mainHi" style="flex:1;padding:8px;background:#e0e0e0;color:#555;border:none;border-radius:7px;font-size:13px;cursor:pointer;">📖 Main Guide (HI)</button>
-                <button onclick="switchGuideTab('lockEn')" id="gtab_lockEn" style="flex:1;padding:8px;background:#e0e0e0;color:#555;border:none;border-radius:7px;font-size:13px;cursor:pointer;">🔒 Lock Screen (EN)</button>
-                <button onclick="switchGuideTab('lockHi')" id="gtab_lockHi" style="flex:1;padding:8px;background:#e0e0e0;color:#555;border:none;border-radius:7px;font-size:13px;cursor:pointer;">🔒 Lock Screen (HI)</button>
+                <button onclick="switchGuideTab('mainEn')" id="gtab_mainEn" style="flex:1;padding:8px;background:#667eea;color:white;border:none;border-radius:7px;font-size:13px;cursor:pointer;font-weight:700;">📖 Main Guide</button>
+                <button onclick="switchGuideTab('mainHi')" id="gtab_mainHi" style="flex:1;padding:8px;background:#e0e0e0;color:#555;border:none;border-radius:7px;font-size:13px;cursor:pointer;">📖 Alternate Guide</button>
+                <button onclick="switchGuideTab('lockEn')" id="gtab_lockEn" style="flex:1;padding:8px;background:#e0e0e0;color:#555;border:none;border-radius:7px;font-size:13px;cursor:pointer;">🔒 Lock Screen Guide</button>
+                <button onclick="switchGuideTab('lockHi')" id="gtab_lockHi" style="flex:1;padding:8px;background:#e0e0e0;color:#555;border:none;border-radius:7px;font-size:13px;cursor:pointer;">🔒 Alternate Lock Guide</button>
             </div>
 
             <div style="background:#e8f5e9;border-radius:8px;padding:8px 12px;margin-bottom:10px;font-size:12px;color:#2e7d32;">
@@ -7976,7 +8161,7 @@ function openGuideEditor() {
                 <textarea id="guide_mainEn" rows="12" placeholder="Write main guide in English here..." style="width:100%;padding:10px;border:2px solid #667eea;border-radius:8px;font-size:13px;box-sizing:border-box;resize:vertical;line-height:1.6;">${mainEn}</textarea>
             </div>
             <div id="gtab_mainHi_area" style="display:none;">
-                <label style="font-size:12px;font-weight:700;color:#764ba2;display:block;margin-bottom:6px;">📖 Main Guide - Alternate Language</label>
+                <label style="font-size:12px;font-weight:700;color:#764ba2;display:block;margin-bottom:6px;">📖 Alternate Main Guide</label>
                 <textarea id="guide_mainHi" rows="12" placeholder="Write the main guide here..." style="width:100%;padding:10px;border:2px solid #764ba2;border-radius:8px;font-size:13px;box-sizing:border-box;resize:vertical;line-height:1.6;">${mainHi}</textarea>
             </div>
             <div id="gtab_lockEn_area" style="display:none;">
@@ -7984,7 +8169,7 @@ function openGuideEditor() {
                 <textarea id="guide_lockEn" rows="12" placeholder="Write lock screen guide in English here..." style="width:100%;padding:10px;border:2px solid #2196F3;border-radius:8px;font-size:13px;box-sizing:border-box;resize:vertical;line-height:1.6;">${lockEn}</textarea>
             </div>
             <div id="gtab_lockHi_area" style="display:none;">
-                <label style="font-size:12px;font-weight:700;color:#4CAF50;display:block;margin-bottom:6px;">🔒 Lock Screen Guide - Alternate Language</label>
+                <label style="font-size:12px;font-weight:700;color:#4CAF50;display:block;margin-bottom:6px;">🔒 Alternate Lock Screen Guide</label>
                 <textarea id="guide_lockHi" rows="12" placeholder="Write the lock screen guide here..." style="width:100%;padding:10px;border:2px solid #4CAF50;border-radius:8px;font-size:13px;box-sizing:border-box;resize:vertical;line-height:1.6;">${lockHi}</textarea>
             </div>
 
@@ -9706,6 +9891,7 @@ function applyJsonBinRecord(rec, sourceLabel) {
     if (rec.bugReportRecords) localStorage.setItem('bugReportRecords', JSON.stringify(rec.bugReportRecords));
     if (rec.dailyActiveRecords) localStorage.setItem(DAILY_ACTIVE_KEY, JSON.stringify(rec.dailyActiveRecords));
     if (rec.customGuides) localStorage.setItem('customGuides', JSON.stringify(rec.customGuides));
+    if (rec.specialSettings) { localStorage.setItem(SPECIAL_SETTINGS_KEY, JSON.stringify(rec.specialSettings)); applySpecialSettings(); }
     if (rec.autoLogoutMinutes) localStorage.setItem('auto_logout_minutes', String(rec.autoLogoutMinutes));
     if (rec.usageAnalytics && rec.usageAnalytics.length) {
         const localUsage = getUsageAnalytics();
@@ -9725,7 +9911,267 @@ function applyJsonBinRecord(rec, sourceLabel) {
 // Cache duration: 30 minutes (in milliseconds)
 
 // ============================================================
-// SETTINGS SEARCH — Menu items filter karo
+// SPECIAL SETTINGS: admin-controlled page text, styling, user features, and custom links.
+const SPECIAL_SETTINGS_KEY = 'mc_special_settings_v1';
+
+function specialDefaults() {
+    return {
+        appTitle: 'Digital Control Copy',
+        headerTitle: 'Digital Control Copy',
+        searchPlaceholder: 'Search by PCode, SKU, Case G/Case, Pouch G/Case...',
+        emptySearchText: '🔍 Use search or scan to find products',
+        recentSearchTitle: 'Recent Searches',
+        primaryColor: '#667eea',
+        accentColor: '#764ba2',
+        customCss: '',
+        menuLinks: []
+    };
+}
+
+function getSpecialSettings() {
+    try {
+        return Object.assign(specialDefaults(), JSON.parse(localStorage.getItem(SPECIAL_SETTINGS_KEY) || '{}'));
+    } catch (error) {
+        return specialDefaults();
+    }
+}
+
+function saveSpecialSettingsObject(settings) {
+    localStorage.setItem(SPECIAL_SETTINGS_KEY, JSON.stringify(Object.assign(specialDefaults(), settings || {})));
+}
+
+function specialEscape(value) {
+    return String(value ?? '').replace(/[&<>'"]/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[ch]));
+}
+
+function applySpecialSettings() {
+    const s = getSpecialSettings();
+    document.title = s.appTitle || 'Digital Control Copy';
+    const headerTitle = document.querySelector('header h1');
+    if (headerTitle) headerTitle.textContent = s.headerTitle || s.appTitle || 'Digital Control Copy';
+    const searchInput = document.getElementById('searchInput');
+    if (searchInput) searchInput.placeholder = s.searchPlaceholder || specialDefaults().searchPlaceholder;
+    const recentTitle = document.querySelector('.recent-search-title');
+    if (recentTitle) recentTitle.textContent = s.recentSearchTitle || 'Recent Searches';
+    const emptyState = document.querySelector('#resultsContainer .no-data');
+    if (emptyState && /Use search|find products/i.test(emptyState.textContent || '')) {
+        emptyState.innerHTML = getEmptySearchMessage();
+    }
+    document.documentElement.style.setProperty('--special-primary', s.primaryColor || '#667eea');
+    document.documentElement.style.setProperty('--special-accent', s.accentColor || '#764ba2');
+    let style = document.getElementById('specialSettingsCss');
+    if (!style) {
+        style = document.createElement('style');
+        style.id = 'specialSettingsCss';
+        document.head.appendChild(style);
+    }
+    style.textContent = `
+        .menu-header, .search-section button, .filter-buttons button { background: ${s.primaryColor || '#667eea'}; }
+        #searchInput { border-color: ${s.primaryColor || '#667eea'}; }
+        .menu-section-title, .recent-search-title { color: ${s.primaryColor || '#667eea'}; }
+    ` + (s.customCss || '');
+    renderSpecialMenuLinks();
+}
+
+function getEmptySearchMessage() {
+    return specialEscape(getSpecialSettings().emptySearchText || specialDefaults().emptySearchText);
+}
+
+function renderSpecialMenuLinks() {
+    const holder = document.getElementById('specialMenuLinks');
+    if (!holder) return;
+    const role = window._userRole === 'admin' ? 'admin' : 'user';
+    const links = (getSpecialSettings().menuLinks || []).filter(link => {
+        const visibleTo = link.visibleTo || 'admin';
+        return role === 'admin' || visibleTo === 'user';
+    });
+    holder.innerHTML = links.map((link, index) => {
+        const adminOnly = (link.visibleTo || 'admin') === 'admin' ? ' admin-only' : ' user-visible';
+        const label = specialEscape(link.label || 'Custom Setting');
+        const url = specialEscape(link.url || '');
+        return `<div class="menu-item special-link${adminOnly}" data-special-url="${url}" onclick="openSpecialMenuLink(this.dataset.specialUrl)"><span>🧷 ${label}</span></div>`;
+    }).join('');
+}
+
+function openSpecialMenuLink(url) {
+    if (!url) return;
+    if (/^javascript:/i.test(url)) {
+        showErrorPopup('JavaScript links are not allowed.');
+        return;
+    }
+    window.open(url, '_blank');
+}
+
+function updateSettingsSectionVisibility(searchActive = false) {
+    const titles = Array.from(document.querySelectorAll('#sideMenu .menu-section-title'));
+    titles.forEach(title => {
+        if (searchActive) { title.style.display = 'none'; return; }
+        if (title.classList.contains('admin-only') && window._userRole !== 'admin') {
+            title.style.display = 'none';
+            return;
+        }
+        let el = title.nextElementSibling;
+        let hasVisibleItem = false;
+        while (el && !el.classList.contains('menu-section-title')) {
+            if (el.classList && el.classList.contains('menu-item') && el.style.display !== 'none') {
+                hasVisibleItem = true;
+                break;
+            }
+            if (el.id === 'specialMenuLinks' && Array.from(el.children).some(child => child.style.display !== 'none')) {
+                hasVisibleItem = true;
+                break;
+            }
+            el = el.nextElementSibling;
+        }
+        title.style.display = hasVisibleItem ? '' : 'none';
+    });
+}
+
+function openSpecialSettings() {
+    if (!requireAdminAction('Special settings')) return;
+    const existing = document.getElementById('specialSettingsModal');
+    if (existing) existing.remove();
+    const s = getSpecialSettings();
+    const ac = getAccessControl();
+    const linkRows = (s.menuLinks || []).map((link, index) => `
+        <div style="display:grid;grid-template-columns:1fr 1fr 100px 38px;gap:8px;margin-bottom:8px;align-items:center;">
+            <input id="sp_link_label_${index}" value="${specialEscape(link.label || '')}" placeholder="Menu label">
+            <input id="sp_link_url_${index}" value="${specialEscape(link.url || '')}" placeholder="https://example.com">
+            <select id="sp_link_visible_${index}">
+                <option value="admin" ${(link.visibleTo || 'admin') === 'admin' ? 'selected' : ''}>Admin</option>
+                <option value="user" ${link.visibleTo === 'user' ? 'selected' : ''}>User</option>
+            </select>
+            <button type="button" onclick="removeSpecialMenuLink(${index})" style="height:38px;background:#f44336;color:white;border:none;border-radius:8px;cursor:pointer;">×</button>
+        </div>`).join('') || '<div style="color:#777;font-size:13px;margin-bottom:8px;">No custom menu links added yet.</div>';
+    const modal = document.createElement('div');
+    modal.id = 'specialSettingsModal';
+    modal.className = 'modal';
+    modal.style.display = 'block';
+    modal.innerHTML = `
+    <div class="modal-content" style="max-width:760px;max-height:90vh;overflow:auto;">
+        <span class="close" onclick="document.getElementById('specialSettingsModal').remove()">×</span>
+        <h2 style="margin-top:0;color:#333;">🧩 Special Page Settings</h2>
+        <p style="margin-top:-6px;color:#666;font-size:13px;line-height:1.5;">Admin-only control panel for page text/language, colors, custom user/admin menu links, and user feature visibility.</p>
+
+        <h3 style="color:#667eea;font-size:15px;">Language & Page Text</h3>
+        <div class="special-settings-grid">
+            <div class="special-settings-field"><label>Browser Title</label><input id="sp_appTitle" value="${specialEscape(s.appTitle)}"></div>
+            <div class="special-settings-field"><label>Header Title</label><input id="sp_headerTitle" value="${specialEscape(s.headerTitle)}"></div>
+            <div class="special-settings-field"><label>Search Placeholder</label><input id="sp_searchPlaceholder" value="${specialEscape(s.searchPlaceholder)}"></div>
+            <div class="special-settings-field"><label>Recent Search Title</label><input id="sp_recentSearchTitle" value="${specialEscape(s.recentSearchTitle)}"></div>
+        </div>
+        <div class="special-settings-field"><label>Empty Search Message</label><input id="sp_emptySearchText" value="${specialEscape(s.emptySearchText)}"></div>
+
+        <h3 style="color:#667eea;font-size:15px;">Page Style</h3>
+        <div class="special-settings-grid">
+            <div class="special-settings-field"><label>Primary Color</label><input id="sp_primaryColor" type="color" value="${specialEscape(s.primaryColor)}"></div>
+            <div class="special-settings-field"><label>Accent Color</label><input id="sp_accentColor" type="color" value="${specialEscape(s.accentColor)}"></div>
+        </div>
+        <div class="special-settings-field"><label>Custom CSS</label><textarea id="sp_customCss" rows="5" placeholder="Example: .product-card { border-radius: 6px; }">${specialEscape(s.customCss)}</textarea></div>
+
+        <h3 style="color:#667eea;font-size:15px;">User Visibility</h3>
+        <div class="special-settings-checks">
+            ${specialAccessCheckbox('sp_ac_master_search', 'Master Search', ac.master_search !== false)}
+            ${specialAccessCheckbox('sp_ac_secondary_ift', 'Secondary IFT', ac.secondary_ift !== false)}
+            ${specialAccessCheckbox('sp_ac_daily_active', 'Daily Activity', ac.daily_active !== false)}
+            ${specialAccessCheckbox('sp_ac_centerline', 'Centerline Search', ac.centerline !== false)}
+            ${specialAccessCheckbox('sp_ac_qrshare', 'Share App', ac.qrshare !== false)}
+            ${specialAccessCheckbox('sp_ac_guide', 'Guide', ac.guide !== false)}
+            ${specialAccessCheckbox('sp_ac_feedback', 'Feedback', ac.feedback !== false)}
+            ${specialAccessCheckbox('sp_ac_bug_report', 'Bug Report', ac.bug_report !== false)}
+            ${specialAccessCheckbox('sp_ac_personal_access', 'Personal Settings', ac.personal_access !== false)}
+            ${specialAccessCheckbox('sp_ac_changepwd', 'Change Password', ac.changepwd !== false)}
+        </div>
+
+        <h3 style="color:#667eea;font-size:15px;">Custom Menu Links</h3>
+        <div id="specialLinkRows">${linkRows}</div>
+        <button type="button" onclick="addSpecialMenuLink()" style="padding:9px 12px;background:#4CAF50;color:white;border:none;border-radius:8px;font-weight:800;cursor:pointer;">+ Add New Setting Link</button>
+
+        <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:16px;">
+            <button onclick="saveSpecialSettings()" style="flex:1;min-width:150px;padding:12px;background:#667eea;color:white;border:none;border-radius:8px;font-weight:900;cursor:pointer;">💾 Save Settings</button>
+            <button onclick="resetSpecialSettings()" style="flex:1;min-width:150px;padding:12px;background:#f44336;color:white;border:none;border-radius:8px;font-weight:900;cursor:pointer;">Reset Special Settings</button>
+            <button onclick="document.getElementById('specialSettingsModal').remove()" style="flex:1;min-width:120px;padding:12px;background:#999;color:white;border:none;border-radius:8px;font-weight:900;cursor:pointer;">Close</button>
+        </div>
+    </div>`;
+    document.body.appendChild(modal);
+}
+
+function specialAccessCheckbox(id, label, checked) {
+    return `<label><input id="${id}" type="checkbox" ${checked ? 'checked' : ''}> ${label}</label>`;
+}
+
+function collectSpecialMenuLinks() {
+    const rows = [];
+    const current = getSpecialSettings().menuLinks || [];
+    current.forEach((_, index) => {
+        const label = document.getElementById('sp_link_label_' + index)?.value.trim();
+        const url = document.getElementById('sp_link_url_' + index)?.value.trim();
+        const visibleTo = document.getElementById('sp_link_visible_' + index)?.value || 'admin';
+        if (label || url) rows.push({ label: label || 'Custom Setting', url, visibleTo });
+    });
+    return rows;
+}
+
+function addSpecialMenuLink() {
+    const s = getSpecialSettings();
+    s.menuLinks = collectSpecialMenuLinks();
+    s.menuLinks.push({ label: 'New Setting', url: '', visibleTo: 'admin' });
+    saveSpecialSettingsObject(s);
+    document.getElementById('specialSettingsModal')?.remove();
+    openSpecialSettings();
+}
+
+function removeSpecialMenuLink(index) {
+    const s = getSpecialSettings();
+    s.menuLinks = collectSpecialMenuLinks();
+    s.menuLinks.splice(index, 1);
+    saveSpecialSettingsObject(s);
+    document.getElementById('specialSettingsModal')?.remove();
+    openSpecialSettings();
+}
+
+function saveSpecialSettings() {
+    const s = getSpecialSettings();
+    s.appTitle = document.getElementById('sp_appTitle')?.value.trim() || specialDefaults().appTitle;
+    s.headerTitle = document.getElementById('sp_headerTitle')?.value.trim() || s.appTitle;
+    s.searchPlaceholder = document.getElementById('sp_searchPlaceholder')?.value.trim() || specialDefaults().searchPlaceholder;
+    s.emptySearchText = document.getElementById('sp_emptySearchText')?.value.trim() || specialDefaults().emptySearchText;
+    s.recentSearchTitle = document.getElementById('sp_recentSearchTitle')?.value.trim() || specialDefaults().recentSearchTitle;
+    s.primaryColor = document.getElementById('sp_primaryColor')?.value || specialDefaults().primaryColor;
+    s.accentColor = document.getElementById('sp_accentColor')?.value || specialDefaults().accentColor;
+    s.customCss = document.getElementById('sp_customCss')?.value || '';
+    s.menuLinks = collectSpecialMenuLinks();
+    saveSpecialSettingsObject(s);
+
+    const ac = getAccessControl();
+    ac.master_search = document.getElementById('sp_ac_master_search')?.checked !== false;
+    ac.secondary_ift = document.getElementById('sp_ac_secondary_ift')?.checked !== false;
+    ac.daily_active = document.getElementById('sp_ac_daily_active')?.checked !== false;
+    ac.centerline = document.getElementById('sp_ac_centerline')?.checked !== false;
+    ac.qrshare = document.getElementById('sp_ac_qrshare')?.checked !== false;
+    ac.guide = document.getElementById('sp_ac_guide')?.checked !== false;
+    ac.feedback = document.getElementById('sp_ac_feedback')?.checked !== false;
+    ac.bug_report = document.getElementById('sp_ac_bug_report')?.checked !== false;
+    ac.personal_access = document.getElementById('sp_ac_personal_access')?.checked !== false;
+    ac.changepwd = document.getElementById('sp_ac_changepwd')?.checked !== false;
+    localStorage.setItem('accessControl', JSON.stringify(ac));
+
+    applySpecialSettings();
+    applyRoleAccess(window._userRole || 'view');
+    showSuccessPopup('Special settings saved successfully!');
+    document.getElementById('specialSettingsModal')?.remove();
+}
+
+async function resetSpecialSettings() {
+    const ok = await appConfirm('Reset all Special Settings to defaults?');
+    if (!ok) return;
+    localStorage.removeItem(SPECIAL_SETTINGS_KEY);
+    applySpecialSettings();
+    applyRoleAccess(window._userRole || 'view');
+    document.getElementById('specialSettingsModal')?.remove();
+    showSuccessPopup('Special settings reset.');
+}
+// SETTINGS SEARCH: filter menu items.
 // ============================================================
 function filterMenuItems(query) {
     const q = (query || '').toLowerCase().trim();
@@ -9736,12 +10182,12 @@ function filterMenuItems(query) {
 
     items.forEach(item => {
         const text = item.textContent.toLowerCase();
-        const isVisible = item.style.display !== 'none' || q === '';
+        const roleAllowed = window._userRole === 'admin' || item.classList.contains('user-visible');
         if (q === '') {
-            // Query empty — applyRoleAccess wali visibility restore karo
+            // Query empty: restore visibility from applyRoleAccess.
             item.removeAttribute('data-search-hidden');
         } else {
-            if (text.includes(q)) {
+            if (roleAllowed && text.includes(q)) {
                 item.style.display = 'block';
                 item.removeAttribute('data-search-hidden');
                 visibleCount++;
@@ -9763,7 +10209,7 @@ function filterMenuItems(query) {
     if (clearBtn) clearBtn.style.display = q ? 'block' : 'none';
 }
 
-// Menu close hone par search clear karo
+// Clear search when the menu closes.
 const _origToggleMenu = typeof toggleMenu === 'function' ? toggleMenu : null;
 
 
@@ -9817,7 +10263,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     updateGlobalBackBtn();
 
-    // Menu close hone par search clear karo
+    // Clear search when the menu closes.
     const origToggle = window.toggleMenu;
     if (origToggle) {
         window.toggleMenu = function() {
@@ -9951,7 +10397,7 @@ function buildSyncPayload() {
         loc_radius: localStorage.getItem('loc_radius') || '100',
         loc_enabled: localStorage.getItem('loc_enabled') || 'false'
     };
-    return { records: data, locationSettings, viewPassword: localStorage.getItem('view_password') || '2468', adminPassword: localStorage.getItem('admin_password') || '1234', customFormulas: JSON.parse(localStorage.getItem('customFormulas') || '{}'), highlightNote: JSON.parse(localStorage.getItem('highlightNote') || '{}'), centerlineData: JSON.parse(localStorage.getItem('centerlineData') || '[]'), centerlinePrimary: JSON.parse(localStorage.getItem('centerlinePrimary') || '[]'), centerlineSecondary: JSON.parse(localStorage.getItem('centerlineSecondary') || '[]'), cl_lines: JSON.parse(localStorage.getItem('cl_lines') || '[2,3,4,5]'), cl_skus: JSON.parse(localStorage.getItem('cl_skus') || '[]'), cl_variants: JSON.parse(localStorage.getItem('cl_variants') || '[]'), loginHistory: JSON.parse(localStorage.getItem('loginHistory') || '[]'), accessControl: JSON.parse(localStorage.getItem('accessControl') || '{}'), customGuides: JSON.parse(localStorage.getItem('customGuides') || '{}'), recycleBin: JSON.parse(localStorage.getItem('mc_deleted_records_v1') || '{}'), palletPatterns: JSON.parse(localStorage.getItem('palletPatterns') || '{}'), secondaryIftRecords: JSON.parse(localStorage.getItem('secondaryIftRecords') || '[]'), secondaryIftRecycleBin: JSON.parse(localStorage.getItem('secondaryIftRecycleBin') || '[]'), dailyActiveRecords: getDailyActiveRecords(), userFeedbackRecords: JSON.parse(localStorage.getItem('userFeedbackRecords') || '[]'), bugReportRecords: JSON.parse(localStorage.getItem('bugReportRecords') || '[]'), autoLogoutMinutes: getAutoLockMinutes(), usageAnalytics: getUsageAnalytics() };
+    return { records: data, locationSettings, viewPassword: localStorage.getItem('view_password') || '2468', adminPassword: localStorage.getItem('admin_password') || '1234', customFormulas: JSON.parse(localStorage.getItem('customFormulas') || '{}'), highlightNote: JSON.parse(localStorage.getItem('highlightNote') || '{}'), centerlineData: JSON.parse(localStorage.getItem('centerlineData') || '[]'), centerlinePrimary: JSON.parse(localStorage.getItem('centerlinePrimary') || '[]'), centerlineSecondary: JSON.parse(localStorage.getItem('centerlineSecondary') || '[]'), cl_lines: JSON.parse(localStorage.getItem('cl_lines') || '[2,3,4,5]'), cl_skus: JSON.parse(localStorage.getItem('cl_skus') || '[]'), cl_variants: JSON.parse(localStorage.getItem('cl_variants') || '[]'), loginHistory: JSON.parse(localStorage.getItem('loginHistory') || '[]'), accessControl: JSON.parse(localStorage.getItem('accessControl') || '{}'), customGuides: JSON.parse(localStorage.getItem('customGuides') || '{}'), specialSettings: getSpecialSettings(), recycleBin: JSON.parse(localStorage.getItem('mc_deleted_records_v1') || '{}'), palletPatterns: JSON.parse(localStorage.getItem('palletPatterns') || '{}'), secondaryIftRecords: JSON.parse(localStorage.getItem('secondaryIftRecords') || '[]'), secondaryIftRecycleBin: JSON.parse(localStorage.getItem('secondaryIftRecycleBin') || '[]'), dailyActiveRecords: getDailyActiveRecords(), userFeedbackRecords: JSON.parse(localStorage.getItem('userFeedbackRecords') || '[]'), bugReportRecords: JSON.parse(localStorage.getItem('bugReportRecords') || '[]'), autoLogoutMinutes: getAutoLockMinutes(), usageAnalytics: getUsageAnalytics() };
 }
 
 // Save data to server — tries Primary API, then Second API
